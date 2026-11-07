@@ -101,7 +101,7 @@ python -B scripts/check.py --params   # 参数表 ↔ 常量（58 键 / 7 可调
 node scripts/check-p0.mjs             # 只跑门禁 3–6
 node scripts/check-p1.mjs             # 只跑 P1 门禁 1–14
 node scripts/check-p2.mjs             # 只跑 P2 门禁 1–9
-node scripts/check-p2.mjs --heldout   # 连 held-out 一起跑（只该在发布前用一次）
+node scripts/check-p2.mjs --heldout   # 连 held-out 一起跑（发布前复核用；日常门禁不跑）
 
 # CLI（构建后）
 pnpm noryth init <dir>
@@ -159,7 +159,7 @@ P1 复盘的三条陷阱（已落地）：旁白靠硬节奏而不是权重；�
 - CLI：`entity add|list`、`predicate list|define`、`fact add|supersede|list|lock|close`、`lock set|release|list`、`clue list [--stale]`、`search`、`know grant`、`memory add|list|search|embed|tree|delete`、`job enqueue|list|run`
 - 探针集：`fixtures/p2/probes.json`（61 节点 / 7 类 / 20 查询；dev 14、held-out 6）。held-out 不在日常门禁里跑；P2 收尾在排名截断修正前后各跑过一次，均未据结果调参。
 
-P2 复盘的五条陷阱见 §8 第 21–25 条。
+P2 复盘的八条陷阱见 §8 第 21–28 条。
 
 **下一期是 P3**。开工前重读 `docs/05-roadmap.md §2「P3 · 六类 Agent 与正文」`；P2 的收尾改动不得混入 P3 代码。
 改调度 / 装配 / 限知 / 收束之前，先跑 `packages/core/test/probe.test.ts` 和 `parity.test.ts`。
