@@ -12,7 +12,8 @@
 - 五个核心函数（评分 / 阻尼 / 上下文装配 / 限知过滤 / 收束求值）已用 TS 实现，探针的 44 条断言已搬成 vitest；跨语言数值夹具见 `packages/core/test/fixtures/parity.json`。
 - P0 期间补全的两处规格：项目骨架 7 项以 `packages/core/src/manifest.ts` 的 `INIT_ENTRY_SPECS` 为唯一权威（`docs/04-ui.md §2` 有同步表）；A2 配额见 `docs/01-architecture.md §6 A2`，只在 `id+drop` 阶段生效。
 - **P1 已完成**：剧场内核（调度器 / 装配 / 限知 / 导演 / 收束）、`noryth scene|run|beat|commit|restore|log`、检查点 8 域回退、Git 状态包与 `restore --from-commit` 均已落地；`pnpm gate:p1` 14/14（12 条路线图门禁 + 状态包恢复 + 手动提交端到端）。
-- **下一步是 P2**。P0 遗留的三平台 Electron 最小壳 + `better-sqlite3` 原生模块验证延后到最终打包（P6）前；本机仅 Windows，仓库还没有 CI。
+- **P2 已完成**：事实三态与槽位、认知/感知、设定锁、五类冲突检测中的 1–4 类、关系钳制、场景摘要与 `DERIVED_FROM`、四通道加权 RRF 检索（绝对刻度 + MMR）、可插拔嵌入管线、`job` + generation 队列；`pnpm gate:p2` 9/9。探针集 61 节点 / 20 查询（dev 14 / held-out 6），dev recall@8 100%、无关 precision@3 100%；5 万节点检索 p50 44–52 ms。
+- **下一步是 P3**。P0 遗留的三平台 Electron 最小壳 + `better-sqlite3` 原生模块验证延后到最终打包（P6）前；本机仅 Windows，仓库还没有 CI。
 
 > 若所用工具只认固定文件名（`CLAUDE.md`、`.cursorrules`、`.github/copilot-instructions.md`），
 > 把本文件复制或软链过去即可，内容不需要改。
@@ -88,6 +89,9 @@ pnpm gate:p0
 # P1 总门禁：P0 全部 + P1 门禁 1–14，必须 EXIT=0
 pnpm gate:p1
 
+# P2 总门禁：P1 全部 + P2 门禁 1–9，必须 EXIT=0
+pnpm gate:p2
+
 # 分开跑
 pnpm test                  # vitest，全部用例
 pnpm test:coverage         # core 纯函数层：行 ≥90% / 分支 ≥80%
@@ -95,6 +99,8 @@ python -B scripts/check.py            # 真 SQLite 建库 + 逐条打约束（�
 python -B scripts/check.py --params   # 参数表 ↔ 常量（58 键 / 7 可调 / 0 失败）
 node scripts/check-p0.mjs             # 只跑门禁 3–6
 node scripts/check-p1.mjs             # 只跑 P1 门禁 1–14
+node scripts/check-p2.mjs             # 只跑 P2 门禁 1–9
+node scripts/check-p2.mjs --heldout   # 连 held-out 一起跑（只该在发布前用一次）
 
 # CLI（构建后）
 pnpm noryth init <dir>
@@ -143,7 +149,18 @@ P1 已通过 `pnpm gate:p1`（14/14：12 条路线图门禁 + 状态包恢复 + 
 
 P1 复盘的三条陷阱（已落地）：旁白靠硬节奏而不是权重；仲裁只看 `score > 0`；回退必须逐域验证。
 
-**下一期是 P2**。开工前重读 `docs/05-roadmap.md §2「P2 · 记忆与一致性」`；P1 的收尾改动不得混入 P2 代码。
+## 6.1 P2 · 记忆与一致性（已完成）
+
+`pnpm gate:p2` 9/9。实现落点：
+
+- 纯函数：`packages/core/src/{facts,relations,retrieval,embed,summarize,text}.ts`
+- 命令与读路径：`packages/store/src/{p2-handlers,p2-read,memory-search}.ts`；场景关闭的摘要写入在 `handlers.ts`
+- CLI：`fact add|supersede|list|lock|close`、`clue list [--stale]`、`search`、`know grant`、`memory add|list|search|embed|tree|delete`、`job enqueue|list|run`
+- 探针集：`fixtures/p2/probes.json`（61 节点 / 7 类 / 20 查询；dev 14、held-out 6）。held-out 只在发布前单次运行，平时 `check-p2.mjs` 不碰它。
+
+P2 复盘的五条陷阱见 §8 第 21–25 条。
+
+**下一期是 P3**。开工前重读 `docs/05-roadmap.md §2「P3 · 六类 Agent 与正文」`；P2 的收尾改动不得混入 P3 代码。
 改调度 / 装配 / 限知 / 收束之前，先跑 `packages/core/test/probe.test.ts` 和 `parity.test.ts`。
 
 ---
@@ -154,13 +171,13 @@ P1 复盘的三条陷阱（已落地）：旁白靠硬节奏而不是权重；�
 |---|---|---|---|
 | P0 | `noryth init` 建出可提交的项目 | 6 | 已过（三平台验证延后到 P6 打包前） |
 | P1 | CLI 跑完一场 40 拍，可回退 | 12 + 2 端到端 | 已过（14/14） |
-| P2 | 角色不再说漏，设定锁生效 | 9 | 下一期 |
-| P3 | 一场戏 → 一章稿 → 审出问题 → 改一版 | 11 | 未开始 |
+| P2 | 角色不再说漏，设定锁生效 | 9 | 已过（9/9） |
+| P3 | 一场戏 → 一章稿 → 审出问题 → 改一版 | 11 | 下一期 |
 | P4 | 不用鼠标跑完 20 拍（TUI） | 4 | 未开始 |
 | P5 | 三条主路径可点通（GUI） | 6 | 未开始 |
 | P6 | 可交给陌生人安装使用 | — | 未开始 |
 
-一次只做一期。P1 已完成；下一步是 P2，先过 P2 门禁。
+一次只做一期。P2 已完成；下一步是 P3，先过 P3 门禁。
 
 ---
 
@@ -188,6 +205,11 @@ P1 复盘的三条陷阱（已落地）：旁白靠硬节奏而不是权重；�
 18. **zstd 需要 Node >= 22.15。** 低版本只会让场景关闭拿到 `git_commit_failed` 警告、状态包写不出来；`doctor` 必须检查 `zstdCompressSync` 是否可用。
 19. **状态包恢复的分支只保留恢复点快照。** 复制来的 beat `eventSeq=0`，不能逐拍 `beat rewind`；要重来用同一提交加 `--label` 再开一条分支，或从更早的提交恢复。
 20. **场景提交只带 `noryth.json` + 状态包 + `chapters/`，且走 `commit-tree`，不触发 hooks/GPG。** 需要签名时手动 `git commit`；不要把用户暂存的无关文件顺手带进场景提交。
+21. **`DERIVED_FROM` 的方向是 child → summary。** 触发器 `ck_memory_has_children` 检查 `dst`，保护的是摘要节点；写反方向会让"有子节点的摘要删不掉"变成"原文删不掉"。
+22. **单通道命中过不了检索下限。** vector/fts/graph 单独排第一也不到 floor 0.45；探针集必须让每条查询至少两个通道命中。排名只保留各通道前 512 名是等价优化（512 名之后的理论最高 rel < 0.16），不是近似。
+23. **`owner_id IS NULL` 的记忆是作者/规划材料，不能自动进角色上下文。** 角色自动召回用 `strictOwner`，只认 owner = 本人；否则场景摘要会把耳语内容漏给所有角色。
+24. **`predicate_spec` 是全局表，不在状态包导出清单。** P2 的 `fact` 只允许 schema 内置的 13 个谓词；自定义谓词要先解决"导出包如何携带全局表"，别在命令层偷加。
+25. **P2 的 `job` 只有 embed 执行器。** summarize 在场景关闭时同步完成，extract/index 属于 P3；`job run` 对没有 runner 的任务标 `failed`，不假装 `done`。
 
 ---
 

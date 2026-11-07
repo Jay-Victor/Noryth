@@ -23,7 +23,7 @@
 
 ## 2. 各期交付物与验收门禁
 
-**实施状态**：P0、P1 已完成。P0 的三平台 Electron / `better-sqlite3` 原生模块验证延后到 P6 打包前；P2 未开始。
+**实施状态**：P0、P1、P2 已完成。P0 的三平台 Electron / `better-sqlite3` 原生模块验证延后到 P6 打包前；P2 的 9 条门禁 9/9 通过（探针集 61 节点 / 20 查询，dev 70% = 14 条、held-out 30% = 6 条），下一期是 P3。
 
 ### P0 · 骨架与数据模型
 
@@ -98,6 +98,15 @@
 **探针集要求**：≥ 50 个节点、七类覆盖（陈旧值 / 纠正 / 连续性 / 聚合 / 常驻通道 / 无关精度 / 改写问法），**70/30 切 dev/held-out**，held-out 只在发布前跑一次并在报告里声明污染情况。
 
 **已知缺口单列、不进门禁**：跨措辞召回（同一事实换说法）依赖嵌入模型能力，hash 占位嵌入下必然失败。把它算进 PASS 是自欺，算进门禁会让门禁永远红着。
+
+**状态**：已完成（9/9）。落点与实测：
+
+- 事实/认知/锁/记忆/任务：`packages/store/src/{p2-handlers,p2-read,memory-search}.ts`；纯函数在 `packages/core/src/{facts,relations,retrieval,embed,summarize,text}.ts`。
+- CLI：`fact add|supersede|list|lock|close`、`clue list [--stale]`、`search`、`know grant`、`memory add|list|search|embed|tree|delete`、`job enqueue|list|run`。
+- 检索：61 节点探针集，dev recall@8 = 100%（12 条），无关查询 precision@3 = 100%；held-out 6 条在发布前单次运行 = 100%，未据其结果调参。
+- 性能：5 万节点 / 512 维，查询 p50 = 44–52 ms（索引构建不计入），门槛 100 ms。
+- 摘要：场景关闭同步写确定性摘要 + `DERIVED_FROM`（child → summary），原文降权不删；删摘要被 `ck_memory_has_children` 拒绝。
+- 自定义谓词：`predicate_spec` 是全局表且不在状态包导出清单，P2 只允许 schema 内置的 13 个谓词；扩展方案需单独确认（见 AGENTS §8 第 24 条）。
 
 ---
 
