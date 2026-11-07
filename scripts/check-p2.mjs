@@ -628,7 +628,7 @@ if (process.argv.includes('--heldout')) {
   const mean = sum / scored.length;
   console.log('═'.repeat(78));
   console.log(`HELD-OUT（${heldout.length} 条，本次单次运行）· recall@8 ${(mean * 100).toFixed(1)}%`);
-  console.log('  污染声明：held-out 在门禁开发阶段运行过一次；未根据其结果调参。');
+  console.log('  污染声明：开发期运行过两次（排名截断 512 / 最终 1024 各一次）；均未用于调参。');
 }
 
 // ── 报告 ─────────────────────────────────────────────────────────────

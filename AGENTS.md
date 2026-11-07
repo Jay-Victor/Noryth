@@ -157,7 +157,7 @@ P1 复盘的三条陷阱（已落地）：旁白靠硬节奏而不是权重；�
 - 纯函数：`packages/core/src/{facts,relations,retrieval,embed,summarize,text}.ts`
 - 命令与读路径：`packages/store/src/{p2-handlers,p2-read,memory-search}.ts`；场景关闭的摘要写入在 `handlers.ts`
 - CLI：`entity add|list`、`predicate list|define`、`fact add|supersede|list|lock|close`、`lock set|release|list`、`clue list [--stale]`、`search`、`know grant`、`memory add|list|search|embed|tree|delete`、`job enqueue|list|run`
-- 探针集：`fixtures/p2/probes.json`（61 节点 / 7 类 / 20 查询；dev 14、held-out 6）。held-out 只在发布前单次运行，平时 `check-p2.mjs` 不碰它。
+- 探针集：`fixtures/p2/probes.json`（61 节点 / 7 类 / 20 查询；dev 14、held-out 6）。held-out 不在日常门禁里跑；P2 收尾在排名截断修正前后各跑过一次，均未据结果调参。
 
 P2 复盘的五条陷阱见 §8 第 21–25 条。
 

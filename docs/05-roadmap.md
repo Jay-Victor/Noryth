@@ -103,7 +103,7 @@
 
 - 事实/认知/锁/记忆/任务：`packages/store/src/{p2-handlers,p2-read,memory-search}.ts`；纯函数在 `packages/core/src/{facts,relations,retrieval,embed,summarize,text}.ts`。
 - CLI：`entity add|list`、`predicate list|define`、`fact add|supersede|list|lock|close`、`lock set|release|list`、`clue list [--stale]`、`search`、`know grant`、`memory add|list|search|embed|tree|delete`、`job enqueue|list|run`。
-- 检索：61 节点探针集，dev recall@8 = 100%（12 条），无关查询 precision@3 = 100%；held-out 6 条在发布前单次运行 = 100%，未据其结果调参。
+- 检索：61 节点探针集，dev recall@8 = 100%（12 条），无关查询 precision@3 = 100%；held-out 6 条最终版 = 100%；开发期在排名截断修正前后各跑过一次，未据结果调参（污染已声明）。
 - 性能：5 万节点 / 512 维，查询 p50 = 44–52 ms（索引构建不计入），门槛 100 ms。
 - 摘要：场景关闭同步写确定性摘要 + `DERIVED_FROM`（child → summary），原文降权不删；删摘要被 `ck_memory_has_children` 拒绝。
 - 实体与谓词：`entity add|list` 可为物品/地点/组织建实体；`predicate define` 增加自定义谓词（builtin=0），状态包与快照把 `predicate_spec` 作为全局表导出、导入时保留本地已有定义。
