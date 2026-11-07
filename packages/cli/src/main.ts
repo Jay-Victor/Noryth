@@ -5,12 +5,16 @@ import { flagBool, flagInt, flagJson, flagList, flagNumber, flagString, parseArg
 import { runBeatNext, runBeatRewind, runBeatWhy } from './commands/beat.js';
 import {
   parseObjectArg,
+  runEntityAdd,
+  runEntityList,
   runFactAssert,
   runFactClose,
   runFactList,
   runKnowGrant,
   runLockList,
+  runLockRelease,
   runLockSet,
+  runPredicateDefine,
   runPredicateList,
 } from './commands/facts.js';
 import {
@@ -66,8 +70,12 @@ const USAGE = `noryth <command> [args] [--project <dir>] [--json] [--yes] [--off
   fact list                         列出当前事实（--subject --predicate --all 含历史）
   fact lock <主语> <谓词>           锁住事实槽位（--reason 必填）
   fact close <主语> <谓词>           关闭当前值（--object <JSON> --at <时间>）
+  entity add <kind> <名字>          建实体（character|place|item|org|concept）
+  entity list                       列出实体（--kind --name）
   predicate list                    列出 predicate_spec（谓词基数 single/multi）
+  predicate define <谓词> <single|multi>  自定义谓词（全局；不能含 |）
   lock set                          设定锁（--scope fact --subject --predicate --reason）
+  lock release                      解除设定锁（同一套定位参数；审计留在事件里）
   lock list                         列出设定锁
   know grant <角色> <factId>        授予认知（--attitude --certainty --percept）
 
@@ -464,6 +472,64 @@ async function main(): Promise<number> {
         emit(json, { entries }, lines, [], meta());
         return 0;
       }
+      case 'entity': {
+        const sub = args.positionals[0];
+        if (sub === 'add') {
+          const kind = parseEnum(
+            args.positionals[1] ?? flagString(args, 'kind'),
+            ['character', 'place', 'item', 'org', 'concept'] as const,
+            'kind',
+          );
+          const name = args.positionals[2];
+          if (!kind || !name) {
+            throw new UsageError('用法：noryth entity add <character|place|item|org|concept> <名字>');
+          }
+          const card = flagJson(args, 'card');
+          if (card !== undefined && (typeof card !== 'object' || card === null || Array.isArray(card))) {
+            throw new UsageError('--card 必须是 JSON 对象');
+          }
+          const result = runEntityAdd({
+            dir,
+            kind,
+            name,
+            aliases: flagList(args, 'aliases'),
+            card: card as Record<string, unknown> | undefined,
+            status: parseEnum(
+              flagString(args, 'status'),
+              ['active', 'dead', 'missing', 'destroyed', 'unknown'] as const,
+              '--status',
+            ),
+          });
+          emit(
+            json,
+            result,
+            [`实体 ${result.entityId} · ${result.kind} · ${result.name}（${result.action}）`],
+            [],
+            meta(),
+          );
+          return 0;
+        }
+        if (sub === 'list') {
+          const rows = runEntityList(dir, {
+            kind: flagString(args, 'kind'),
+            name: flagString(args, 'name') ?? args.positionals[1],
+          });
+          emit(
+            json,
+            { entities: rows },
+            rows.length === 0
+              ? ['（没有实体）']
+              : rows.map(
+                  (row) =>
+                    `${row.kind.padEnd(9)} ${row.name}  ${row.status}  ${row.id}${row.aliases.length > 0 ? `  (${row.aliases.join('、')})` : ''}`,
+                ),
+            [],
+            meta(),
+          );
+          return 0;
+        }
+        throw new UsageError('用法：noryth entity add | list');
+      }
       case 'fact': {
         const sub = args.positionals[0];
         if (sub === 'assert' || sub === 'add' || sub === 'supersede') {
@@ -556,16 +622,45 @@ async function main(): Promise<number> {
         throw new UsageError('用法：noryth fact list | add | supersede | lock | close');
       }
       case 'predicate': {
-        if (args.positionals[0] !== 'list') throw new UsageError('用法：noryth predicate list');
-        const rows = runPredicateList(dir);
-        emit(
-          json,
-          { predicates: rows },
-          rows.map((row) => `${row.predicate}  ${row.cardinality}  ${row.description}`),
-          [],
-          meta(),
-        );
-        return 0;
+        const sub = args.positionals[0];
+        if (sub === 'list') {
+          const rows = runPredicateList(dir);
+          emit(
+            json,
+            { predicates: rows },
+            rows.map(
+              (row) => `${row.predicate}  ${row.cardinality}  ${row.builtin ? 'builtin ' : 'custom '}${row.description}`,
+            ),
+            [],
+            meta(),
+          );
+          return 0;
+        }
+        if (sub === 'define') {
+          const predicate = args.positionals[1] ?? flagString(args, 'predicate');
+          const cardinality = parseEnum(
+            args.positionals[2],
+            ['single', 'multi'] as const,
+            'cardinality',
+          );
+          if (!predicate || !cardinality) {
+            throw new UsageError('用法：noryth predicate define <谓词> <single|multi> [--description]');
+          }
+          const result = runPredicateDefine(dir, {
+            predicate,
+            cardinality,
+            description: flagString(args, 'description'),
+          });
+          emit(
+            json,
+            result,
+            [`谓词已定义：${result.predicate}（${result.cardinality}）`],
+            [],
+            meta(),
+          );
+          return 0;
+        }
+        throw new UsageError('用法：noryth predicate list | define');
       }
       case 'lock': {
         const sub = args.positionals[0];
@@ -605,6 +700,31 @@ async function main(): Promise<number> {
           );
           return 0;
         }
+        if (sub === 'release') {
+          const scope = parseEnum(
+            flagString(args, 'scope'),
+            ['fact', 'relation', 'entity', 'world', 'timeline'] as const,
+            '--scope',
+          );
+          if (!scope) throw new UsageError('用法：noryth lock release --scope <范围> [...]');
+          const objectRaw = flagString(args, 'object');
+          const result = runLockRelease(dir, {
+            scope,
+            slotKey: flagString(args, 'slot'),
+            subject: flagString(args, 'subject') ?? args.positionals[1],
+            predicate: flagString(args, 'predicate') ?? args.positionals[2],
+            object: objectRaw === undefined ? undefined : parseObjectArg(objectRaw),
+            fromId: flagString(args, 'from'),
+            toId: flagString(args, 'to'),
+            axis: parseEnum(
+              flagString(args, 'axis'),
+              ['trust', 'affection', 'fear', 'debt', 'power'] as const,
+              '--axis',
+            ),
+          });
+          emit(json, result, [`已解锁 ${result.scope} · ${result.slotKey}`], [], meta());
+          return 0;
+        }
         if (sub === 'list') {
           const rows = runLockList(dir);
           emit(
@@ -618,7 +738,7 @@ async function main(): Promise<number> {
           );
           return 0;
         }
-        throw new UsageError('用法：noryth lock set | list');
+        throw new UsageError('用法：noryth lock set | release | list');
       }
       case 'know': {
         if (args.positionals[0] !== 'grant') throw new UsageError('用法：noryth know grant <角色> <factId>');

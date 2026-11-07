@@ -20,6 +20,7 @@ import {
   type LockScope,
   type MemoryEdgeKind,
   type MemoryKind,
+  type RelationAxis,
   type Truth,
 } from '@noryth/core';
 import { z } from 'zod';
@@ -377,7 +378,191 @@ export const cognitionGrantHandler: CommandHandler = {
   },
 };
 
-// ── lock.set ───────────────────────────────────────────────────────────────
+// ── entity.add / predicate.define ─────────────────────────────────────────
+
+const ENTITY_KINDS = ['character', 'place', 'item', 'org', 'concept'] as const;
+const ENTITY_STATUS = ['active', 'dead', 'missing', 'destroyed', 'unknown'] as const;
+
+const EntityAddPayload = z.strictObject({
+  kind: z.enum(ENTITY_KINDS),
+  name: z.string().trim().min(1),
+  aliases: z.array(z.string().trim().min(1)).default([]),
+  card: z.record(z.string(), z.unknown()).default({}),
+  status: z.enum(ENTITY_STATUS).default('active'),
+});
+
+export interface EntityAddResult {
+  entityId: string;
+  name: string;
+  kind: string;
+  action: 'insert' | 'same';
+}
+
+/** 实体创建：物品/地点/组织先有实体，事实才有主语。角色可不建 agent，建场时会补。 */
+export const entityAddHandler: CommandHandler = {
+  kind: 'entity.add',
+  propose(raw, ctx): Proposal<EntityAddResult> {
+    const payload = EntityAddPayload.parse(raw);
+    const aliasesJson = canonicalJson(payload.aliases);
+    const cardJson = canonicalJson(payload.card);
+    const existing = ctx.db
+      .prepare(
+        `SELECT id, aliases, card, status FROM entity
+         WHERE branch_id = ? AND kind = ? AND name = ?`,
+      )
+      .get(ctx.branchId, payload.kind, payload.name) as
+      | { id: string; aliases: string; card: string; status: string }
+      | undefined;
+    if (existing) {
+      const identical =
+        existing.aliases === aliasesJson &&
+        existing.card === cardJson &&
+        existing.status === payload.status;
+      if (!identical) {
+        throw new UsageError(
+          `实体已存在且内容不同：${payload.kind}/${payload.name}（改卡牌/别名请显式走 P3 的实体编辑）`,
+        );
+      }
+      return {
+        eventKind: 'entity.added',
+        eventPayload: { action: 'same', entityId: existing.id },
+        apply(): EntityAddResult {
+          return {
+            entityId: existing.id,
+            name: payload.name,
+            kind: payload.kind,
+            action: 'same',
+          };
+        },
+      };
+    }
+    const entity = {
+      id: newId('e'),
+      branchId: ctx.branchId,
+      kind: payload.kind,
+      name: payload.name,
+      aliases: aliasesJson,
+      card: cardJson,
+      status: payload.status,
+      createdSeq: ctx.headSeq,
+    };
+    return {
+      eventKind: 'entity.added',
+      eventPayload: { action: 'insert', entity },
+      apply(): EntityAddResult {
+        ctx.db
+          .prepare(
+            `INSERT INTO entity(id, branch_id, kind, name, aliases, card, status, created_seq)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            entity.id,
+            entity.branchId,
+            entity.kind,
+            entity.name,
+            entity.aliases,
+            entity.card,
+            entity.status,
+            entity.createdSeq,
+          );
+        return {
+          entityId: entity.id,
+          name: entity.name,
+          kind: entity.kind,
+          action: 'insert',
+        };
+      },
+    };
+  },
+};
+
+const PredicateDefinePayload = z.strictObject({
+  predicate: z.string().trim().min(1).max(40),
+  cardinality: z.enum(['single', 'multi']),
+  description: z.string().default(''),
+});
+
+export interface PredicateDefineResult {
+  predicate: string;
+  cardinality: Cardinality;
+}
+
+/**
+ * 自定义谓词。predicate_spec 是全局表：定义一次，本库所有分支可用。
+ * 谓词不能含 `|`——slot_key 用它做分隔符，含分隔符会让锁与状态包重映射错位。
+ */
+export const predicateDefineHandler: CommandHandler = {
+  kind: 'predicate.define',
+  propose(raw, ctx): Proposal<PredicateDefineResult> {
+    const payload = PredicateDefinePayload.parse(raw);
+    if (payload.predicate.includes('|')) {
+      throw new UsageError('谓词不能包含 "|"：slot_key 用它做分隔符');
+    }
+    const existing = ctx.db
+      .prepare('SELECT predicate FROM predicate_spec WHERE predicate = ?')
+      .get(payload.predicate);
+    if (existing) throw new UsageError(`谓词已存在：${payload.predicate}`);
+    const spec = {
+      predicate: payload.predicate,
+      cardinality: payload.cardinality,
+      description: payload.description,
+      builtin: 0,
+    };
+    return {
+      eventKind: 'predicate.defined',
+      eventPayload: { spec },
+      apply(): PredicateDefineResult {
+        ctx.db
+          .prepare(
+            `INSERT INTO predicate_spec(predicate, cardinality, description, builtin)
+             VALUES (?, ?, ?, 0)`,
+          )
+          .run(spec.predicate, spec.cardinality, spec.description);
+        return { predicate: spec.predicate, cardinality: spec.cardinality };
+      },
+    };
+  },
+};
+
+// ── lock.set / lock.release ───────────────────────────────────────────────
+
+interface LockSlotInput {
+  scope: LockScope;
+  slotKey?: string;
+  subject?: string;
+  predicate?: string;
+  object?: unknown;
+  fromId?: string;
+  toId?: string;
+  axis?: RelationAxis;
+}
+
+function resolveLockSlot(ctx: CommandContext, payload: LockSlotInput): string {
+  if (payload.scope === 'fact') {
+    if (!payload.subject || !payload.predicate) {
+      throw new UsageError('fact 锁需要 --subject 与 --predicate');
+    }
+    const subject = resolveEntity(ctx, payload.subject);
+    if (!subject) throw new UsageError(`锁定主语不是本分支实体：${payload.subject}`);
+    const spec = requirePredicate(ctx, payload.predicate);
+    if (spec.cardinality === 'multi' && payload.object === undefined) {
+      throw new UsageError('多值谓词的 fact 锁必须指定 object（槽位键含宾语 id）');
+    }
+    return slotKeyOf(subject.id, payload.predicate, payload.object, spec.cardinality);
+  }
+  if (payload.scope === 'relation') {
+    if (!payload.fromId || !payload.toId || !payload.axis) {
+      throw new UsageError('relation 锁需要 --from、--to 与 --axis');
+    }
+    const from = resolveEntity(ctx, payload.fromId);
+    const to = resolveEntity(ctx, payload.toId);
+    if (!from || !to) throw new UsageError('relation 锁的两端必须是本分支实体');
+    // relation 槽位键约定：from|to|axis（schema 未定义，写入侧与读取侧共用这一处）。
+    return `${from.id}|${to.id}|${payload.axis}`;
+  }
+  if (!payload.slotKey) throw new UsageError(`${payload.scope} 锁需要 --slot`);
+  return payload.slotKey;
+}
 
 const LockSetPayload = z.strictObject({
   scope: z.enum(LOCK_SCOPES),
@@ -402,31 +587,7 @@ export const lockSetHandler: CommandHandler = {
   kind: 'lock.set',
   propose(raw, ctx): Proposal<LockSetResult> {
     const payload = LockSetPayload.parse(raw);
-    let slotKey: string;
-    if (payload.scope === 'fact') {
-      if (!payload.subject || !payload.predicate) {
-        throw new UsageError('fact 锁需要 --subject 与 --predicate');
-      }
-      const subject = resolveEntity(ctx, payload.subject);
-      if (!subject) throw new UsageError(`锁定主语不是本分支实体：${payload.subject}`);
-      const spec = requirePredicate(ctx, payload.predicate);
-      if (spec.cardinality === 'multi' && payload.object === undefined) {
-        throw new UsageError('多值谓词的 fact 锁必须指定 object（槽位键含宾语 id）');
-      }
-      slotKey = slotKeyOf(subject.id, payload.predicate, payload.object, spec.cardinality);
-    } else if (payload.scope === 'relation') {
-      if (!payload.fromId || !payload.toId || !payload.axis) {
-        throw new UsageError('relation 锁需要 --from、--to 与 --axis');
-      }
-      const from = resolveEntity(ctx, payload.fromId);
-      const to = resolveEntity(ctx, payload.toId);
-      if (!from || !to) throw new UsageError('relation 锁的两端必须是本分支实体');
-      // relation 槽位键约定：from|to|axis（schema 未定义，写入侧与读取侧共用这一处）。
-      slotKey = `${from.id}|${to.id}|${payload.axis}`;
-    } else {
-      if (!payload.slotKey) throw new UsageError(`${payload.scope} 锁需要 --slot`);
-      slotKey = payload.slotKey;
-    }
+    const slotKey = resolveLockSlot(ctx, payload);
     if (isLocked(ctx, payload.scope, slotKey)) {
       throw new UsageError(`该槽位已锁定：${payload.scope} ${slotKey}`);
     }
@@ -449,6 +610,62 @@ export const lockSetHandler: CommandHandler = {
           )
           .run(row.branchId, row.scope, row.slotKey, row.reason, row.lockedBy, row.createdAt);
         return { scope: row.scope, slotKey: row.slotKey, lockedBy: row.lockedBy };
+      },
+    };
+  },
+};
+
+const LockReleasePayload = z.strictObject({
+  scope: z.enum(LOCK_SCOPES),
+  slotKey: z.string().min(1).optional(),
+  subject: z.string().min(1).optional(),
+  predicate: z.string().min(1).optional(),
+  object: z.unknown().optional(),
+  fromId: z.string().min(1).optional(),
+  toId: z.string().min(1).optional(),
+  axis: z.enum(RELATION_AXES).optional(),
+});
+
+export interface LockReleaseResult {
+  scope: LockScope;
+  slotKey: string;
+  released: true;
+}
+
+/**
+ * 解锁。lock 表是"当前状态"，不是审计账本：删行 + 写 lock.released 事件，
+ * 历史留在只追加的 event 里。这样不必给 schema 加 released_at。
+ */
+export const lockReleaseHandler: CommandHandler = {
+  kind: 'lock.release',
+  propose(raw, ctx): Proposal<LockReleaseResult> {
+    const payload = LockReleasePayload.parse(raw);
+    const slotKey = resolveLockSlot(ctx, payload);
+    const row = ctx.db
+      .prepare(
+        `SELECT branch_id AS branchId, scope, slot_key AS slotKey, reason,
+                locked_by AS lockedBy, created_at AS createdAt
+         FROM lock WHERE branch_id = ? AND scope = ? AND slot_key = ?`,
+      )
+      .get(ctx.branchId, payload.scope, slotKey) as
+      | {
+          branchId: string;
+          scope: LockScope;
+          slotKey: string;
+          reason: string;
+          lockedBy: string;
+          createdAt: string;
+        }
+      | undefined;
+    if (!row) throw new UsageError(`没有这条设定锁：${payload.scope} ${slotKey}`);
+    return {
+      eventKind: 'lock.released',
+      eventPayload: { lock: row },
+      apply(): LockReleaseResult {
+        ctx.db
+          .prepare('DELETE FROM lock WHERE branch_id = ? AND scope = ? AND slot_key = ?')
+          .run(ctx.branchId, row.scope, row.slotKey);
+        return { scope: row.scope, slotKey: row.slotKey, released: true };
       },
     };
   },
@@ -907,10 +1124,13 @@ export const jobFinishHandler: CommandHandler = {
 };
 
 export const P2_HANDLERS: readonly CommandHandler[] = [
+  entityAddHandler,
+  predicateDefineHandler,
   factAssertHandler,
   factCloseHandler,
   cognitionGrantHandler,
   lockSetHandler,
+  lockReleaseHandler,
   memoryAddHandler,
   memoryLinkHandler,
   memoryDeleteHandler,

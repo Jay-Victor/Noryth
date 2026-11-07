@@ -50,6 +50,10 @@ interface TableSpec {
   json?: string[];
   /** 形如 `a|b|c` 的复合键列：按 `|` 拆分后逐段替换 id（lock.slot_key）。 */
   pipeRefs?: string[];
+  /** 全局表（无 branch_id）：scope 不带占位符，导出/导入不按分支过滤。 */
+  global?: boolean;
+  /** 导入时若本地已有同主键行则保留本地定义（predicate_spec）。 */
+  ignoreExisting?: boolean;
   /** 作用域 SQL（占位符 ? = branchId）。 */
   scope: string;
   orderBy: string;
@@ -59,6 +63,16 @@ const ENTITY_SCOPE = 'SELECT * FROM entity WHERE branch_id = ?';
 const CHAPTER_SCOPE = 'chapter_id IN (SELECT id FROM chapter WHERE branch_id = ?)';
 
 const TABLES: readonly TableSpec[] = [
+  {
+    // predicate_spec 是全局表：先导入它，fact 的外键才有落点。
+    // 只导出 builtin=0 的自定义谓词；导入时已存在的定义优先（不回退语义）。
+    table: 'predicate_spec',
+    columns: ['predicate', 'cardinality', 'description', 'builtin'],
+    scope: 'SELECT * FROM predicate_spec WHERE builtin = 0',
+    orderBy: 'predicate',
+    global: true,
+    ignoreExisting: true,
+  },
   {
     table: 'entity',
     idPrefix: 'e',
@@ -292,7 +306,7 @@ export function captureTables(
   for (const spec of TABLES) {
     const rows = db
       .prepare(`${spec.scope} ORDER BY ${spec.orderBy}`)
-      .all(branchId) as Record<string, unknown>[];
+      .all(...(spec.global ? [] : [branchId])) as Record<string, unknown>[];
     tables[spec.table] = rows.map((row) => {
       const out: Record<string, unknown> = {};
       for (const column of spec.columns) out[column] = serializeValue(row[column]);
@@ -473,7 +487,11 @@ function insertRow(db: Db, spec: TableSpec, row: Record<string, unknown>): void 
   // 否则 NOT NULL DEFAULT 0 的列会被 NULL 顶掉。
   const columns = spec.columns.filter((column) => row[column] !== undefined);
   const placeholders = columns.map(() => '?').join(', ');
-  const verb = spec.idPrefix ? 'INSERT' : 'INSERT OR REPLACE';
+  const verb = spec.idPrefix
+    ? 'INSERT'
+    : spec.ignoreExisting
+      ? 'INSERT OR IGNORE'
+      : 'INSERT OR REPLACE';
   db.prepare(`${verb} INTO ${spec.table} (${columns.join(', ')}) VALUES (${placeholders})`).run(
     ...columns.map((column) => row[column] ?? null),
   );
@@ -692,6 +710,37 @@ function replayEvent(
         db,
         spec,
         refreshedRow(spec, payload.lock as Record<string, unknown>, branchId, remap),
+      );
+      return;
+    }
+    case 'lock.released': {
+      const lock = payload.lock as { scope: string; slotKey: string };
+      const slotKey = lock.slotKey
+        .split('|')
+        .map((part) => remap.any(part))
+        .join('|');
+      db.prepare('DELETE FROM lock WHERE branch_id = ? AND scope = ? AND slot_key = ?').run(
+        branchId,
+        lock.scope,
+        slotKey,
+      );
+      return;
+    }
+    case 'entity.added': {
+      const spec = specOf('entity');
+      insertRow(
+        db,
+        spec,
+        refreshedRow(spec, payload.entity as Record<string, unknown>, branchId, remap),
+      );
+      return;
+    }
+    case 'predicate.defined': {
+      const spec = specOf('predicate_spec');
+      insertRow(
+        db,
+        spec,
+        refreshedRow(spec, payload.spec as Record<string, unknown>, branchId, remap),
       );
       return;
     }

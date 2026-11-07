@@ -55,6 +55,9 @@ const VALUE_FLAGS = new Set([
   'payload',
   'status',
   'id',
+  'aliases',
+  'card',
+  'description',
 ]);
 const BOOL_FLAGS = new Set([
   'json',

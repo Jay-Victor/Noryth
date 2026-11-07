@@ -14,10 +14,13 @@ export function resolveEntity(ctx: CommandContext, ref: string): EntityRef | nul
   if (byId) return byId;
   const byName = ctx.db
     .prepare(
-      `SELECT id, name, kind FROM entity WHERE name = ? AND branch_id = ?
-       ORDER BY CASE kind WHEN 'character' THEN 0 ELSE 1 END LIMIT 1`,
+      `SELECT id, name, kind FROM entity
+       WHERE branch_id = ? AND (
+         name = ? OR EXISTS (SELECT 1 FROM json_each(entity.aliases) WHERE json_each.value = ?)
+       )
+       ORDER BY CASE kind WHEN 'character' THEN 0 ELSE 1 END, name LIMIT 1`,
     )
-    .get(ref, ctx.branchId) as EntityRef | undefined;
+    .get(ctx.branchId, ref, ref) as EntityRef | undefined;
   return byName ?? null;
 }
 

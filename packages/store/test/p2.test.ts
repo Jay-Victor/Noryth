@@ -5,17 +5,22 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   CommandBus,
   closeDatabase,
+  createCheckpointWithSnapshot,
   createProject,
+  decodeStatePackage,
+  exportStatePackage,
   getActiveBranch,
   listFacts,
   listJobs,
   listLocks,
   listMemory,
+  listPredicates,
   memoryTree,
   migrate,
   openDatabase,
   readCharacterContext,
   restoreBranch,
+  restoreFromPackage,
   searchMemories,
   type Db,
 } from '@noryth/store';
@@ -704,5 +709,170 @@ describe('P2 · 回退与重放', () => {
       )
       .get(summaries[0]!.id) as { c: number };
     expect(children.c).toBe(2);
+  });
+});
+
+describe('P2 · 实体与自定义谓词', () => {
+  function addEntity(payload: Record<string, unknown>): { entityId: string; action: string } {
+    return bus.submit<{ entityId: string; action: string }>(
+      { type: 'user', id: 'author' },
+      { kind: 'entity.add', idempotencyKey: `entity-${randomUUID()}`, payload },
+    ).result;
+  }
+
+  function definePredicate(
+    predicate: string,
+    cardinality: 'single' | 'multi' = 'single',
+    description = '',
+  ): void {
+    bus.submit(
+      { type: 'user', id: 'author' },
+      {
+        kind: 'predicate.define',
+        idempotencyKey: `predicate-${randomUUID()}`,
+        payload: { predicate, cardinality, description },
+      },
+    );
+  }
+
+  it('entity add：物品可建；同内容幂等，内容不同拒绝；事实可用新实体', () => {
+    const added = addEntity({
+      kind: 'item',
+      name: '玉佩',
+      aliases: ['双鱼佩'],
+      card: { material: '和田玉' },
+    });
+    expect(added.action).toBe('insert');
+    const same = addEntity({
+      kind: 'item',
+      name: '玉佩',
+      aliases: ['双鱼佩'],
+      card: { material: '和田玉' },
+    });
+    expect(same.action).toBe('same');
+    expect(same.entityId).toBe(added.entityId);
+    expect(() =>
+      addEntity({ kind: 'item', name: '玉佩', card: { material: '翡翠' } }),
+    ).toThrow(/内容不同/);
+
+    const held = fact('玉佩', '持有', { id: present[0]!, name: '林砚' });
+    expect(held.action).toBe('insert');
+    expect(held.slotKey).toContain('|持有|');
+
+    // 别名可解析：不用改名字也能给同一实体写事实
+    const viaAlias = fact('双鱼佩', '位于', '枯井', { validFrom: '第02天' });
+    expect(viaAlias.slotKey.startsWith(`${added.entityId}|位于|`)).toBe(true);
+  });
+
+  it('predicate define：自定义谓词可写入事实；重复与含 | 被拒绝', () => {
+    definePredicate('送达', 'single', '信件是否送达');
+    const spec = listPredicates(db).find((row) => row.predicate === '送达');
+    expect(spec).toMatchObject({ cardinality: 'single', builtin: false });
+    expect(() => definePredicate('送达')).toThrow(/已存在/);
+    expect(() => definePredicate('坏|谓词')).toThrow(/\|/);
+
+    const delivered = fact('林砚', '送达', true, { validFrom: '第01天' });
+    expect(delivered.slotKey).toBe(`${present[0]}|送达|`);
+    expect(listFacts(db, { subject: '林砚' })[0]!.predicate).toBe('送达');
+  });
+
+  it('状态包携带 predicate_spec：导入空库后事实外键不悬空', () => {
+    definePredicate('送达', 'single');
+    fact('林砚', '送达', true, { validFrom: '第01天' });
+    const branch = getActiveBranch(db)!;
+    const buffer = exportStatePackage(db, branch.id, branch.headSeq);
+    const pkg = decodeStatePackage(buffer);
+    const exported = (pkg.tables.predicate_spec ?? []).find(
+      (row) => row.predicate === '送达',
+    ) as Record<string, unknown> | undefined;
+    expect(exported).toMatchObject({ cardinality: 'single', builtin: 0 });
+
+    const otherFile = path.join(TMP, `pkg-${randomUUID()}.db`);
+    const other = openDatabase(otherFile);
+    try {
+      migrate(other);
+      const restored = restoreFromPackage(other, pkg, {
+        rootPath: 'C:/tmp/noryth-p2-package',
+        fromCommit: 'f'.repeat(40),
+        idempotencyKey: 'package-custom-predicate',
+      });
+      expect(getActiveBranch(other).id).toBe(restored.branchId);
+      const rows = listFacts(other, { subject: '林砚' });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.predicate).toBe('送达');
+      expect(rows[0]!.objectText).toBe('true');
+    } finally {
+      closeDatabase(other);
+      for (const suffix of ['', '-wal', '-shm']) rmSync(otherFile + suffix, { force: true });
+    }
+  });
+
+  it('快照回退先恢复 predicate_spec，再用它写事实', () => {
+    definePredicate('送达', 'single');
+    fact('林砚', '送达', true, { validFrom: '第01天' });
+    const branch = getActiveBranch(db)!;
+    const target = branch.headSeq;
+    createCheckpointWithSnapshot(db, {
+      branchId: branch.id,
+      seq: target,
+      label: '自定义谓词基线',
+      trigger: 'manual',
+    });
+    fact('林砚', '送达', false, { validFrom: '第02天' });
+    expect(listFacts(db, { subject: '林砚' })[0]!.objectText).toBe('false');
+
+    restoreBranch(db, {
+      targetSeq: target,
+      idempotencyKey: 'restore-custom-predicate',
+      label: '回到送达前',
+    });
+    const active = listFacts(db, { subject: '林砚' });
+    expect(active).toHaveLength(1);
+    expect(active[0]!.predicate).toBe('送达');
+    expect(active[0]!.objectText).toBe('true');
+    expect(listPredicates(db).some((row) => row.predicate === '送达')).toBe(true);
+  });
+
+  it('lock release：解锁后可写；锁历史留在事件里；重复解锁报错', () => {
+    fact('林砚', '住在', '客栈', { validFrom: '第01天' });
+    bus.submit(
+      { type: 'user', id: 'author' },
+      {
+        kind: 'lock.set',
+        idempotencyKey: 'lock-release-set',
+        payload: {
+          scope: 'fact',
+          subject: '林砚',
+          predicate: '住在',
+          reason: '先锁住',
+        },
+      },
+    );
+    expect(() => fact('林砚', '住在', '船屋', { validFrom: '第02天' })).toThrow(/锁定/);
+    const released = bus.submit<{ released: true }>(
+      { type: 'user', id: 'author' },
+      {
+        kind: 'lock.release',
+        idempotencyKey: 'lock-release-do',
+        payload: { scope: 'fact', subject: '林砚', predicate: '住在' },
+      },
+    ).result;
+    expect(released.released).toBe(true);
+    expect(listLocks(db)).toHaveLength(0);
+    expect(fact('林砚', '住在', '船屋', { validFrom: '第02天' }).action).toBe('supersede');
+    const events = db
+      .prepare("SELECT count(*) AS c FROM event WHERE kind IN ('lock.set','lock.released')")
+      .get() as { c: number };
+    expect(events.c).toBe(2);
+    expect(() =>
+      bus.submit(
+        { type: 'user', id: 'author' },
+        {
+          kind: 'lock.release',
+          idempotencyKey: 'lock-release-again',
+          payload: { scope: 'fact', subject: '林砚', predicate: '住在' },
+        },
+      ),
+    ).toThrow(/没有这条设定锁/);
   });
 });

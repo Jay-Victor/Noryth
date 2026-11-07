@@ -329,19 +329,16 @@ gate(3, '设定锁：换 ID 写同槽位 100% 拦截', () => {
 // ── 门禁 4：物品唯一持有（单值槽位）──────────────────────────────────
 const PROJECT_D = newProject('p2-d');
 gate(4, '物品唯一持有：单值槽位 100% 拦截', () => {
-  const created = okCli([
+  okCli([
     'scene', 'create', '持有场景', '--cast', '林砚:1:0.9,沈昼:1:0.6',
     '--project', PROJECT_D, '--json',
   ]);
+  okCli(['entity', 'add', 'item', '玉佩', '--project', PROJECT_D, '--json']);
   const db = dbAt(PROJECT_D);
   let alwaysOne = true;
   let rawBlocked = 0;
   try {
     const branchId = activeBranchId(db);
-    db.prepare("INSERT INTO entity(id, branch_id, kind, name) VALUES (?, ?, 'item', '玉佩')").run(
-      `e_jade_${Date.now()}`,
-      branchId,
-    );
     const linId = entityNamed(db, branchId, '林砚').id;
     const shenId = entityNamed(db, branchId, '沈昼').id;
     const holders = [linId, shenId, linId];

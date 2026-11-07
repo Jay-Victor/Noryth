@@ -11,6 +11,64 @@ function activeBranch(db: Db): string {
   return row.id;
 }
 
+export interface EntityListItem {
+  id: string;
+  kind: string;
+  name: string;
+  aliases: string[];
+  status: string;
+  createdSeq: number | null;
+}
+
+export function listEntities(
+  db: Db,
+  options: { kind?: string; name?: string; branchId?: string } = {},
+): EntityListItem[] {
+  const branchId = options.branchId ?? activeBranch(db);
+  const clauses = ['branch_id = ?'];
+  const params: unknown[] = [branchId];
+  if (options.kind) {
+    clauses.push('kind = ?');
+    params.push(options.kind);
+  }
+  if (options.name) {
+    clauses.push(
+      `(name = ? OR id = ? OR EXISTS (SELECT 1 FROM json_each(entity.aliases) WHERE json_each.value = ?))`,
+    );
+    params.push(options.name, options.name, options.name);
+  }
+  const rows = db
+    .prepare(
+      `SELECT id, kind, name, aliases, status, created_seq AS createdSeq
+       FROM entity WHERE ${clauses.join(' AND ')} ORDER BY kind, name`,
+    )
+    .all(...params) as {
+    id: string;
+    kind: string;
+    name: string;
+    aliases: string;
+    status: string;
+    createdSeq: number | null;
+  }[];
+  return rows.map((row) => {
+    let aliases: string[] = [];
+    try {
+      const parsed = JSON.parse(row.aliases) as unknown;
+      if (Array.isArray(parsed)) aliases = parsed.filter((item): item is string => typeof item === 'string');
+    } catch {
+      aliases = [];
+    }
+    return {
+      id: row.id,
+      kind: row.kind,
+      name: row.name,
+      aliases,
+      status: row.status,
+      createdSeq: row.createdSeq,
+    };
+  });
+}
+
 export interface FactListItem {
   id: string;
   subject: string;

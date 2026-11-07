@@ -2,9 +2,11 @@
 import {
   CommandBus,
   getActiveBranch,
+  listEntities,
   listFacts,
   listLocks,
   listPredicates,
+  type EntityListItem,
   type FactListItem,
   type LockListItem,
 } from '@noryth/store';
@@ -15,6 +17,79 @@ export function parseObjectArg(raw: string): unknown {
     return JSON.parse(raw) as unknown;
   } catch {
     return raw; // 允许 `fact assert 林砚 住在 客栈`
+  }
+}
+
+export interface EntityAddOptions {
+  dir?: string;
+  kind: 'character' | 'place' | 'item' | 'org' | 'concept';
+  name: string;
+  aliases?: string[];
+  card?: Record<string, unknown>;
+  status?: 'active' | 'dead' | 'missing' | 'destroyed' | 'unknown';
+}
+
+export function runEntityAdd(options: EntityAddOptions): {
+  entityId: string;
+  name: string;
+  kind: string;
+  action: string;
+} {
+  const opened = openProjectForWrite(options.dir);
+  try {
+    const bus = new CommandBus(opened.db);
+    return bus.submit<{ entityId: string; name: string; kind: string; action: string }>(
+      { type: 'user', id: 'author' },
+      {
+        kind: 'entity.add',
+        idempotencyKey: `cli-entity-${options.kind}-${options.name}-${getActiveBranch(opened.db)!.headSeq}`,
+        payload: {
+          kind: options.kind,
+          name: options.name,
+          ...(options.aliases !== undefined ? { aliases: options.aliases } : {}),
+          ...(options.card !== undefined ? { card: options.card } : {}),
+          ...(options.status !== undefined ? { status: options.status } : {}),
+        },
+      },
+    ).result;
+  } finally {
+    opened.close();
+  }
+}
+
+export function runEntityList(
+  dir: string | undefined,
+  options: { kind?: string; name?: string } = {},
+): EntityListItem[] {
+  const opened = openProject(dir);
+  try {
+    return listEntities(opened.db, options);
+  } finally {
+    opened.close();
+  }
+}
+
+export function runPredicateDefine(
+  dir: string | undefined,
+  options: { predicate: string; cardinality: 'single' | 'multi'; description?: string },
+): { predicate: string; cardinality: string } {
+  const opened = openProjectForWrite(dir);
+  try {
+    const bus = new CommandBus(opened.db);
+    return bus.submit<{ predicate: string; cardinality: string }>(
+      { type: 'user', id: 'author' },
+      {
+        kind: 'predicate.define',
+        idempotencyKey: `cli-predicate-${options.predicate}-${getActiveBranch(opened.db)!.headSeq}`,
+        payload: {
+          predicate: options.predicate,
+          cardinality: options.cardinality,
+          ...(options.description !== undefined ? { description: options.description } : {}),
+        },
+      },
+    ).result;
+  } finally {
+    opened.close();
   }
 }
 
@@ -163,6 +238,35 @@ export function runLockList(dir: string | undefined): LockListItem[] {
   const opened = openProject(dir);
   try {
     return listLocks(opened.db);
+  } finally {
+    opened.close();
+  }
+}
+
+export function runLockRelease(
+  dir: string | undefined,
+  options: Omit<LockSetOptions, 'reason'>,
+): { scope: string; slotKey: string; released: true } {
+  const opened = openProjectForWrite(dir);
+  try {
+    const bus = new CommandBus(opened.db);
+    return bus.submit<{ scope: string; slotKey: string; released: true }>(
+      { type: 'user', id: 'author' },
+      {
+        kind: 'lock.release',
+        idempotencyKey: `cli-unlock-${options.scope}-${options.slotKey ?? options.subject ?? ''}-${getActiveBranch(opened.db)!.headSeq}`,
+        payload: {
+          scope: options.scope,
+          ...(options.slotKey !== undefined ? { slotKey: options.slotKey } : {}),
+          ...(options.subject !== undefined ? { subject: options.subject } : {}),
+          ...(options.predicate !== undefined ? { predicate: options.predicate } : {}),
+          ...(options.object !== undefined ? { object: options.object } : {}),
+          ...(options.fromId !== undefined ? { fromId: options.fromId } : {}),
+          ...(options.toId !== undefined ? { toId: options.toId } : {}),
+          ...(options.axis !== undefined ? { axis: options.axis } : {}),
+        },
+      },
+    ).result;
   } finally {
     opened.close();
   }
