@@ -7,6 +7,7 @@ import { runConfigGet, runConfigSet } from './commands/config.js';
 import { formatDoctor, runDoctor } from './commands/doctor.js';
 import { formatInitResult, normalizeInitName, runInit } from './commands/init.js';
 import { formatRestore, runLog, runRestore, runRestoreFromCommit } from './commands/restore.js';
+import { formatCommit, runCommit } from './commands/commit.js';
 import { formatSceneList, runSceneClose, runSceneCreate, runSceneList, runSceneOpen } from './commands/scene.js';
 import { formatView, runOpen, runStatus } from './commands/status.js';
 import { formatSession, runTheater } from './commands/run.js';
@@ -33,6 +34,7 @@ const USAGE = `noryth <command> [args] [--project <dir>] [--json] [--yes] [--off
   beat why <拍号>         展开 beat.breakdown（为什么是它）
   beat rewind <拍号>      回退到该拍（开新分支，旧分支保留）
   restore                 回退（--checkpoint <id> | --seq N | --from-commit <sha>；危险命令，需确认或 --yes）
+  commit                  手动落点（检查点 + 状态包 + Git 提交；--message <说明>）
   log                     检查点与 Git 提交列表
 
 全局参数：
@@ -312,6 +314,17 @@ async function main(): Promise<number> {
           return 0;
         }
         throw new UsageError('用法：noryth beat next | why <seq> | rewind <seq>');
+      }
+      case 'commit': {
+        const result = runCommit({ dir, message: flagString(args, 'message') });
+        emit(
+          json,
+          result,
+          formatCommit(result),
+          result.error ? [{ code: 'git_commit_failed', message: result.error }] : [],
+          meta(),
+        );
+        return 0;
       }
       case 'restore': {
         const fromCommit = flagString(args, 'from-commit');

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * P1 门禁 1–13 的机器判定。
+ * P1 门禁 1–14 的机器判定。
  *
  * 1–4：解析 design/probe/noryth_proto.py --demo 的实测行（500 拍仿真）。
  * 5–6：真 SQLite + 真装配函数，12 场景 × 6 角色 = 72 次装配。
- * 7–13：真 CLI（init / scene create / run / restore）+ 真数据库断言。
+ * 7–14：真 CLI（init / scene create / run / commit / restore）+ 真数据库断言。
  * 13 是 restore --from-commit 的端到端：场景关闭提交 → 删库 → 从提交恢复 8 域。
+ * 14 是手动提交：未关闭场景 → commit → 删库 → 恢复后继续跑。
  *
  * 用法：node scripts/check-p1.mjs   （需要先 pnpm build）
  */
@@ -749,9 +750,82 @@ gate(13, 'Git 状态包 · 删库后从提交恢复 8 域', () => {
   return `删库后从 ${run.commit.slice(0, 7)} 恢复 · ${before.counts.messages} 消息 · 8 域指纹一致`;
 });
 
+// ── 门禁 14：手动提交 · 未关闭场景 ──────────────────────────────────────
+const PROJECT_H = newProject('p1-h');
+gate(14, '手动提交 · 未关闭场景可从提交恢复并继续跑', () => {
+  const created = okCli([
+    'scene', 'create', '未关闭的场',
+    '--cast', cast([['林砚', 1, 0.9], ['沈昼', 1, 0.6]]),
+    '--max-beats', '20',
+    '--project', PROJECT_H, '--json',
+  ]);
+  const first = okCli([
+    'run', '--beats', '3', '--seed', '7', '--offline',
+    '--project', PROJECT_H, '--json',
+  ]);
+  assert(first.state === 'open', `3 拍不应关闭场景：${first.state}`);
+  const committed = okCli([
+    'commit', '--message', '试验落点',
+    '--project', PROJECT_H, '--json',
+  ]);
+  assert(
+    typeof committed.commit === 'string' && committed.commit.length >= 7,
+    `手动提交没有 Git sha：${JSON.stringify(committed)}`,
+  );
+  assert(committed.checkpointId, '手动提交没有写检查点');
+
+  const before = (() => {
+    const db = dbAt(PROJECT_H);
+    try {
+      const scene = db
+        .prepare('SELECT state, beats FROM scene WHERE id = ?')
+        .get(created.sceneId);
+      const messages = db
+        .prepare('SELECT count(*) AS c, COALESCE(MAX(seq), 0) AS maxSeq FROM message')
+        .get();
+      return { scene, messages };
+    } finally {
+      closeQuietly(db);
+    }
+  })();
+  assert(before.scene.state === 'open' && before.scene.beats === 3, '提交前场景状态不对');
+
+  for (const suffix of ['', '-wal', '-shm']) {
+    rmSync(path.join(PROJECT_H, '.noryth', `project.db${suffix}`), { force: true });
+  }
+
+  const restored = okCli([
+    'restore', '--from-commit', committed.commit, '--yes',
+    '--project', PROJECT_H, '--json',
+  ]);
+  assert(restored.activeSceneId, '未关闭场景的活动指针没有恢复');
+
+  const after = dbAt(PROJECT_H);
+  try {
+    const scene = after
+      .prepare('SELECT state, beats FROM scene WHERE id = ?')
+      .get(restored.activeSceneId);
+    assert(scene.state === 'open' && scene.beats === 3, `恢复后场景不对：${JSON.stringify(scene)}`);
+    const messages = after
+      .prepare('SELECT count(*) AS c, COALESCE(MAX(seq), 0) AS maxSeq FROM message')
+      .get();
+    assert(messages.c === before.messages.c, '恢复后消息数不一致');
+    assert(messages.maxSeq === before.messages.maxSeq, '恢复后消息 seq 不一致');
+  } finally {
+    closeQuietly(after);
+  }
+
+  const next = okCli([
+    'run', '--beats', '1', '--seed', '7', '--offline',
+    '--project', PROJECT_H, '--json',
+  ]);
+  assert(next.state === 'open' && next.beats === 4, `恢复后无法继续：${JSON.stringify(next)}`);
+  return `未关闭场景恢复 · 3 拍 → 继续到 4 拍 · ${committed.commit.slice(0, 7)}`;
+});
+
 // ── 报告 ─────────────────────────────────────────────────────────────────
 console.log('═'.repeat(78));
-console.log('Noryth P1 门禁 1–13');
+console.log('Noryth P1 门禁 1–14');
 console.log('═'.repeat(78));
 for (const result of results) {
   console.log(

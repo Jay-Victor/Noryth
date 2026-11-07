@@ -1,5 +1,6 @@
 import { accessSync, constants } from 'node:fs';
 import path from 'node:path';
+import { zstdCompressSync } from 'node:zlib';
 import * as git from '@noryth/git';
 import { closeDatabase, findSchemaPath, openDatabase } from '@noryth/store';
 import { findProjectRoot } from '../project-root.js';
@@ -25,11 +26,20 @@ export interface DoctorResult {
 export function runDoctor(dirArg?: string): DoctorResult {
   const checks: DoctorCheck[] = [];
 
-  const nodeMajor = Number(process.versions.node.split('.')[0]);
+  const [nodeMajor = 0, nodeMinor = 0] = process.versions.node.split('.').map(Number);
+  const nodeOk = nodeMajor > 22 || (nodeMajor === 22 && nodeMinor >= 15);
   checks.push({
     name: 'node',
-    status: nodeMajor >= 22 ? 'ok' : 'fail',
-    detail: `v${process.versions.node}（要求 >= 22）`,
+    status: nodeOk ? 'ok' : 'fail',
+    detail: `v${process.versions.node}（要求 >= 22.15；状态包 zstd 依赖）`,
+  });
+  checks.push({
+    name: 'zstd',
+    status: typeof zstdCompressSync === 'function' ? 'ok' : 'fail',
+    detail:
+      typeof zstdCompressSync === 'function'
+        ? '状态包导出可用'
+        : '缺少 zstdCompressSync；请升级 Node 到 >= 22.15',
   });
 
   try {

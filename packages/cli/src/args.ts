@@ -31,6 +31,7 @@ const VALUE_FLAGS = new Set([
   'seq',
   'limit',
   'label',
+  'message',
 ]);
 const BOOL_FLAGS = new Set(['json', 'yes', 'offline', 'verbose', 'global', 'help', 'version']);
 

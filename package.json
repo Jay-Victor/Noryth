@@ -5,7 +5,7 @@
   "description": "Noryth · 剧场式小说 AI 写作工作台",
   "packageManager": "pnpm@11.22.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.15"
   },
   "scripts": {
     "build": "tsc -b",
