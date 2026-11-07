@@ -11,7 +11,8 @@
 - **P0 六条门禁已全过**：pnpm monorepo（`packages/core|store|git|cli`）、`@noryth/core` 领域类型与五个核心函数、SQLite 迁移器、命令总线（幂等收据）、`noryth init / open / status / doctor / config`、Git 首次提交 + 检查点绑定。
 - 五个核心函数（评分 / 阻尼 / 上下文装配 / 限知过滤 / 收束求值）已用 TS 实现，探针的 44 条断言已搬成 vitest；跨语言数值夹具见 `packages/core/test/fixtures/parity.json`。
 - P0 期间补全的两处规格：项目骨架 7 项以 `packages/core/src/manifest.ts` 的 `INIT_ENTRY_SPECS` 为唯一权威（`docs/04-ui.md §2` 有同步表）；A2 配额见 `docs/01-architecture.md §6 A2`，只在 `id+drop` 阶段生效。
-- **下一步是 P1**。P0 唯一未收尾项：`05-roadmap.md §3.2` 要求的三平台 Electron 最小壳 + `better-sqlite3` 原生模块验证（本机仅 Windows，且仓库还没有 CI）。
+- **P1 已完成**：剧场内核（调度器 / 装配 / 限知 / 导演 / 收束）、`noryth scene|run|beat|commit|restore|log`、检查点 8 域回退、Git 状态包与 `restore --from-commit` 均已落地；`pnpm gate:p1` 14/14（12 条路线图门禁 + 状态包恢复 + 手动提交端到端）。
+- **下一步是 P2**。P0 遗留的三平台 Electron 最小壳 + `better-sqlite3` 原生模块验证延后到最终打包（P6）前；本机仅 Windows，仓库还没有 CI。
 
 > 若所用工具只认固定文件名（`CLAUDE.md`、`.cursorrules`、`.github/copilot-instructions.md`），
 > 把本文件复制或软链过去即可，内容不需要改。
@@ -84,12 +85,16 @@ pnpm build                 # tsc -b，产物在 packages/*/dist
 # P0 总门禁：构建 + 覆盖率 + 契约 + 门禁 3–6，必须 EXIT=0
 pnpm gate:p0
 
+# P1 总门禁：P0 全部 + P1 门禁 1–14，必须 EXIT=0
+pnpm gate:p1
+
 # 分开跑
 pnpm test                  # vitest，全部用例
 pnpm test:coverage         # core 纯函数层：行 ≥90% / 分支 ≥80%
 python -B scripts/check.py            # 真 SQLite 建库 + 逐条打约束（当前 73 条）
 python -B scripts/check.py --params   # 参数表 ↔ 常量（58 键 / 7 可调 / 0 失败）
 node scripts/check-p0.mjs             # 只跑门禁 3–6
+node scripts/check-p1.mjs             # 只跑 P1 门禁 1–14
 
 # CLI（构建后）
 pnpm noryth init <dir>
@@ -122,26 +127,24 @@ node design/probe/bench_vector.mjs
 
 依赖方向单向：`desktop → cli → core ← store`。`core` 不 import `store`，`store` 不 import `desktop`。
 
-P0 实际版本：TypeScript 5.9.3（`strict`，CommonJS 输出）、pnpm 11.22、better-sqlite3 13.0.3（Node 26 / SQLite 3.53.4 已 require 通过）、Zod 4.6、Vitest 5.1。
+P0/P1 实际版本：TypeScript 5.9.3（`strict`，CommonJS 输出）、pnpm 11.22、better-sqlite3 13.0.3（Node 26 / SQLite 3.53.4 已 require 通过）、Zod 4.6、Vitest 5.1；Node 最低 22.15（`zstdCompressSync` 状态包依赖）。
 Electron / React / Ink 尚未安装，P4/P5 再落；`packages/desktop`、`packages/tui` 现在不存在。
 
 ---
 
-## 6. 当前做 P1
+## 6. P1 · 剧场内核（已完成）
 
-P0 六条门禁已全过（`pnpm gate:p0`，EXIT=0）。P0 的唯一未收尾项见 §0。
+P1 已通过 `pnpm gate:p1`（14/14：12 条路线图门禁 + 状态包恢复 + 手动提交端到端）。实现落点：
 
-P1 的交付物与 12 条门禁以 `docs/05-roadmap.md §2「P1 · 剧场内核」` 为准。开工顺序：
+- 调度 / 装配 / 限知 / 导演 / 收束：`packages/core/src/{theater,assemble,knowledge,events,exit}.ts`
+- 命令与运行时投影：`packages/store/src/{handlers,state,snapshot}.ts`
+- CLI：`scene / run / beat / commit / restore / log`；离线 provider 在 `packages/cli/src/offline-model.ts`
+- Git 落点：场景关闭或 `noryth commit` 写 `.noryth/state.json.zst` 并提交；`restore --from-commit` 从提交恢复
 
-1. 调度器接场景状态与 `beat` 落库（`packages/core/src/scheduler.ts` 已有评分/阻尼/硬上限/仲裁与 44 条断言）；
-2. 上下文装配接 `cognition` 与最近拍（`context.ts` 已有配额/降级）；
-3. 限知过滤落库（`knowledge.ts` + `cognition` 表）；
-4. 导演：事件卡、冲突阶梯、收束求值（`events.ts` / `exit.ts`）；
-5. `noryth run --scene` 与检查点回退（8 域逐域计数）。
+P1 复盘的三条陷阱（已落地）：旁白靠硬节奏而不是权重；仲裁只看 `score > 0`；回退必须逐域验证。
 
-P1 的三个陷阱（`05-roadmap.md §2`）：旁白靠硬节奏而不是权重；仲裁只看 `score > 0`；回退必须逐域验证。
-
-`packages/core/test/probe.test.ts` 是这五步的行为基线；改任何一步先跑它和 `parity.test.ts`。
+**下一期是 P2**。开工前重读 `docs/05-roadmap.md §2「P2 · 记忆与一致性」`；P1 的收尾改动不得混入 P2 代码。
+改调度 / 装配 / 限知 / 收束之前，先跑 `packages/core/test/probe.test.ts` 和 `parity.test.ts`。
 
 ---
 
@@ -149,15 +152,15 @@ P1 的三个陷阱（`05-roadmap.md §2`）：旁白靠硬节奏而不是权重�
 
 | 期 | 一句话终点 | 门禁条数 | 状态 |
 |---|---|---|---|
-| P0 | `noryth init` 建出可提交的项目 | 6 | 已过（§3.2 三平台验证待补） |
-| P1 | CLI 跑完一场 40 拍，可回退 | 12 | 下一期 |
-| P2 | 角色不再说漏，设定锁生效 | 9 | 未开始 |
+| P0 | `noryth init` 建出可提交的项目 | 6 | 已过（三平台验证延后到 P6 打包前） |
+| P1 | CLI 跑完一场 40 拍，可回退 | 12 + 2 端到端 | 已过（14/14） |
+| P2 | 角色不再说漏，设定锁生效 | 9 | 下一期 |
 | P3 | 一场戏 → 一章稿 → 审出问题 → 改一版 | 11 | 未开始 |
 | P4 | 不用鼠标跑完 20 拍（TUI） | 4 | 未开始 |
 | P5 | 三条主路径可点通（GUI） | 6 | 未开始 |
 | P6 | 可交给陌生人安装使用 | — | 未开始 |
 
-一次只做一期。做完 P0 想接着做 P1，回答是：先过 P0 门禁。
+一次只做一期。P1 已完成；下一步是 P2，先过 P2 门禁。
 
 ---
 
@@ -181,6 +184,10 @@ P1 的三个陷阱（`05-roadmap.md §2`）：旁白靠硬节奏而不是权重�
 14. **better-sqlite3 的约束错误是 `SqliteError`（`code` 以 `SQLITE_CONSTRAINT` 开头），不是自定义异常。** `ck_*` 名只在 message 里；命令层用 `asConstraintError` 统一映射，别在 catch 里猜类型。
 15. **schema 只从 `docs/02-schema.sql` 读，不复制。** 复制就会漂移；打包（P6）时再放进 resources。
 16. **A2 配额只在 `id+drop` 阶段生效。** 常态按 `full → summary → triple → id` 降级；把配额做成常态硬切会让文档的 4352 tok 实测表全部作废。
+17. **状态包是每场新写出的文件，`git commit -- <path>` 不会带上未跟踪文件。** 必须用临时 index + `commit-tree`（`commitPaths`），否则状态包静默漏提交，`restore --from-commit` 读不到。
+18. **zstd 需要 Node >= 22.15。** 低版本只会让场景关闭拿到 `git_commit_failed` 警告、状态包写不出来；`doctor` 必须检查 `zstdCompressSync` 是否可用。
+19. **状态包恢复的分支只保留恢复点快照。** 复制来的 beat `eventSeq=0`，不能逐拍 `beat rewind`；要重来用同一提交加 `--label` 再开一条分支，或从更早的提交恢复。
+20. **场景提交只带 `noryth.json` + 状态包 + `chapters/`，且走 `commit-tree`，不触发 hooks/GPG。** 需要签名时手动 `git commit`；不要把用户暂存的无关文件顺手带进场景提交。
 
 ---
 

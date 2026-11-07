@@ -50,7 +50,7 @@ noryth/
 | Ink | TUI 复用 React 心智，P4 成本低 | blessed（命令式，维护差） |
 | MinGit（打包） | 用户机器上不保证有 git | 依赖系统 git：企业环境常见缺失 |
 
-**Node 版本**：Electron 主进程跟随 Electron 自带 Node（≥22）；CLI/TUI 声明 `engines: node >=22`。本机开发用的 26 只影响 CLI。
+**Node 版本**：状态包导出依赖 zstd，CLI/TUI 声明 `engines: node >=22.15`。Electron 主进程跟随 Electron 自带 Node；P5 落地时必须验证其 `zstdCompressSync` 可用（Electron 版本选型以该能力为准）。本机开发用的 26 只影响 CLI。
 
 ---
 
@@ -418,7 +418,7 @@ restore(target: {checkpointId} | {seq}): BranchId
 | 200 | 0.45 ms |
 
 200 个事件 0.45 ms。**没有任何理由为了省这点时间而只回退一部分状态。**
-所以快照间隔取 200（写快照的开销比多次重放更值得省）。
+所以快照间隔取 50（`params.yaml` 的 `rollback.snapshot_interval`；50 事件实测 0.19 ms）。
 
 **8 个状态域**（验收必须逐域计数）：消息、事实、认知、关系、正文、事件卡、摘要、向量。
 少退一个域不会报错，只会让下一轮读到已撤销的状态。
@@ -434,8 +434,8 @@ restore(target: {checkpointId} | {seq}): BranchId
 
 | 层 | 管什么 | 触发 | 回退方式 |
 |---|---|---|---|
-| 检查点（SQLite） | **全部 8 个状态域** | 每 200 事件自动 + 场景关闭 + 手动 | `noryth restore --checkpoint` → 开新分支 |
-| Git 提交 | **章节文件 + 状态导出包** | 场景关闭 / 手动 / 关应用前 | `noryth restore --from-commit` → 读包 → 开新分支 |
+| 检查点（SQLite） | **全部 8 个状态域** | 每 50 事件自动 + 场景关闭 + 手动 | `noryth restore --checkpoint` → 开新分支 |
+| Git 提交 | **章节文件 + 状态导出包** | 场景关闭 / `noryth commit` 手动 / 桌面壳关应用前（P5） | `noryth restore --from-commit` → 读包 → 开新分支 |
 
 提交内容：
 
@@ -446,6 +446,17 @@ noryth.json               项目清单（模型配置、分支指针）
 ```
 
 **为什么不提交 `project.db`**：二进制 + WAL + 每次打开都变，git diff 无意义，且二进制冲突无法合并。
+
+**状态导出包（`.noryth/state.json.zst`）**：
+
+- 编码：JSON（UTF-8）→ zstd；`format: noryth-state`、`version: 1`、`schemaVersion: 1`（与 `02-schema.sql` 的 schema 版本一致）。
+- 内容：8 个状态域 + 运行必需表（`entity` / `agent_config` / `scene` / `beat` / `message` / `fact` / `cognition` / `relation` / `chapter` / `revision` / `chapter_scene` / `issue` / `event_card` / `lock` / `outbox` / `job` / `memory_node` / `memory_edge`）；列名与 schema 一致，BLOB 以 base64 包装。
+- 元数据：`projectId` / `projectName` / `createdAt`、源分支 id/name/seq、`activeSceneId`。
+- 导入：只创建新分支，不删除旧分支；主键重分配，外键 / JSON 引用 / 管道引用一起重映射；新分支 head 重新起算（取当前事件 max+1、包 seq+1、包内最大 `message.seq`+1 的最大值），保证复制消息仍排在后续新拍之前。
+- 复制来的 beat 没有本分支事件，`breakdown.eventSeq` 归零；该分支只能整体回退到恢复点，不能逐拍 `beat rewind`。需要另一条重来分支时，用同一提交加 `--label`。
+- 写入与提交：场景关闭（含收束 / WARN）或显式 `noryth commit` 写包；提交只带 `noryth.json`、状态包、`chapters/`，消息带 `Noryth-Checkpoint/Branch/Schema/Event` trailer。`restore --from-commit` 读提交里的包，不读工作区文件。
+- **敏感内容**：包内含完整正文、角色卡和秘密字段；对带远端的仓库执行 push 前必须确认可见性。
+- 实现约束：场景提交用临时 index + `commit-tree`，不触发 Git hooks/GPG 签名；需要签名时手动提交。
 
 **编辑冲突（I5 的落地）**：用户在 VS Code 里改了 `chapters/01.md`，哈希变了。
 命令层在发布前比对 `outbox.expected_hash` 与磁盘实际哈希：
@@ -468,7 +479,7 @@ noryth.json               项目清单（模型配置、分支指针）
 |---|---|---|
 | 向量暴力扫描 512 维 | 5 千 2.2 ms / 2 万 6.5 ms / 5 万 16.2 ms / **12 万 55 ms** | Node `Float32Array`，单线程；P0–P2 **不需要 ANN** |
 | 线性外推 | 50 万 ≈ 246 ms | 到 50 万才需要考虑 sqlite-vec |
-| 检查点重放 | 200 事件 0.45 ms | 快照间隔 200 |
+| 检查点重放 | 200 事件 0.45 ms（间隔 50 实测 0.19 ms） | 快照间隔 50 |
 | 单场 40 拍 | 43 次模型调用，191,080 tok | 见成本 |
 | 成本（占位价 2/8 元每百万） | 0.452 元/场；120 场 54.2 元 | 价格必须按供应商重填 |
 

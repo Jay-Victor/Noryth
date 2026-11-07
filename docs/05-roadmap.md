@@ -23,6 +23,8 @@
 
 ## 2. 各期交付物与验收门禁
 
+**实施状态**：P0、P1 已完成。P0 的三平台 Electron / `better-sqlite3` 原生模块验证延后到 P6 打包前；P2 未开始。
+
 ### P0 · 骨架与数据模型
 
 **交付**：monorepo（pnpm workspaces）、`@noryth/core` 领域类型、`02-schema.sql` + 迁移器、命令总线（幂等收据）、`noryth init / open / status`、Git 初始化与首次提交。
@@ -40,11 +42,13 @@
 
 **不做**：任何模型调用。P0 必须能在完全离线、没有任何 API key 的情况下跑完门禁。
 
+**状态**：已完成（6/6）。三平台 Electron 最小壳 + 原生模块验证延后到 P6 打包前，见 §3.2。
+
 ---
 
 ### P1 · 剧场内核
 
-**交付**：调度器（评分/阻尼/硬上限/仲裁）、上下文装配（配额+降级）、知识边界（`cognition` + 前置过滤）、导演（事件卡/升级阶梯/收束求值）、3 角色 + 1 旁白、`noryth run --scene <id>`、检查点与回退。
+**交付**：调度器（评分/阻尼/硬上限/仲裁）、上下文装配（配额+降级）、知识边界（`cognition` + 前置过滤）、导演（事件卡/升级阶梯/收束求值）、3 角色 + 1 旁白、`noryth run --scene <id>`、检查点与回退、`noryth commit`、Git 状态包与 `restore --from-commit`。
 
 **门禁**：
 
@@ -68,6 +72,8 @@
 1. **旁白靠权重竞争会拿不到发言权**（实测 0%）。节奏必须是硬约束。
 2. **仲裁的平局判定不能把被钳制到 0 的候选算进去**，否则每拍都触发。
 3. **回退必须逐域验证**。少退一个域不报错，只在下一轮表现为"角色说漏"。
+
+**状态**：已完成（12/12 路线图门禁）。额外两条端到端门禁也已通过：`restore --from-commit` 删库恢复、`noryth commit` 未关闭场景恢复并继续跑；`pnpm gate:p1` 14/14。
 
 ---
 
@@ -182,11 +188,11 @@ MinGit 打包（Windows 完整，mac/Linux 降级策略）、导出（Markdown /
 |---|---|---|---|
 | `check.py`（契约） | ubuntu | 每次 push | < 10 s |
 | core 单测 | 三平台 | 每次 push | < 60 s |
-| Electron 最小壳 + `better-sqlite3` require | win / mac / linux | 每次 push | < 8 min |
+| Electron 最小壳 + `better-sqlite3` require | win / mac / linux | 打包前（P6）+ 发版前 | < 8 min |
 | 黄金场景回归 | ubuntu | 每日 + 发版前 | < 5 min |
 | 打包产物冒烟（安装→打开→新建项目） | 三平台 | 发版前 | < 20 min |
 
-三平台必须在 **P0** 就跑一次原生模块。`electron-rebuild` 失败是"最后一天才发现"的典型，而那时已经没法换技术栈了。
+三平台原生模块验证延后到 P6 打包前跑一次（P0/P1 先在 Windows 上验证）。`electron-rebuild` 失败必须在上架前暴露，不能拖到发布当天。
 
 ### 3.3 交互 SLO（写进性能预算，不是"感觉卡"）
 
@@ -214,7 +220,7 @@ MinGit 打包（Windows 完整，mac/Linux 降级策略）、导出（Markdown /
 | 3 | **成本失控** | 中 | 高 | 单章成本 > 5 元 | 三档模型（主持人贵/角色中/摘要便宜）+ 每项目预算上限 + 摘要批量 |
 | 4 | **场景跑飞**（40 拍没推进） | 中 | 高 | `WARN exit_conditions_unsatisfied` 占比 > 20% | 事件卡 + 升级阶梯 + 收束条件；每场强制设目标 |
 | 5 | **MinGit 在 macOS/Linux 无便携包** | 高 | 中 | 目标平台无 git 或版本 < 2.30 | 降级为"仅检查点版本控制"并明确提示；文档写清 |
-| 6 | **better-sqlite3 原生模块打包失败** | 中 | 高 | `electron-rebuild` 后 require 失败 | P0 就在三平台 CI 上跑一次最小 Electron 壳，不要等到 P5 |
+| 6 | **better-sqlite3 原生模块打包失败** | 中 | 高 | `electron-rebuild` 后 require 失败 | P6 打包前在三平台 CI 上跑一次最小 Electron 壳，不要等到发布当天 |
 | 7 | **回退后重放不一致**（同一 seed 不同结果） | 中 | 高 | 两分支同上下文 beat 序列不同 | jitter 用确定性哈希；模型温度固定；记录 `model + prompt_hash` |
 | 8 | **用户不信任自动生成** | 中 | 中 | 用户 90% 的拍都是手动改 | 默认单步；"为什么是它"必须可解释；拦截/放行可显式覆盖 |
 | 9 | **大章节卡顿** | 低 | 中 | 10 万字章节输入延迟 > 50 ms | CodeMirror 6 非受控；对话流虚拟化 |
