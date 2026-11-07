@@ -1,0 +1,21 @@
+# 探针与校验脚本的产物
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# 若在此目录里试跑产品原型，这些不入库
+node_modules/
+.noryth/
+*.db
+*.db-wal
+*.db-shm
+dist/
+out/
+coverage/
+*.tsbuildinfo
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

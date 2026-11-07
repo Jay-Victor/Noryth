@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Noryth · 架构</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#020617; --panel:#0b1220; --line:#1e293b;
+    --cyan:#22d3ee; --emerald:#34d399; --violet:#a78bfa;
+    --slate:#94a3b8; --amber:#fbbf24; --rose:#fb7185; --orange:#fb923c;
+    --fg:#e2e8f0; --muted:#7c8aa0;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:40px 32px 56px; background:var(--bg); color:var(--fg);
+    font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1240px;margin:0 auto}
+  header{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+  h1{font-size:22px;font-weight:700;letter-spacing:.02em;margin:0}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--emerald);
+       box-shadow:0 0 0 0 rgba(52,211,153,.5);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.45)}
+                   70%{box-shadow:0 0 0 8px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+  .sub{color:var(--muted);font-size:12px;margin:0 0 26px;line-height:1.7}
+  .frame{border:1px solid var(--line);border-radius:12px;background:
+    radial-gradient(1200px 600px at 20% -10%,rgba(34,211,238,.06),transparent 60%),var(--panel);
+    padding:10px 6px 4px;overflow:hidden}
+  svg{width:100%;height:auto;display:block}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+  .card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:rgba(15,23,42,.55)}
+  .card h3{font-size:12px;margin:0 0 9px;display:flex;align-items:center;gap:8px;font-weight:500}
+  .card ul{margin:0;padding:0;list-style:none}
+  .card li{font-size:10.5px;color:var(--muted);line-height:1.85}
+  .cd{width:6px;height:6px;border-radius:50%}
+  footer{margin-top:22px;color:#4a5768;font-size:10px;display:flex;justify-content:space-between}
+  text{font-family:'JetBrains Mono',ui-monospace,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="dot"></span><h1>Noryth · 剧场式小说工作台</h1></header>
+  <p class="sub">
+    单机桌面 · 单文件 SQLite 为唯一权威 · 发言权由代码评分 · 未授权内容不进提示词<br>
+    图中数字为实测：12 万向量扫描 55 ms（Node Float32Array）· 200 事件重放 0.45 ms · 500 拍连任 3
+  </p>
+
+  <div class="frame">
+  <svg viewBox="0 0 1200 760" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#16233a" stroke-width="0.6"/>
+      </pattern>
+      <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+        <path d="M0,0 L7,3.2 L0,6.4 Z" fill="#64748b"/>
+      </marker>
+      <marker id="arC" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+        <path d="M0,0 L7,3.2 L0,6.4 Z" fill="#22d3ee"/>
+      </marker>
+      <marker id="arV" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+        <path d="M0,0 L7,3.2 L0,6.4 Z" fill="#a78bfa"/>
+      </marker>
+    </defs>
+
+    <rect x="0" y="0" width="1200" height="760" fill="url(#grid)"/>
+
+    <!-- ═══ 箭头先画，压在方块下面 ═══ -->
+    <g stroke="#64748b" stroke-width="1.2" fill="none">
+      <line x1="185" y1="126" x2="185" y2="158" marker-end="url(#ar)"/>
+      <line x1="460" y1="126" x2="460" y2="158" marker-end="url(#ar)"/>
+      <line x1="735" y1="126" x2="735" y2="158" marker-end="url(#ar)"/>
+      <line x1="460" y1="218" x2="460" y2="250" marker-end="url(#ar)"/>
+      <line x1="460" y1="320" x2="460" y2="354" marker-end="url(#ar)"/>
+      <line x1="460" y1="424" x2="460" y2="458" marker-end="url(#ar)"/>
+      <line x1="460" y1="528" x2="460" y2="562" marker-end="url(#ar)"/>
+    </g>
+    <!-- 回读环 -->
+    <path d="M 60 492 C 22 492, 22 288, 58 288" stroke="#a78bfa" stroke-width="1.2"
+          fill="none" stroke-dasharray="4,4" marker-end="url(#arV)"/>
+
+    <!-- ═══ 第 1 层：界面 ═══ -->
+    <text x="60" y="58" fill="#64748b" font-size="9" letter-spacing="1.4">01 · 界面层（同一套命令，三个入口）</text>
+    <g>
+      <rect x="60" y="70" width="250" height="56" rx="6" fill="#0f172a"/>
+      <rect x="60" y="70" width="250" height="56" rx="6" fill="rgba(8,51,68,.42)" stroke="#22d3ee" stroke-width="1.4"/>
+      <text x="74" y="92" fill="#e2e8f0" font-size="12">Electron Desktop</text>
+      <text x="74" y="110" fill="#7c8aa0" font-size="9">React · 四区工作台 · 沙箱渲染进程</text>
+
+      <rect x="335" y="70" width="250" height="56" rx="6" fill="#0f172a"/>
+      <rect x="335" y="70" width="250" height="56" rx="6" fill="rgba(8,51,68,.42)" stroke="#22d3ee" stroke-width="1.4"/>
+      <text x="349" y="92" fill="#e2e8f0" font-size="12">Ink TUI</text>
+      <text x="349" y="110" fill="#7c8aa0" font-size="9">键盘优先 · 单步 / 自动 / 回退</text>
+
+      <rect x="610" y="70" width="250" height="56" rx="6" fill="#0f172a"/>
+      <rect x="610" y="70" width="250" height="56" rx="6" fill="rgba(8,51,68,.42)" stroke="#22d3ee" stroke-width="1.4"/>
+      <text x="624" y="92" fill="#e2e8f0" font-size="12">CLI</text>
+      <text x="624" y="110" fill="#7c8aa0" font-size="9">唯一的无头验收面 · 可脚本化</text>
+    </g>
+
+    <!-- ═══ 第 2 层：命令总线 ═══ -->
+    <text x="60" y="148" fill="#64748b" font-size="9" letter-spacing="1.4">02 · 唯一写入路径</text>
+    <rect x="60" y="158" width="800" height="60" rx="6" fill="#0f172a"/>
+    <rect x="60" y="158" width="800" height="60" rx="6" fill="rgba(251,146,60,.24)" stroke="#fb923c" stroke-width="1.4"/>
+    <text x="74" y="180" fill="#e2e8f0" font-size="12">Command Bus　—　模型不持有写权限，只产出提案</text>
+    <text x="74" y="199" fill="#c9a58a" font-size="9">Zod 校验 · 幂等收据 · expected_head · actor 由宿主注入（不接受自报身份）</text>
+
+    <!-- ═══ 第 3 层：领域核心 ═══ -->
+    <text x="60" y="242" fill="#64748b" font-size="9" letter-spacing="1.4">03 · 领域核心（纯 TS，零 I/O，可在 Node 裸跑）</text>
+    <g>
+      <rect x="60" y="252" width="185" height="68" rx="6" fill="#0f172a"/>
+      <rect x="60" y="252" width="185" height="68" rx="6" fill="rgba(6,78,59,.42)" stroke="#34d399" stroke-width="1.4"/>
+      <text x="72" y="274" fill="#e2e8f0" font-size="11.5">调度评分</text>
+      <text x="72" y="291" fill="#7c8aa0" font-size="8.5">5 项加权 · 求和 = 1</text>
+      <text x="72" y="306" fill="#7c8aa0" font-size="8.5">乘法阻尼 · 硬上限 3</text>
+
+      <rect x="265" y="252" width="185" height="68" rx="6" fill="#0f172a"/>
+      <rect x="265" y="252" width="185" height="68" rx="6" fill="rgba(6,78,59,.42)" stroke="#34d399" stroke-width="1.4"/>
+      <text x="277" y="274" fill="#e2e8f0" font-size="11.5">上下文装配</text>
+      <text x="277" y="291" fill="#7c8aa0" font-size="8.5">7 段配额 · 总额 6000</text>
+      <text x="277" y="306" fill="#7c8aa0" font-size="8.5">full→summary→triple→drop</text>
+
+      <rect x="470" y="252" width="185" height="68" rx="6" fill="#0f172a"/>
+      <rect x="470" y="252" width="185" height="68" rx="6" fill="rgba(136,19,55,.40)" stroke="#fb7185" stroke-width="1.4"/>
+      <text x="482" y="274" fill="#e2e8f0" font-size="11.5">限知过滤</text>
+      <text x="482" y="291" fill="#c9a0a8" font-size="8.5">cognition 无行 = 不知道</text>
+      <text x="482" y="306" fill="#c9a0a8" font-size="8.5">先过滤，后拼装</text>
+
+      <rect x="675" y="252" width="185" height="68" rx="6" fill="#0f172a"/>
+      <rect x="675" y="252" width="185" height="68" rx="6" fill="rgba(6,78,59,.42)" stroke="#34d399" stroke-width="1.4"/>
+      <text x="687" y="274" fill="#e2e8f0" font-size="11.5">记忆检索</text>
+      <text x="687" y="291" fill="#7c8aa0" font-size="8.5">加权 RRF · 绝对刻度</text>
+      <text x="687" y="306" fill="#7c8aa0" font-size="8.5">floor 0.45 · MMR 前 3 免疫</text>
+    </g>
+
+    <!-- ═══ 第 4 层：Agent ═══ -->
+    <text x="60" y="346" fill="#64748b" font-size="9" letter-spacing="1.4">04 · Agent 层（只读投影后的上下文，只产出提案）</text>
+    <g>
+      <rect x="60" y="356" width="185" height="68" rx="6" fill="#0f172a"/>
+      <rect x="60" y="356" width="185" height="68" rx="6" fill="rgba(6,78,59,.30)" stroke="#34d399" stroke-width="1.2" stroke-dasharray="5,3"/>
+      <text x="72" y="378" fill="#e2e8f0" font-size="11.5">角色 Agent × N</text>
+      <text x="72" y="395" fill="#7c8aa0" font-size="8.5">台词 / 动作 / 心理 / 意图</text>
+      <text x="72" y="410" fill="#7c8aa0" font-size="8.5">禁止 OOC · 替他人行动</text>
+
+      <rect x="265" y="356" width="185" height="68" rx="6" fill="#0f172a"/>
+      <rect x="265" y="356" width="185" height="68" rx="6" fill="rgba(6,78,59,.30)" stroke="#34d399" stroke-width="1.2" stroke-dasharray="5,3"/>
+      <text x="277" y="378" fill="#e2e8f0" font-size="11.5">旁白 Agent</text>
+      <text x="277" y="395" fill="#7c8aa0" font-size="8.5">零感知 · 只写句子</text>
+      <text x="277" y="410" fill="#7c8aa0" font-size="8.5">事实由导演白名单下发</text>
+
+      <rect x="470" y="356" width="185" height="68" rx="6" fill="#0f172a"/>
+      <rect x="470" y="356" width="185" height="68" rx="6" fill="rgba(6,78,59,.30)" stroke="#34d399" stroke-width="1.2" stroke-dasharray="5,3"/>
+      <text x="482" y="378" fill="#e2e8f0" font-size="11.5">规划 / 写作</text>
+      <text x="482" y="395" fill="#7c8aa0" font-size="8.5">大纲·章纲·场景块 / 成稿</text>
+      <text x="482" y="410" fill="#7c8aa0" font-size="8.5">写作不发明事实</text>
+
+      <rect x="675" y="356" width="185" height="68" rx="6" fill="#0f172a"/>
+      <rect x="675" y="356" width="185" height="68" rx="6" fill="rgba(6,78,59,.30)" stroke="#34d399" stroke-width="1.2" stroke-dasharray="5,3"/>
+      <text x="687" y="378" fill="#e2e8f0" font-size="11.5">修订 / 审批</text>
+      <text x="687" y="395" fill="#7c8aa0" font-size="8.5">新 revision / issue 列表</text>
+      <text x="687" y="410" fill="#7c8aa0" font-size="8.5">直连默认关 · ≤3 轮</text>
+    </g>
+
+    <!-- ═══ 第 5 层：存储 ═══ -->
+    <text x="60" y="450" fill="#64748b" font-size="9" letter-spacing="1.4">05 · 存储（SQLite 是唯一权威）</text>
+    <g>
+      <rect x="60" y="460" width="253" height="68" rx="6" fill="#0f172a"/>
+      <rect x="60" y="460" width="253" height="68" rx="6" fill="rgba(76,29,149,.42)" stroke="#a78bfa" stroke-width="1.4"/>
+      <text x="72" y="482" fill="#e2e8f0" font-size="11.5">SQLite · 26 表</text>
+      <text x="72" y="499" fill="#9f8fd0" font-size="8.5">event / snapshot / fact / cognition</text>
+      <text x="72" y="514" fill="#9f8fd0" font-size="8.5">10 触发器 · 26 索引 · 73 约束断言</text>
+
+      <rect x="333" y="460" width="253" height="68" rx="6" fill="#0f172a"/>
+      <rect x="333" y="460" width="253" height="68" rx="6" fill="rgba(76,29,149,.42)" stroke="#a78bfa" stroke-width="1.4"/>
+      <text x="345" y="482" fill="#e2e8f0" font-size="11.5">MinGit + outbox</text>
+      <text x="345" y="499" fill="#9f8fd0" font-size="8.5">提交绑检查点 · 内容哈希比对</text>
+      <text x="345" y="514" fill="#9f8fd0" font-size="8.5">外部编辑不覆盖 · 三选一</text>
+
+      <rect x="606" y="460" width="254" height="68" rx="6" fill="#0f172a"/>
+      <rect x="606" y="460" width="254" height="68" rx="6" fill="rgba(76,29,149,.42)" stroke="#a78bfa" stroke-width="1.4"/>
+      <text x="618" y="482" fill="#e2e8f0" font-size="11.5">Markdown 章节</text>
+      <text x="618" y="499" fill="#9f8fd0" font-size="8.5">受控镜像 · 人可读可 diff</text>
+      <text x="618" y="514" fill="#9f8fd0" font-size="8.5">回收站式 revision 链</text>
+    </g>
+
+    <!-- ═══ 第 6 层：外部 ═══ -->
+    <text x="60" y="554" fill="#64748b" font-size="9" letter-spacing="1.4">06 · 外部依赖（可替换 · 换供应商 ≤ 20 行）</text>
+    <g>
+      <rect x="60" y="564" width="390" height="56" rx="6" fill="#0f172a"/>
+      <rect x="60" y="564" width="390" height="56" rx="6" fill="rgba(30,41,59,.62)" stroke="#94a3b8" stroke-width="1.3"/>
+      <text x="72" y="586" fill="#e2e8f0" font-size="11.5">LLM Providers</text>
+      <text x="72" y="604" fill="#7c8aa0" font-size="8.5">主持人 / 角色 / 摘要调度 三档 · 温度 · 超时 · 预算护栏</text>
+
+      <rect x="470" y="564" width="390" height="56" rx="6" fill="#0f172a"/>
+      <rect x="470" y="564" width="390" height="56" rx="6" fill="rgba(30,41,59,.62)" stroke="#94a3b8" stroke-width="1.3"/>
+      <text x="482" y="586" fill="#e2e8f0" font-size="11.5">Embeddings</text>
+      <text x="482" y="604" fill="#7c8aa0" font-size="8.5">bge 系 512 维 · 本地 ONNX 或远程 · 换模型需重索引</text>
+    </g>
+
+    <!-- ═══ 右侧：一拍的生命周期 ═══ -->
+    <rect x="890" y="60" width="250" height="560" rx="8" fill="rgba(15,23,42,.72)" stroke="#1e293b" stroke-width="1"/>
+    <text x="906" y="84" fill="#e2e8f0" font-size="11" letter-spacing=".6">一拍的生命周期</text>
+    <line x1="906" y1="94" x2="1124" y2="94" stroke="#1e293b"/>
+
+    <g font-size="8.6" fill="#7c8aa0">
+      <text x="906" y="116"><tspan fill="#22d3ee">1</tspan>　读投影（按分支 + 限知）</text>
+      <text x="906" y="138"><tspan fill="#22d3ee">2</tspan>　候选 = 在场 Agent（≤8）</text>
+      <text x="906" y="160"><tspan fill="#22d3ee">3</tspan>　评分 → 阻尼 → 仲裁(13.5%)</text>
+      <text x="906" y="182"><tspan fill="#22d3ee">4</tspan>　装配限知上下文（≤6000）</text>
+      <text x="906" y="204"><tspan fill="#22d3ee">5</tspan>　模型 → JSON → Zod 校验</text>
+      <text x="906" y="226"><tspan fill="#22d3ee">6</tspan>　知识边界校验（越界即重写）</text>
+      <text x="906" y="248"><tspan fill="#22d3ee">7</tspan>　提交：event + 8 域投影</text>
+      <text x="906" y="270"><tspan fill="#22d3ee">8</tspan>　导演：收束 / 抽卡 / 升级</text>
+    </g>
+
+    <line x1="906" y1="288" x2="1124" y2="288" stroke="#1e293b"/>
+    <text x="906" y="308" fill="#e2e8f0" font-size="10" letter-spacing=".6">5 条不变量</text>
+    <g font-size="8.4" fill="#8b98ab">
+      <text x="906" y="328">I1　未授权内容不进提示词</text>
+      <text x="906" y="346">I2　事实只 supersede 不覆盖</text>
+      <text x="906" y="364">I3　回退覆盖 8 域 · 开新分支</text>
+      <text x="906" y="382">I4　一切写入走命令层 + 幂等</text>
+      <text x="906" y="400">I5　SQLite 唯一权威 · MD 镜像</text>
+    </g>
+
+    <line x1="906" y1="418" x2="1124" y2="418" stroke="#1e293b"/>
+    <text x="906" y="438" fill="#e2e8f0" font-size="10" letter-spacing=".6">已删掉的复杂度</text>
+    <g font-size="8.4" fill="#8b98ab">
+      <text x="906" y="458">✕ 独立向量数据库（55ms 够用）</text>
+      <text x="906" y="476">✕ ANN / HNSW（50 万才需要）</text>
+      <text x="906" y="494">✕ 每拍让 LLM 选发言人</text>
+      <text x="906" y="512">✕ 全量上下文 + 禁令</text>
+      <text x="906" y="530">✕ 只用 Git 做状态回退</text>
+      <text x="906" y="548">✕ 1440 下强行五栏并列</text>
+    </g>
+
+    <!-- ═══ 图例（在所有边界之外） ═══ -->
+    <g font-size="9" fill="#7c8aa0">
+      <rect x="60" y="690" width="10" height="10" rx="2" fill="rgba(8,51,68,.5)" stroke="#22d3ee"/>
+      <text x="76" y="699">界面层</text>
+      <rect x="200" y="690" width="10" height="10" rx="2" fill="rgba(251,146,60,.3)" stroke="#fb923c"/>
+      <text x="216" y="699">命令总线</text>
+      <rect x="310" y="690" width="10" height="10" rx="2" fill="rgba(6,78,59,.45)" stroke="#34d399"/>
+      <text x="326" y="699">领域核心 / Agent</text>
+      <rect x="460" y="690" width="10" height="10" rx="2" fill="rgba(136,19,55,.45)" stroke="#fb7185"/>
+      <text x="476" y="699">安全不变量</text>
+      <rect x="580" y="690" width="10" height="10" rx="2" fill="rgba(76,29,149,.45)" stroke="#a78bfa"/>
+      <text x="596" y="699">存储（权威）</text>
+      <rect x="700" y="690" width="10" height="10" rx="2" fill="rgba(30,41,59,.65)" stroke="#94a3b8"/>
+      <text x="716" y="699">外部依赖</text>
+      <line x1="810" y1="695" x2="838" y2="695" stroke="#a78bfa" stroke-dasharray="4,4"/>
+      <text x="844" y="699">回读投影</text>
+    </g>
+    <text x="60" y="728" fill="#3f4c5f" font-size="8">单机 · 单作者 · 一个项目一个文件夹 · 离线可用（仅模型调用需要网络）</text>
+  </svg>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h3><span class="cd" style="background:#34d399"></span>为什么发言权不给模型</h3>
+      <ul>
+        <li>· 自由抢话：最长连任 12–15 拍，单人占 52–58%</li>
+        <li>· 评分 + 阻尼 + 上限：连任 3 拍，≤38.5%</li>
+        <li>· 旁白从 0% 回到 16.8%（靠硬节奏，不靠权重）</li>
+        <li>· 每拍省一次调用：−40 次/场，−50,400 tok</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><span class="cd" style="background:#fb7185"></span>为什么限知要做成表</h3>
+      <ul>
+        <li>· 全量注入：每次装配 128.7 条越权事实</li>
+        <li>· 前置过滤：72 次装配累计 0 条</li>
+        <li>· 事实块 token 1836 → 678（2.71×）</li>
+        <li>· 上下文与场景长度解耦（10.52× 缩减）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><span class="cd" style="background:#a78bfa"></span>为什么回退要开分支</h3>
+      <ul>
+        <li>· 状态分布在 8 个域，只删消息 = 退了 1/8</li>
+        <li>· 200 事件重放 0.45 ms，没有理由只退一半</li>
+        <li>· 旧分支保留 → 用户敢点"回退"</li>
+        <li>· Git 只管章节；记忆必须走状态包</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>
+    <span>Noryth · 设计交付包 v1 · 架构图</span>
+    <span>数字来自 design/probe · 复现见 noryth_proto.py --demo</span>
+  </footer>
+</div>
+</body>
+</html>

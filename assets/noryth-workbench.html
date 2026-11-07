@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Noryth · 工作台线框</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#101319; --panel2:#141821; --line:#1e2430;
+    --fg:#e8e6e1; --muted:#8b93a3; --dim:#5c6473;
+    --gold:#c9a227; --gold-soft:rgba(201,162,39,.12);
+    --rose:#e0687a; --green:#5fbf8f; --violet:#9b8cf0; --blue:#6f9ee8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#06070a;padding:26px 0;overflow:auto;
+       font-family:Inter,'PingFang SC','Microsoft YaHei',system-ui,sans-serif}
+  .win{
+    width:1600px;height:960px;margin:0 auto;background:var(--bg);border:1px solid #232a37;border-radius:10px;
+    overflow:hidden;display:flex;flex-direction:column;position:relative;
+    box-shadow:0 30px 80px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.02) inset;
+  }
+
+  /* ═══ 标题栏 ═══ */
+  .titlebar{height:38px;flex:0 0 38px;display:flex;align-items:center;gap:14px;
+    padding:0 14px;background:#0e1117;border-bottom:1px solid var(--line);-webkit-app-region:drag}
+  .lights{display:flex;gap:7px}
+  .lights i{width:11px;height:11px;border-radius:50%;display:block}
+  .lights i:nth-child(1){background:#e0655f}.lights i:nth-child(2){background:#d9a441}
+  .lights i:nth-child(3){background:#5fbf8f}
+  .tb-title{font-size:12px;color:var(--muted);letter-spacing:.02em}
+  .tb-title b{color:var(--fg);font-weight:500}
+  .tb-title em{font-style:normal;color:#39404e}
+  .tb-right{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:11px;color:var(--dim)}
+  .chip{padding:3px 8px;border:1px solid var(--line);border-radius:5px;font-size:10px;color:var(--muted)}
+  .chip.on{color:var(--gold);border-color:rgba(201,162,39,.4);background:var(--gold-soft)}
+
+  .body{flex:1;display:flex;min-height:0}
+
+  /* ═══ 导航条 ═══ */
+  .rail{width:56px;flex:0 0 56px;background:#0a0c11;border-right:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+  .rail .ico{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;
+    color:var(--dim);font-size:15px;cursor:default}
+  .rail .ico.act{background:var(--gold-soft);color:var(--gold)}
+  .rail .sp{flex:1}
+
+  /* ═══ 左栏：场景 / Agent ═══ */
+  .left{width:252px;flex:0 0 252px;border-right:1px solid var(--line);background:var(--panel);
+    display:flex;flex-direction:column;min-height:0}
+  .lh{height:34px;flex:0 0 34px;display:flex;align-items:center;gap:8px;padding:0 12px;
+    border-bottom:1px solid var(--line)}
+  .tabs{display:flex;gap:2px}
+  .tab{font-size:11px;padding:4px 9px;border-radius:5px;color:var(--dim)}
+  .tab.act{color:var(--fg);background:var(--panel2)}
+  .add{margin-left:auto;font-size:14px;color:var(--dim);line-height:1}
+  .sec{padding:10px 12px 5px;font-size:9.5px;letter-spacing:.1em;color:var(--dim)}
+  .scene{padding:7px 12px;display:flex;gap:8px;align-items:flex-start;border-left:2px solid transparent}
+  .scene.act{background:linear-gradient(90deg,rgba(201,162,39,.10),transparent);border-left-color:var(--gold)}
+  .dot{width:7px;height:7px;border-radius:50%;margin-top:5px;flex:0 0 7px}
+  .dot.live{background:var(--gold);box-shadow:0 0 0 3px rgba(201,162,39,.15)}
+  .dot.off{background:#39404e}
+  .s-name{font-size:12px;color:var(--fg)}
+  .s-meta{font-size:9.5px;color:var(--dim);margin-top:2px}
+  .badge{font-size:9px;padding:1px 5px;border-radius:4px;background:var(--gold-soft);color:var(--gold)}
+  .agent{padding:5px 12px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
+  .agent .nm{width:42px;color:var(--fg);display:flex;align-items:center;gap:5px}
+  .agent .pip{width:6px;height:6px;border-radius:2px;flex:0 0 6px}
+  .agent .bar{flex:1;height:3px;background:#1b2130;border-radius:2px;overflow:hidden}
+  .agent .bar i{display:block;height:100%;background:var(--gold);opacity:.7}
+  .agent .ct{width:18px;text-align:right;font-size:9.5px;color:var(--dim)}
+  .agent.absent{opacity:.32}
+
+  /* ═══ 中栏：剧场 ═══ */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;
+    background:radial-gradient(720px 320px at 45% 0%,rgba(201,162,39,.05),transparent 72%),var(--bg)}
+  .mh{height:40px;flex:0 0 40px;display:flex;align-items:center;gap:8px;padding:0 14px;
+    border-bottom:1px solid var(--line);font-size:10.5px;color:var(--dim)}
+  .mh b{color:var(--fg);font-weight:500;font-size:12px}
+  .segbar{display:flex;gap:1px;background:#0c0f14;border:1px solid var(--line);border-radius:6px;padding:2px}
+  .segbar span{padding:3px 9px;border-radius:4px;font-size:10.5px;color:var(--dim)}
+  .segbar span.act{background:#1c2330;color:var(--fg)}
+  .mh .r{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .conf{display:flex;align-items:center;gap:6px;font-size:9.5px}
+  .conf .seg{display:flex;gap:2px}
+  .conf .seg i{width:13px;height:4px;border-radius:1px;background:#1e2431;display:block}
+  .conf .seg i.f{background:var(--gold);opacity:.85}
+  .prog{font-variant-numeric:tabular-nums;font-size:10px}
+
+  /* 消息流 */
+  .stream{flex:1;min-height:0;overflow:hidden;padding:14px 16px 8px;display:flex;flex-direction:column;justify-content:flex-end;gap:10px}
+
+  /* 旁白：整幅段落，不是气泡 */
+  .narr{border-left:2px solid rgba(155,140,240,.45);padding:1px 0 1px 12px}
+  .narr .nl{font-size:8.5px;letter-spacing:.12em;color:#7a6fd0;margin-bottom:5px;
+    display:flex;gap:7px;align-items:center}
+  .narr .nl span{font-size:8px;letter-spacing:0;padding:1px 5px;border-radius:3px;
+    background:rgba(155,140,240,.12);color:#8f84d8}
+  .narr .nl em{font-style:normal;margin-left:auto;color:#39404e;letter-spacing:0;font-size:9px}
+  .narr p{font-family:'Noto Serif SC',Songti SC,serif;font-size:13px;line-height:1.9;color:#c2c6d0}
+  .narr p+p{margin-top:3px}
+
+  /* 导演事件 */
+  .sys{display:flex;align-items:center;gap:9px;justify-content:center;
+    font-size:9.5px;color:#6b7484;padding:0 2px}
+  .sys i{flex:1;height:1px;background:linear-gradient(90deg,transparent,#1e2430)}
+  .sys i:last-child{background:linear-gradient(90deg,#1e2430,transparent)}
+  .sys b{font-weight:500;color:#8f7cc4;white-space:nowrap}
+  .sys span{white-space:nowrap}
+
+  /* 对话气泡 */
+  .msg{display:flex;gap:9px;align-items:flex-start}
+  .av{width:28px;height:28px;flex:0 0 28px;border-radius:8px;display:grid;place-items:center;
+    font-family:'Noto Serif SC',serif;font-size:12px;font-weight:600;margin-top:1px}
+  .av.lin{background:rgba(201,162,39,.16);color:#d9b24a;border:1px solid rgba(201,162,39,.3)}
+  .av.shen{background:rgba(111,158,232,.15);color:#8fb4ee;border:1px solid rgba(111,158,232,.28)}
+  .bub{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;border-top-left-radius:3px;padding:9px 12px 10px}
+  .msg.me .bub{background:rgba(201,162,39,.055);border-color:rgba(201,162,39,.26);
+    border-top-left-radius:12px;border-top-right-radius:3px}
+  .bh{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+  .who{font-size:11.5px;color:var(--fg);font-weight:500}
+  .role{font-size:8.5px;padding:1px 5px;border-radius:3px;background:#1a202b;color:var(--dim)}
+  .role.me{background:rgba(201,162,39,.12);color:#c9a227}
+  .beatno{margin-left:auto;font-size:9px;color:#3d4552;font-variant-numeric:tabular-nums}
+  .hl{font-family:'Noto Serif SC',Songti SC,serif;font-size:13.5px;line-height:1.75;color:#f0ede6}
+  .act{font-family:'Noto Serif SC',Songti SC,serif;font-size:12.5px;line-height:1.75;
+    color:#9fa7b6;margin-top:4px}
+  .mind{margin-top:7px;padding:6px 9px;border-left:2px solid #2b3342;background:#0c0f15;
+    font-family:'Noto Serif SC',serif;font-size:11.5px;line-height:1.7;color:#78818f}
+  .mind b{display:block;font-family:Inter,sans-serif;color:#8b93a3;font-weight:500;
+    font-size:8.5px;letter-spacing:.08em;margin-bottom:3px}
+
+  .foot{display:flex;align-items:center;gap:7px;margin-top:8px;flex-wrap:wrap}
+  .intent{font-size:9.5px;padding:2px 7px;border-radius:4px;background:#151b26;color:#818b9c}
+  .warn{font-size:9.5px;padding:2px 7px;border-radius:4px;background:rgba(224,104,122,.1);
+    color:var(--rose);border:1px solid rgba(224,104,122,.28)}
+  .acts{margin-left:auto;display:flex;gap:9px;font-size:9.5px;color:#4a5361}
+  .acts .on{color:var(--gold)}
+
+  /* 内联「为什么是它」 */
+  .why{margin-top:8px;border-top:1px dashed #232a37;padding-top:7px}
+  .why h6{font-size:8.5px;letter-spacing:.08em;color:var(--dim);font-weight:500;margin-bottom:5px}
+  .why .g{display:grid;grid-template-columns:1fr 54px 54px;gap:2px 8px;font-size:9.5px;
+    color:#7d8796;font-variant-numeric:tabular-nums}
+  .why .g em{font-style:normal;color:#59616f}
+  .why .g b{text-align:right;font-weight:400;color:#9aa3b2}
+  .why .tot{margin-top:5px;padding-top:5px;border-top:1px solid #1b2130;
+    display:flex;justify-content:space-between;gap:10px;font-size:9.5px;color:var(--gold)}
+
+  /* ═══ 输入框 ═══ */
+  .composer{flex:0 0 auto;border-top:1px solid var(--line);background:#0d1016;padding:9px 14px 10px}
+  .cwrap{background:#12161e;border:1px solid #262e3d;border-radius:10px;padding:9px 11px 8px}
+  .ctop{display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:9.5px;color:#5f6877}
+  .ctop .as{color:var(--gold);font-weight:500}
+  .cinput{font-size:12.5px;color:#cfd4dd;min-height:33px;line-height:1.6}
+  .cinput .ph{color:#454d5b}
+  .caret{display:inline-block;width:1px;height:13px;background:var(--gold);
+    vertical-align:-2px;margin-left:2px;animation:bl 1.1s steps(1) infinite}
+  @keyframes bl{50%{opacity:0}}
+  .cbot{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;
+    border:1px solid #262d3b;color:#a3abba;font-size:10.5px;white-space:nowrap}
+  .btn.pri{background:var(--gold);color:#1a1405;border-color:var(--gold);font-weight:600}
+  .btn.ghost{border-color:transparent;color:#6b7484}
+  .kbd{font-size:8.5px;padding:0 3px;border:1px solid #2c3444;border-radius:3px;color:#6b7484}
+  .cbot .r{margin-left:auto;display:flex;align-items:center;gap:4px;font-size:9px;color:#454d5b}
+
+  /* ═══ 正文预览栏 ═══ */
+  .preview{width:400px;flex:0 0 400px;border-left:1px solid var(--line);background:#0c0f14;
+    display:flex;flex-direction:column;min-height:0}
+  .ph2{height:40px;flex:0 0 40px;display:flex;align-items:center;gap:8px;padding:0 13px;
+    border-bottom:1px solid var(--line);font-size:10.5px;color:var(--dim)}
+  .ph2 .fn{color:var(--fg);font-size:11.5px}
+  .ph2 .r{margin-left:auto;display:flex;gap:6px;align-items:center}
+  .tg{font-size:8.5px;padding:1px 5px;border-radius:3px;background:#1a202b;color:#7d8796}
+  .tg.g{background:rgba(95,191,143,.12);color:var(--green)}
+  .tg.b{background:rgba(111,158,232,.12);color:#8fb4ee}
+  .doc{flex:1;min-height:0;overflow:hidden;padding:16px 22px 8px}
+  .doc h1{font-family:'Noto Serif SC',serif;font-size:16px;font-weight:600;color:#e9e6df;
+    letter-spacing:.02em;margin-bottom:4px}
+  .doc .meta{font-size:9px;color:#4d5563;margin-bottom:13px;display:flex;gap:7px}
+  .doc p{font-family:'Noto Serif SC',Songti SC,serif;font-size:12.5px;line-height:2;
+    color:#b9bec9;text-indent:2em;margin-bottom:5px}
+  .doc p.dlg{text-indent:0;padding-left:2em}
+  .doc p.fresh{background:linear-gradient(90deg,rgba(201,162,39,.07),transparent 72%);
+    border-left:2px solid rgba(201,162,39,.55);padding-left:calc(2em - 2px);margin-left:-2px;
+    padding-right:34px}
+  .dfoot{flex:0 0 32px;border-top:1px solid var(--line);display:flex;align-items:center;
+    gap:8px;padding:0 13px;font-size:9px;color:#4d5563}
+  .dfoot .r{margin-left:auto;display:flex;gap:9px}
+
+  /* ═══ 右栏：文件 / 检视 ═══ */
+  .right{width:248px;flex:0 0 248px;border-left:1px solid var(--line);background:var(--panel);
+    display:flex;flex-direction:column;min-height:0}
+  .tree{padding:5px 0;font-size:11px;color:#98a0af}
+  .trow{display:flex;align-items:center;gap:6px;padding:4px 11px}
+  .trow.dir{color:#656d7c;font-size:10.5px}
+  .trow.file{padding-left:25px}
+  .trow .h{margin-left:auto;font-size:8.5px;color:#3d4552}
+  .trow.cur{background:rgba(201,162,39,.09);color:var(--fg);border-left:2px solid var(--gold);padding-left:23px}
+  .insp{border-top:1px solid var(--line);padding:9px 11px;flex:1;min-height:0}
+  .ih{font-size:8.5px;letter-spacing:.11em;color:var(--dim);margin-bottom:7px}
+  .kv{display:flex;justify-content:space-between;font-size:10.5px;padding:3px 0;color:#858e9d;gap:10px}
+  .kv b{color:#dcd9d2;font-weight:400;text-align:right}
+  .ok{color:var(--green)}.no{color:var(--gold)}
+  .cards{margin-top:11px;padding-top:9px;border-top:1px solid var(--line)}
+
+
+  /* 左栏章节 / 右栏线索与牌堆 */
+  .chap{display:flex;align-items:center;gap:7px;padding:4px 12px;font-size:11px;color:#8b93a3}
+  .chap .cn{font-size:9px;color:#3d4552;width:14px;flex:0 0 14px}
+  .chap .cs{margin-left:auto;font-size:8.5px;color:#4a5361}
+  .chap .cs.g{color:var(--green)}
+  .chap.cur{background:rgba(201,162,39,.06);color:var(--fg)}
+  .clue{display:flex;justify-content:space-between;gap:8px;font-size:10.5px;color:#858e9d;padding:3px 0}
+  .clue span{color:#3d4552;font-size:9px;flex:0 0 auto}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+  .cd{font-size:9.5px;padding:2px 7px;border-radius:4px;background:#161c27;
+    color:#8b93a3;border:1px solid #232a37}
+  .cd.dim{opacity:.4}
+  .doc p.fresh{position:relative}
+  .doc p.fresh::after{content:"新增";position:absolute;right:0;top:1px;font-family:Inter,sans-serif;
+    font-size:8px;color:var(--gold);background:rgba(201,162,39,.13);padding:0 4px;border-radius:3px;
+    text-indent:0;letter-spacing:0}
+
+  @media (max-width:1720px){ body{padding:16px 0} .win{zoom:.9} }
+  @media (max-width:1520px){ .win{zoom:.8} }
+  @media (max-width:1360px){ .win{zoom:.72} }
+  @media (max-width:1220px){ .win{zoom:.64} }
+</style>
+</head>
+<body>
+<div class="win">
+  <!-- ═══ 标题栏 ═══ -->
+  <div class="titlebar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="tb-title"><b>长夜将尽</b> <em>／</em> 卷一 · 雨夜 <em>／</em> s17 雨夜·账本</div>
+    <div class="tb-right">
+      <span class="chip">主线</span>
+      <span class="chip on">● 单步模式</span>
+      <span class="chip">分屏写作</span>
+      <span class="chip">deepseek-v3</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- 导航 -->
+    <div class="rail">
+      <div class="ico act">◈</div>
+      <div class="ico">▤</div>
+      <div class="ico">✎</div>
+      <div class="ico">◷</div>
+      <div class="ico">⚙</div>
+      <div class="sp"></div>
+      <div class="ico">?</div>
+    </div>
+
+    <!-- ═══ 左栏 ═══ -->
+    <div class="left">
+      <div class="lh">
+        <div class="tabs"><span class="tab act">场景</span><span class="tab">Agent</span></div>
+        <span class="add">＋</span>
+      </div>
+      <div class="sec">卷一 · 雨夜</div>
+      <div class="scene act">
+        <span class="dot live"></span>
+        <div style="flex:1">
+          <div class="s-name">s17 雨夜·账本 <span class="badge">进行中</span></div>
+          <div class="s-meta">第 12 / 40 拍 · 冲突 2.1</div>
+        </div>
+      </div>
+      <div class="scene">
+        <span class="dot off"></span>
+        <div style="flex:1">
+          <div class="s-name">s16 客栈·试探</div>
+          <div class="s-meta">已关闭 · 24 拍 · 已生成正文</div>
+        </div>
+      </div>
+      <div class="scene">
+        <span class="dot off"></span>
+        <div style="flex:1">
+          <div class="s-name">s15 码头·交接</div>
+          <div class="s-meta">已关闭 · 18 拍</div>
+        </div>
+      </div>
+
+      <div class="sec">本场 Agent（3）</div>
+      <div class="agent"><span class="nm"><i class="pip" style="background:#c9a227"></i>林砚</span>
+        <span class="bar"><i style="width:78%"></i></span><span class="ct">12</span></div>
+      <div class="agent"><span class="nm"><i class="pip" style="background:#6f9ee8"></i>沈昼</span>
+        <span class="bar"><i style="width:58%"></i></span><span class="ct">9</span></div>
+      <div class="agent"><span class="nm"><i class="pip" style="background:#9b8cf0"></i>旁白</span>
+        <span class="bar"><i style="width:32%"></i></span><span class="ct">5</span></div>
+      <div class="sec">不在场</div>
+      <div class="agent absent"><span class="nm"><i class="pip" style="background:#3a4252"></i>祁昭</span>
+        <span class="bar"><i style="width:0%"></i></span><span class="ct">0</span></div>
+      <div class="agent absent"><span class="nm"><i class="pip" style="background:#3a4252"></i>陆微</span>
+        <span class="bar"><i style="width:0%"></i></span><span class="ct">0</span></div>
+
+      <div class="sec">本卷章节</div>
+      <div class="chap"><span class="cn">01</span>雨夜<span class="cs g">已定稿</span></div>
+      <div class="chap cur"><span class="cn">02</span>账本<span class="cs">写作中</span></div>
+      <div class="chap"><span class="cn">03</span>未命名<span class="cs">草稿</span></div>
+    </div>
+
+    <!-- ═══ 中栏：剧场 ═══ -->
+    <div class="main">
+      <div class="mh">
+        <b>剧场</b>
+        <div class="segbar"><span>自动</span><span class="act">单步</span><span>指定</span><span>收束</span></div>
+        <div class="r">
+          <span>视点 <b style="color:#8b93a3;font-weight:400">林砚</b></span>
+          <span>退出条件 <span class="no">○ 未满足</span></span>
+          <span class="conf">冲突
+            <span class="seg"><i class="f"></i><i class="f"></i><i class="f"></i><i></i><i></i></span>
+            2.1</span>
+          <span class="prog">12 / 40 拍</span>
+        </div>
+      </div>
+
+      <div class="stream">
+        <!-- 旁白：全幅段落 -->
+        <div class="narr">
+          <div class="nl">旁白 <span>零感知</span> <em>第 6 拍 · 转场</em></div>
+          <p>客栈的灯点到二更，油快尽了。林砚把账本压在肘下，一页一页翻得很慢，像是在数什么。</p>
+        </div>
+
+        <!-- 沈昼 -->
+        <div class="msg">
+          <div class="av shen">沈</div>
+          <div class="bub">
+            <div class="bh"><span class="who">沈昼</span><span class="role">角色</span>
+              <span class="beatno">第 7 拍</span></div>
+            <div class="hl">「这么晚还亮着灯。」</div>
+            <div class="act">他站在门口，没有进来，伞尖的水在青砖上洇出一小片深色。</div>
+          </div>
+        </div>
+
+        <!-- 林砚（用户） -->
+        <div class="msg me">
+          <div class="av lin">林</div>
+          <div class="bub">
+            <div class="bh"><span class="who">林砚</span><span class="role">角色</span>
+              <span class="role me">你在扮演</span>
+              <span class="beatno">第 8 拍</span></div>
+            <div class="hl">「等你。」</div>
+          </div>
+        </div>
+
+        <!-- 导演事件 -->
+        <div class="sys"><i></i><b>导演</b><span>抽牌「不速之客」· 冲突 1.7 → 2.1</span><i></i></div>
+
+        <!-- 沈昼：本拍带越界拦截与调度展开 -->
+        <div class="msg">
+          <div class="av shen">沈</div>
+          <div class="bub">
+            <div class="bh"><span class="who">沈昼</span><span class="role">角色</span>
+              <span class="beatno">第 9 拍</span></div>
+            <div class="hl">「你母亲的忌日，快到了吧。」</div>
+            <div class="act">他把伞收拢，水顺着伞骨一滴滴落在门槛上，眼睛却没看那把伞。</div>
+            <div class="mind"><b>心理 · 仅读者可见</b>他在试探我。可他怎么知道是这几天？</div>
+            <div class="foot">
+              <span class="intent">意图：逼林砚先开口</span>
+              <span class="warn">⚠ 知识越界 · 已拦截并重写</span>
+              <span class="acts"><span class="on">为什么是沈昼？</span><span>重写</span><span>回退</span></span>
+            </div>
+            <div class="why">
+              <h6>调度评分 · 展开</h6>
+              <div class="g">
+                <em>goal_rel × 0.34</em><b>1.00</b><b>0.340</b>
+                <em>addressed × 0.30</em><b>1.00</b><b>0.300</b>
+                <em>stake × 0.16</em><b>0.57</b><b>0.090</b>
+                <em>narrator × 0.12</em><b>0.00</b><b>0.000</b>
+                <em>initiative × 0.08</em><b>0.60</b><b>0.048</b>
+                <em>jitter</em><b>—</b><b>0.021</b>
+              </div>
+              <div class="tot"><span>阻尼后 0.799 · 被点名豁免 · 硬上限未触发</span><span>jitter = hash(seed,seq,id)</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 林砚（用户）-->
+        <div class="msg me">
+          <div class="av lin">林</div>
+          <div class="bub">
+            <div class="bh"><span class="who">林砚</span><span class="role">角色</span>
+              <span class="role me">你在扮演</span>
+              <span class="beatno">第 10 拍</span></div>
+            <div class="hl">「谁告诉你的。」</div>
+            <div class="act">他没有抬头，手指在账本边缘停了一下，又若无其事地翻过一页。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 输入框 -->
+      <div class="composer">
+        <div class="cwrap">
+          <div class="ctop">以 <span class="as">林砚</span> 的身份插话
+            <span style="margin-left:auto;color:#7d8796">第 11 拍 · 下一位：旁白</span></div>
+          <div class="cinput"><span class="ph">写台词，或只写一个动作……</span><span class="caret"></span></div>
+          <div class="cbot">
+            <span class="btn pri">发送 <span class="kbd" style="border-color:rgba(26,20,5,.22);color:#5c4a12">⏎</span></span>
+            <span class="btn">让 AI 代写这一拍</span>
+            <span class="btn ghost">跳过</span>
+            <span class="r">Shift+Enter 换行 <span class="kbd">Ctrl</span><span class="kbd">⏎</span> 强制发送</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 正文预览栏 ═══ -->
+    <div class="preview">
+      <div class="ph2">
+        <span class="fn">02 账本.md</span>
+        <span class="tg g">修订 r3</span>
+        <div class="r"><span class="tg b">联动本场</span><span>⋯</span></div>
+      </div>
+      <div class="doc">
+        <h1>第二章　账本</h1>
+        <div class="meta"><span>1,284 字</span><span>·</span><span>由第 9–12 拍生成</span><span>·</span><span>待审</span></div>
+
+        <p>客栈的灯点到二更，油快尽了。林砚把账本压在肘下，一页一页翻得很慢，像是在数什么。</p>
+        <p>门被推开的时候，风先灌了进来，吹得灯芯矮了一截。檐水连成一道断断续续的帘，把院里那盏灯笼晕成一团模糊的橘色。</p>
+        <p class="dlg">「你母亲的忌日，快到了吧。」</p>
+        <p class="fresh">林砚没有抬头。他的手指在账本边缘停了一下，又若无其事地翻过一页。「谁告诉你的。」</p>
+        <p>沈昼没有答。他把伞靠在门边，水顺着伞骨一滴滴落在门槛上，眼睛却没看那把伞。</p>
+        <p>屋里静了一瞬。油灯爆了个灯花，两个人的影子在墙上晃了晃，又落回原处。</p>
+        <p class="dlg">「账本我看完了。」沈昼说，「你要是还想留着它，今夜就得给我一个说法。」</p>
+        <p>林砚终于抬起头。他看了沈昼一眼，那一眼里没有惊讶，只有一点很淡的疲惫，像是早就料到会有这么一晚。</p>
+        <p>「说法我有。」他把账本合上，推到自己膝头，「就怕你听完，走不出这个门。」</p>
+        <p>门外的雨声忽然大了一阵，把两个人的话都压了下去。院墙根下积了半尺深的水，浮着几片被风撕下来的叶子。</p>
+        <p>沈昼笑了一下，很轻，像是听见了什么笑话。他没有走，反而在桌边坐下了。</p>
+        <p>「那我说说。」他伸手去够桌上的茶壶，「你先听听，我是怎么知道这件事的。」</p>
+      </div>
+      <div class="dfoot">
+        <span>第 5 段 · 与第 12 拍同步</span>
+        <div class="r"><span>⌘⇧D 比对修订</span><span>送审</span></div>
+      </div>
+    </div>
+
+    <!-- ═══ 右栏 ═══ -->
+    <div class="right">
+      <div class="lh"><div class="tabs"><span class="tab act">文件</span><span class="tab">检视</span></div>
+        <span class="add">⌕</span></div>
+      <div class="tree">
+        <div class="trow dir">▾ chapters</div>
+        <div class="trow file">01 雨夜.md <span class="h">已定稿</span></div>
+        <div class="trow file cur">02 账本.md <span class="h">●</span></div>
+        <div class="trow dir">▾ setting</div>
+        <div class="trow file">characters.md</div>
+        <div class="trow file">world.md</div>
+        <div class="trow file">timeline.md</div>
+        <div class="trow dir">▸ scenes</div>
+        <div class="trow dir">▸ issues <span class="h">3</span></div>
+      </div>
+      <div class="insp">
+        <div class="ih">检视器 · s17</div>
+        <div class="kv"><span>场景目标</span><b>夺回账本</b></div>
+        <div class="kv"><span>冲突等级</span><b class="no">2.1 / 4</b></div>
+        <div class="kv"><span>在场</span><b>林砚 · 沈昼</b></div>
+        <div class="kv"><span>退出条件</span><b class="no">○ 未满足</b></div>
+        <div class="kv"><span>事件卡</span><b>已抽 2 · 剩 5</b></div>
+        <div class="kv"><span>上下文</span><b>4,312 / 6,000</b></div>
+        <div class="kv"><span>本场花费</span><b>¥0.31</b></div>
+        <div class="cards">
+          <div class="ih">关键事实</div>
+          <div class="kv"><span>账本持有</span><b>林砚</b></div>
+          <div class="kv"><span>母亲忌日</span><b class="ok">沈昼不知</b></div>
+          <div class="kv"><span>沈昼的委托</span><b class="no">设定锁</b></div>
+        </div>
+        <div class="cards">
+          <div class="ih">未结线索 · 2</div>
+          <div class="clue">沈昼为何知道忌日<span>第 9 拍</span></div>
+          <div class="clue">账本里少了三页<span>第 3 拍</span></div>
+        </div>
+        <div class="cards">
+          <div class="ih">牌堆 · 剩 5</div>
+          <div class="chips">
+            <span class="cd">不速之客</span><span class="cd">旧信</span><span class="cd">夜巡</span>
+            <span class="cd dim">血债</span><span class="cd dim">背叛</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
