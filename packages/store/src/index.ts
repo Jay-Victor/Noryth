@@ -7,3 +7,6 @@ export * from './status.js';
 export * from './commands.js';
 export * from './state.js';
 export * from './snapshot.js';
+export * from './p2-handlers.js';
+export * from './p2-read.js';
+export * from './memory-search.js';

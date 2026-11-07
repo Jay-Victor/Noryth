@@ -86,6 +86,16 @@ export interface ClueView {
   stale?: boolean;
 }
 
+/**
+ * 已授权进入该角色上下文的记忆节点（owner 为空或本人，且 sensitivity < 3）。
+ * 检索在 store 侧完成——core 只负责拼装，不读库。
+ */
+export interface MemoryView {
+  id: string;
+  text: string;
+  kind: string;
+}
+
 export interface CharacterContextInput {
   characterId: string;
   agent: AgentCardView;
@@ -99,6 +109,8 @@ export interface CharacterContextInput {
   cognition: readonly CognitionView[];
   relations: readonly RelationView[];
   clues: readonly ClueView[];
+  /** 检索到的相关记忆；缺省为空，P1 的 4352 tok 实测口径不变。 */
+  memories?: readonly MemoryView[];
   budget?: number;
 }
 
@@ -135,6 +147,19 @@ function factItem(fact: FactView, keepRank: number): PackItem {
       `${fact.subjectName}${fact.predicate}${fact.objectText}`,
       `${fact.subjectName}|${fact.predicate}|${fact.objectText}`,
       `f:${fact.id}`,
+    ),
+    keepRank,
+  };
+}
+
+/** 记忆节点排在事实之后：预算吃紧时先丢检索材料，不丢权威事实。 */
+function memoryItem(memory: MemoryView, keepRank: number): PackItem {
+  return {
+    ...levelTexts(
+      `（记忆·${memory.kind}）${memory.text}`,
+      sentences(memory.text, 2),
+      `${memory.kind}:${memory.id}`,
+      `m:${memory.id}`,
     ),
     keepRank,
   };
@@ -265,7 +290,10 @@ export function assembleCharacterContext(input: CharacterContextInput): ContextR
     },
     {
       name: 'memory',
-      items: facts.map((fact, i) => factItem(factById.get(fact.id) ?? fact, i)),
+      items: [
+        ...facts.map((fact, i) => factItem(factById.get(fact.id) ?? fact, i)),
+        ...(input.memories ?? []).map((memory, i) => memoryItem(memory, FACT_CAP + i)),
+      ],
     },
     { name: 'relation', items: input.relations.map(relationItem) },
     { name: 'clue', items: input.clues.map(clueItem) },

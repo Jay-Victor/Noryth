@@ -549,6 +549,39 @@ function replayEvent(
         (payload.closedSeq as number | null) ?? null,
         sceneId,
       );
+      const memory = payload.memory as
+        | {
+            children?: Record<string, unknown>[];
+            summary?: Record<string, unknown>;
+            edges?: { src: string; dst: string; kind: string; weight: number }[];
+            downweight?: { id: string; importance: number }[];
+          }
+        | null
+        | undefined;
+      if (memory?.summary) {
+        const nodeSpec = specOf('memory_node');
+        const insert = (row: Record<string, unknown>): void => {
+          insertRow(db, nodeSpec, refreshedRow(nodeSpec, row, branchId, remap));
+        };
+        for (const child of memory.children ?? []) insert(child);
+        insert(memory.summary);
+        const edgeSpec = specOf('memory_edge');
+        for (const edge of memory.edges ?? []) {
+          insertRow(
+            db,
+            edgeSpec,
+            refreshedRow(edgeSpec, edge as unknown as Record<string, unknown>, branchId, remap),
+          );
+        }
+        const weight = db.prepare('UPDATE memory_node SET importance = ? WHERE id = ?');
+        for (const row of memory.downweight ?? []) {
+          weight.run(row.importance, remap.get('memory_node', row.id));
+        }
+        db.prepare('UPDATE scene SET summary = ? WHERE id = ?').run(
+          String(memory.summary.text),
+          sceneId,
+        );
+      }
       return;
     }
     case 'beat.committed': {
@@ -602,6 +635,131 @@ function replayEvent(
     case 'relation.set': {
       const spec = specOf('relation');
       insertRow(db, spec, refreshedRow(spec, payload.relation as Record<string, unknown>, branchId, remap));
+      return;
+    }
+    case 'fact.asserted': {
+      const fact = payload.fact as Record<string, unknown> | undefined;
+      if (fact) {
+        const spec = specOf('fact');
+        insertRow(db, spec, refreshedRow(spec, fact, branchId, remap));
+      }
+      const supersededId = payload.supersededId as string | null | undefined;
+      if (supersededId) {
+        db.prepare('UPDATE fact SET valid_to = ? WHERE id = ? AND branch_id = ?').run(
+          payload.supersededValidTo as string,
+          remap.get('fact', supersededId),
+          branchId,
+        );
+      }
+      return;
+    }
+    case 'fact.closed': {
+      for (const row of (payload.rows as { id: string; validTo: string }[] | undefined) ?? []) {
+        db.prepare('UPDATE fact SET valid_to = ? WHERE id = ? AND branch_id = ?').run(
+          row.validTo,
+          remap.get('fact', row.id),
+          branchId,
+        );
+      }
+      return;
+    }
+    case 'cognition.granted': {
+      const spec = specOf('cognition');
+      insertRow(
+        db,
+        spec,
+        refreshedRow(
+          spec,
+          {
+            branchId,
+            characterId: payload.characterId,
+            factId: payload.factId,
+            attitude: payload.attitude,
+            certainty: payload.certainty,
+            learnedSeq: payload.learnedSeq,
+            sourceMessageId: null,
+            percept: payload.percept,
+          },
+          branchId,
+          remap,
+        ),
+      );
+      return;
+    }
+    case 'lock.set': {
+      const spec = specOf('lock');
+      insertRow(
+        db,
+        spec,
+        refreshedRow(spec, payload.lock as Record<string, unknown>, branchId, remap),
+      );
+      return;
+    }
+    case 'memory.added': {
+      const node = payload.node as Record<string, unknown>;
+      const spec = specOf('memory_node');
+      const row = {
+        ...node,
+        embedding:
+          typeof node.embeddingB64 === 'string'
+            ? Buffer.from(node.embeddingB64, 'base64')
+            : null,
+      };
+      insertRow(db, spec, refreshedRow(spec, row, branchId, remap));
+      return;
+    }
+    case 'memory.linked': {
+      const spec = specOf('memory_edge');
+      insertRow(
+        db,
+        spec,
+        refreshedRow(spec, payload.edge as Record<string, unknown>, branchId, remap),
+      );
+      return;
+    }
+    case 'memory.deleted': {
+      db.prepare('DELETE FROM memory_node WHERE id = ? AND branch_id = ?').run(
+        remap.get('memory_node', payload.id),
+        branchId,
+      );
+      return;
+    }
+    case 'memory.embedded': {
+      const stmt = db.prepare(
+        'UPDATE memory_node SET embedding = ?, embedding_model = ?, embedding_dim = ? WHERE id = ?',
+      );
+      for (const update of (payload.updates as
+        | { id: string; vectorB64: string; model: string }[]
+        | undefined) ?? []) {
+        const vector = Buffer.from(update.vectorB64, 'base64');
+        stmt.run(vector, update.model, vector.length / 4, remap.get('memory_node', update.id));
+      }
+      return;
+    }
+    case 'job.enqueued': {
+      const spec = specOf('job');
+      insertRow(
+        db,
+        spec,
+        refreshedRow(spec, payload.job as Record<string, unknown>, branchId, remap),
+      );
+      return;
+    }
+    case 'job.claimed': {
+      db.prepare("UPDATE job SET status = 'running' WHERE id = ?").run(
+        remap.get('job', payload.jobId),
+      );
+      for (const id of (payload.discarded as string[] | undefined) ?? []) {
+        db.prepare("UPDATE job SET status = 'discarded' WHERE id = ?").run(remap.get('job', id));
+      }
+      return;
+    }
+    case 'job.finished': {
+      db.prepare('UPDATE job SET status = ?, payload = ? WHERE id = ?').run(
+        payload.status as string,
+        payload.payload as string,
+        remap.get('job', payload.jobId),
+      );
       return;
     }
     default:

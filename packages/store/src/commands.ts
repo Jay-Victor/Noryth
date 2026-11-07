@@ -8,6 +8,7 @@ import { z } from 'zod';
 import type { Db } from './db.js';
 import { ConstraintError, UsageError, asConstraintError } from './errors.js';
 import { P1_HANDLERS } from './handlers.js';
+import { P2_HANDLERS } from './p2-handlers.js';
 import { newId } from './ids.js';
 import { getActiveBranch, getProject } from './project.js';
 
@@ -206,7 +207,11 @@ export const messageAppendHandler: CommandHandler = {
   },
 };
 
-export const DEFAULT_HANDLERS: readonly CommandHandler[] = [messageAppendHandler, ...P1_HANDLERS];
+export const DEFAULT_HANDLERS: readonly CommandHandler[] = [
+  messageAppendHandler,
+  ...P1_HANDLERS,
+  ...P2_HANDLERS,
+];
 
 /**
  * 唯一写入路径：Command → 幂等收据 → 授权（actor）→ 提案 → 校验 →

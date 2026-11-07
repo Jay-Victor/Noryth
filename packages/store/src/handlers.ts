@@ -6,19 +6,27 @@
  */
 import {
   PARAMS,
+  adjustRelation,
   canonicalJson,
   estTokens,
   evalExit,
+  knowledgeViolations,
+  sceneSummaryText,
+  settingConflictOf,
   sha256Hex,
+  slotKeyOf,
+  CharacterOutputSchema,
   type BeatMode,
+  type Cardinality,
   type ExitExpr,
   type RelationAxis,
   type SceneState,
 } from '@noryth/core';
 import { z } from 'zod';
 import type { Proposal, CommandHandler, CommandContext } from './commands.js';
-import { UsageError } from './errors.js';
+import { UsageError, ConstraintError } from './errors.js';
 import { newId } from './ids.js';
+import { readClaimIndex, readKnownFactIds } from './state.js';
 
 const RELATION_AXES = ['trust', 'affection', 'fear', 'debt', 'power'] as const;
 const ATTITUDES = ['knows', 'believes', 'suspects', 'doubts', 'falsely_believes'] as const;
@@ -36,11 +44,6 @@ const BEAT_MODES = ['auto', 'user_pick', 'forced_narrator', 'user_acted', 'arbit
 const MAX_BEATS_DEFAULT = PARAMS['scene.max_beats'];
 const MAX_BEATS_LIMIT = 400; // docs/02-schema.sql: CHECK (max_beats BETWEEN 1 AND 400)
 const MAX_LEVEL = PARAMS['scene.max_level'];
-const RELATION_JUMP = PARAMS['consistency.relation_jump_threshold'];
-
-function clamp(x: number, lo: number, hi: number): number {
-  return x < lo ? lo : x > hi ? hi : x;
-}
 
 export interface EntityRow {
   id: string;
@@ -175,6 +178,44 @@ function assertExitExpr(expr: unknown): ExitExpr {
     );
   }
   return expr as ExitExpr;
+}
+
+/**
+ * 第 2 类冲突（设定冲突）：claim 落在被锁定的 fact 槽位上，且值不同。
+ * 主语写 id 或名字都接受；未知主语 / 未登记谓词视为"新 claim"，不改世界状态。
+ */
+function claimSettingConflicts(
+  ctx: CommandContext,
+  asserts: readonly { subject: string; predicate: string; object: unknown }[],
+): string[] {
+  const locks = ctx.db
+    .prepare("SELECT scope, slot_key AS slotKey FROM lock WHERE branch_id = ? AND scope = 'fact'")
+    .all(ctx.branchId) as { scope: string; slotKey: string }[];
+  if (locks.length === 0) return [];
+  const out: string[] = [];
+  for (const claim of asserts) {
+    const subject = resolveEntity(ctx, claim.subject);
+    if (!subject) continue;
+    const spec = ctx.db
+      .prepare('SELECT cardinality FROM predicate_spec WHERE predicate = ?')
+      .get(claim.predicate) as { cardinality: Cardinality } | undefined;
+    if (!spec) continue;
+    const slotKey = slotKeyOf(subject.id, claim.predicate, claim.object, spec.cardinality);
+    const active = ctx.db
+      .prepare(
+        'SELECT object_json AS objectJson FROM fact WHERE branch_id = ? AND slot_key = ? AND valid_to IS NULL',
+      )
+      .get(ctx.branchId, slotKey) as { objectJson: string } | undefined;
+    const conflict = settingConflictOf(
+      claim,
+      subject.id,
+      spec.cardinality,
+      active?.objectJson ?? null,
+      locks,
+    );
+    if (conflict) out.push(conflict.message);
+  }
+  return out;
 }
 
 const CastInput = z.strictObject({
@@ -534,6 +575,181 @@ export interface SceneStateResult {
   to: SceneState;
   openedSeq: number | null;
   closedSeq: number | null;
+  summaryNodeId: string | null;
+}
+
+interface SummaryNodeRow {
+  id: string;
+  branchId: string;
+  kind: 'event' | 'summary';
+  text: string;
+  importance: number;
+  stability: number;
+  conf: number;
+  validFrom: string;
+  pinned: 0 | 1;
+  hard: 0 | 1;
+  sensitivity: number;
+  slotKey: string | null;
+  sourceSeq: number | null;
+}
+
+interface SceneCloseMemory {
+  children: SummaryNodeRow[];
+  summary: SummaryNodeRow;
+  edges: { src: string; dst: string; kind: 'DERIVED_FROM'; weight: number }[];
+  downweight: { id: string; importance: number }[];
+}
+
+/**
+ * 场景关闭时的记忆落点（03 §6）：每拍一条 event 节点，一个 summary 节点，
+ * DERIVED_FROM 指向被压缩的拍；原文只降权、不删除（触发器守删除）。
+ * 摘要走确定性抽取，回退能复演；模型润色留给 P3 的 summarize 作业。
+ */
+function buildSceneCloseMemory(
+  ctx: CommandContext,
+  scene: SceneRow,
+  sourceSeq: number,
+): SceneCloseMemory | null {
+  const slotKey = `scene:${scene.id}`;
+  const exists = ctx.db
+    .prepare(
+      "SELECT 1 FROM memory_node WHERE branch_id = ? AND kind = 'summary' AND slot_key = ?",
+    )
+    .get(ctx.branchId, slotKey);
+  if (exists) return null;
+
+  const rows = ctx.db
+    .prepare(
+      `SELECT seq, agent_id AS agentId, role_type AS roleType, prose, created_at AS createdAt
+       FROM message WHERE scene_id = ? AND role_type IN ('character','narrator')
+       ORDER BY seq`,
+    )
+    .all(scene.id) as { seq: number; agentId: string; roleType: string; prose: string; createdAt: string }[];
+  const body = rows.filter((row) => row.prose.trim().length > 0);
+  if (body.length === 0) return null;
+
+  const speakerOf = (agentId: string, roleType: string): string => {
+    if (roleType === 'narrator') return '旁白';
+    const entity = ctx.db.prepare('SELECT name FROM entity WHERE id = ?').get(agentId) as
+      | { name: string }
+      | undefined;
+    return entity?.name ?? agentId;
+  };
+  const text = sceneSummaryText({
+    title: scene.title,
+    goal: (() => {
+      try {
+        const goal = JSON.parse(scene.goal) as { text?: unknown };
+        return typeof goal.text === 'string' ? goal.text : '';
+      } catch {
+        return '';
+      }
+    })(),
+    beats: body.map((row) => ({
+      seq: row.seq,
+      roleType: row.roleType,
+      speaker: speakerOf(row.agentId, row.roleType),
+      prose: row.prose,
+    })),
+  });
+  if (text.length === 0) return null;
+
+  const children: SummaryNodeRow[] = body.map((row) => ({
+    id: newId('mn'),
+    branchId: ctx.branchId,
+    kind: 'event',
+    text: row.prose,
+    importance: 0.8,
+    stability: 21,
+    conf: 1,
+    validFrom: row.createdAt,
+    pinned: 0,
+    hard: 0,
+    sensitivity: 0,
+    slotKey: null,
+    sourceSeq: row.seq,
+  }));
+  const summary: SummaryNodeRow = {
+    id: newId('mn'),
+    branchId: ctx.branchId,
+    kind: 'summary',
+    text,
+    importance: 1.5,
+    stability: 180,
+    conf: 1,
+    validFrom: ctx.now,
+    pinned: 0,
+    hard: 0,
+    sensitivity: 1,
+    slotKey,
+    sourceSeq,
+  };
+  return {
+    children,
+    summary,
+    // DERIVED_FROM 的方向：child → summary（"这条记忆派生自那次压缩"）。
+    // 触发器 ck_memory_has_children 保护 dst，也就是保护摘要节点不被删。
+    edges: children.map((child) => ({
+      src: child.id,
+      dst: summary.id,
+      kind: 'DERIVED_FROM' as const,
+      weight: 1,
+    })),
+    downweight: children.map((child) => ({
+      id: child.id,
+      importance: Math.max(0.05, Number((child.importance * 0.5).toFixed(3))),
+    })),
+  };
+}
+
+function applySceneCloseMemory(ctx: CommandContext, sceneId: string, memory: SceneCloseMemory): void {
+  const insert = ctx.db.prepare(
+    `INSERT INTO memory_node(id, branch_id, kind, text, importance, stability, conf,
+       valid_from, last_access, access_count, pinned, hard, sensitivity, owner_id,
+       slot_key, source_seq, resolved_seq, embedding, embedding_model, embedding_dim)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?, ?, NULL, ?, ?, NULL, NULL, NULL, NULL)`,
+  );
+  for (const row of memory.children) {
+    insert.run(
+      row.id,
+      row.branchId,
+      row.kind,
+      row.text,
+      row.importance,
+      row.stability,
+      row.conf,
+      row.validFrom,
+      row.pinned,
+      row.hard,
+      row.sensitivity,
+      row.slotKey,
+      row.sourceSeq,
+    );
+  }
+  const summary = memory.summary;
+  insert.run(
+    summary.id,
+    summary.branchId,
+    summary.kind,
+    summary.text,
+    summary.importance,
+    summary.stability,
+    summary.conf,
+    summary.validFrom,
+    summary.pinned,
+    summary.hard,
+    summary.sensitivity,
+    summary.slotKey,
+    summary.sourceSeq,
+  );
+  const link = ctx.db.prepare(
+    'INSERT INTO memory_edge(src, dst, kind, weight) VALUES (?, ?, ?, ?)',
+  );
+  for (const edge of memory.edges) link.run(edge.src, edge.dst, edge.kind, edge.weight);
+  const weight = ctx.db.prepare('UPDATE memory_node SET importance = ? WHERE id = ?');
+  for (const row of memory.downweight) weight.run(row.importance, row.id);
+  ctx.db.prepare('UPDATE scene SET summary = ? WHERE id = ?').run(summary.text, sceneId);
 }
 
 export const sceneStateHandler: CommandHandler = {
@@ -551,6 +767,10 @@ export const sceneStateHandler: CommandHandler = {
     const closedSeq = payload.to === 'closed' || payload.to === 'abandoned'
       ? ctx.headSeq
       : null;
+    const memory =
+      payload.to === 'closed'
+        ? buildSceneCloseMemory(ctx, scene, closedSeq ?? ctx.headSeq)
+        : null;
     return {
       eventKind: 'scene.state.changed',
       eventPayload: {
@@ -560,6 +780,7 @@ export const sceneStateHandler: CommandHandler = {
         openedSeq,
         closedSeq,
         reason: payload.reason,
+        memory,
       },
       apply(): SceneStateResult {
         ctx.db
@@ -581,12 +802,14 @@ export const sceneStateHandler: CommandHandler = {
             .prepare('UPDATE project_state SET active_scene_id = NULL WHERE project_id = ?')
             .run(ctx.projectId);
         }
+        if (memory) applySceneCloseMemory(ctx, scene.id, memory);
         return {
           sceneId: scene.id,
           from: scene.state,
           to: payload.to,
           openedSeq,
           closedSeq,
+          summaryNodeId: memory?.summary.id ?? null,
         };
       },
     };
@@ -705,6 +928,42 @@ export const beatCommitHandler: CommandHandler = {
       if (!entity) throw new UsageError(`受众不是本分支实体：${audienceId}`);
     }
 
+    // 03 §8 第 1/2 类冲突在提交前判定：结构化断言越权、设定冲突都阻断。
+    if (payload.roleType === 'character') {
+      const parsed = CharacterOutputSchema.safeParse(payload.structured);
+      if (!parsed.success) {
+        throw new UsageError(
+          `角色 structured 不符合输出契约：${parsed.error.issues
+            .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+            .join('; ')}`,
+        );
+      }
+      const known = readKnownFactIds(db, branchId, payload.agentId);
+      const claims = readClaimIndex(db, branchId);
+      const violations = knowledgeViolations(parsed.data, known, claims);
+      if (violations.length > 0) {
+        throw new ConstraintError(
+          `结构化断言越权：${violations.map((v) => v.detail).join('；')}`,
+          'ck_knowledge_violation',
+        );
+      }
+      for (const factId of parsed.data.reveals) {
+        const active = db
+          .prepare('SELECT 1 FROM fact WHERE id = ? AND branch_id = ? AND valid_to IS NULL')
+          .get(factId, branchId);
+        if (!active) {
+          throw new ConstraintError(
+            `reveals 了已失效或不存在的事实 ${factId}：陈旧值不得再被引用`,
+            'ck_stale_fact_reveal',
+          );
+        }
+      }
+      const conflicts = claimSettingConflicts(ctx, parsed.data.asserts);
+      if (conflicts.length > 0) {
+        throw new ConstraintError(conflicts.join('；'), 'ck_setting_conflict');
+      }
+    }
+
     const cognitionRows: CognitionRow[] = [];
     for (const row of payload.cognition) {
       const fact = db
@@ -715,6 +974,11 @@ export const beatCommitHandler: CommandHandler = {
         .prepare("SELECT id FROM entity WHERE id = ? AND branch_id = ? AND kind = 'character'")
         .get(row.characterId, branchId);
       if (!character) throw new UsageError(`认知引用了无效角色：${row.characterId}`);
+      if (row.characterId !== payload.agentId && !payload.audience.includes(row.characterId)) {
+        throw new UsageError(
+          `认知主体不在本条消息的受众里：${row.characterId}（同场 ≠ 可感知）`,
+        );
+      }
       cognitionRows.push({
         branchId,
         characterId: row.characterId,
@@ -744,25 +1008,27 @@ export const beatCommitHandler: CommandHandler = {
         )
         .get(branchId, row.fromId, row.toId, row.axis) as { value: number } | undefined;
       const oldValue = previous?.value ?? 0;
-      let value = row.value;
-      let reason = row.reason.trim();
-      const delta = Math.abs(value - oldValue);
-      const clamped = delta > RELATION_JUMP && reason.length === 0;
-      if (delta > RELATION_JUMP && reason.length === 0) {
-        value = clamp(oldValue + Math.sign(value - oldValue) * RELATION_JUMP, -1, 1);
-        reason = '（无理由，自动钳制到阈值）';
-      }
-      if (delta > RELATION_JUMP) {
-        relationJumps.push({ axis: row.axis, from: oldValue, to: value, clamped });
+      const adjustment = adjustRelation({
+        oldValue,
+        requested: row.value,
+        reason: row.reason,
+      });
+      if (adjustment.jumped) {
+        relationJumps.push({
+          axis: row.axis,
+          from: oldValue,
+          to: adjustment.value,
+          clamped: adjustment.clamped,
+        });
       }
       relationRows.push({
         branchId,
         fromId: row.fromId,
         toId: row.toId,
         axis: row.axis,
-        value,
+        value: adjustment.value,
         updatedSeq: headSeq,
-        reason: reason.length > 0 ? reason : null,
+        reason: adjustment.reason,
       });
     }
 
@@ -949,25 +1215,23 @@ export const relationSetHandler: CommandHandler = {
       .prepare('SELECT value FROM relation WHERE branch_id = ? AND from_id = ? AND to_id = ? AND axis = ?')
       .get(branchId, payload.fromId, payload.toId, payload.axis) as { value: number } | undefined;
     const oldValue = previous?.value ?? 0;
-    let value = payload.value;
-    let reason = payload.reason.trim();
-    const clamped = Math.abs(value - oldValue) > RELATION_JUMP && reason.length === 0;
-    if (clamped) {
-      value = clamp(oldValue + Math.sign(value - oldValue) * RELATION_JUMP, -1, 1);
-      reason = '（无理由，自动钳制到阈值）';
-    }
+    const adjustment = adjustRelation({
+      oldValue,
+      requested: payload.value,
+      reason: payload.reason,
+    });
     const row: RelationRow = {
       branchId,
       fromId: payload.fromId,
       toId: payload.toId,
       axis: payload.axis,
-      value,
+      value: adjustment.value,
       updatedSeq: headSeq,
-      reason: reason.length > 0 ? reason : null,
+      reason: adjustment.reason,
     };
     return {
       eventKind: 'relation.set',
-      eventPayload: { relation: row, previous: oldValue, clamped },
+      eventPayload: { relation: row, previous: oldValue, clamped: adjustment.clamped },
       apply(): RelationSetResult {
         db.prepare(
           `INSERT INTO relation(branch_id, from_id, to_id, axis, value, updated_seq, reason)
@@ -990,7 +1254,7 @@ export const relationSetHandler: CommandHandler = {
           axis: row.axis,
           value: row.value,
           previous: oldValue,
-          clamped,
+          clamped: adjustment.clamped,
         };
       },
     };

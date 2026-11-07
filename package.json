@@ -15,7 +15,8 @@
     "test:coverage": "vitest run --coverage",
     "gen:parity": "python -B scripts/gen-parity.py",
     "gate:p0": "pnpm build && pnpm test:coverage && python -B scripts/check.py && node scripts/check-p0.mjs",
-    "gate:p1": "pnpm build && pnpm test:coverage && python -B scripts/check.py && node scripts/check-p0.mjs && node scripts/check-p1.mjs"
+    "gate:p1": "pnpm build && pnpm test:coverage && python -B scripts/check.py && node scripts/check-p0.mjs && node scripts/check-p1.mjs",
+    "gate:p2": "pnpm build && pnpm test:coverage && python -B scripts/check.py && node scripts/check-p0.mjs && node scripts/check-p1.mjs && node scripts/check-p2.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

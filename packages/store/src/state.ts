@@ -28,6 +28,7 @@ import {
 } from '@noryth/core';
 import type { Db } from './db.js';
 import { UsageError } from './errors.js';
+import { readCharacterMemories } from './memory-search.js';
 
 const MAX_CANDIDATES = PARAMS['scheduler.max_candidates'];
 const RECENT_MAX = PARAMS['context.recent_max_beats'];
@@ -591,6 +592,7 @@ export function readCharacterContext(
       scene.present.filter((id) => id !== characterId),
     ),
     clues: readClues(db, branchId),
+    memories: readCharacterMemories(db, sceneId, characterId),
     budget,
   };
 }
