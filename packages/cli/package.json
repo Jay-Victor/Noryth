@@ -1,0 +1,16 @@
+{
+  "name": "@noryth/cli",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/main.js",
+  "types": "dist/main.d.ts",
+  "bin": {
+    "noryth": "dist/main.js"
+  },
+  "dependencies": {
+    "@noryth/core": "workspace:*",
+    "@noryth/git": "workspace:*",
+    "@noryth/store": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}

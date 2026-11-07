@@ -1,0 +1,25 @@
+{
+  "name": "noryth",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Noryth · 剧场式小说 AI 写作工作台",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
+    "noryth": "node packages/cli/dist/main.js",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "gen:parity": "python -B scripts/gen-parity.py",
+    "gate:p0": "pnpm build && pnpm test:coverage && python -B scripts/check.py && node scripts/check-p0.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "^5.1.0",
+    "typescript": "5.9.3",
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,801 @@
+{
+  "note": "由 scripts/gen-parity.py 从 design/probe/noryth_proto.py 生成；不要手改",
+  "hash": [
+    {
+      "parts": [
+        "1",
+        "1",
+        "char:lin"
+      ],
+      "value": 0.8204500500794829
+    },
+    {
+      "parts": [
+        "7",
+        "3",
+        "c0"
+      ],
+      "value": 0.5163666575720662
+    },
+    {
+      "parts": [
+        "42",
+        "17",
+        "narrator"
+      ],
+      "value": 0.3740203164256541
+    },
+    {
+      "parts": [
+        "2026",
+        "1",
+        "e_shen"
+      ],
+      "value": 0.3808983055565416
+    },
+    {
+      "parts": [
+        "长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长长"
+      ],
+      "value": 0.5254560670891913
+    },
+    {
+      "parts": [
+        "multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-multi-block-"
+      ],
+      "value": 0.9762622309866746
+    }
+  ],
+  "tokens": [
+    {
+      "text": "",
+      "value": 0
+    },
+    {
+      "text": "雨",
+      "value": 1
+    },
+    {
+      "text": "雨雨雨",
+      "value": 2
+    },
+    {
+      "text": "你迟到了。",
+      "value": 3
+    },
+    {
+      "text": "雨水顺着屋檐砸在青石板上。",
+      "value": 9
+    },
+    {
+      "text": "hello world",
+      "value": 3
+    },
+    {
+      "text": "混合 mixed 文本 123",
+      "value": 6
+    }
+  ],
+  "scheduler": {
+    "candidates": [
+      {
+        "id": "char:lin",
+        "goal_rel": 1.0,
+        "initiative": 0.9,
+        "stake": 0.57,
+        "addressed": 0.0,
+        "is_narrator": false,
+        "since": 0,
+        "_streak": 1,
+        "speak_count": 12
+      },
+      {
+        "id": "char:shen",
+        "goal_rel": 1.0,
+        "initiative": 0.6,
+        "stake": 0.57,
+        "addressed": 1.0,
+        "is_narrator": false,
+        "since": 1,
+        "_streak": 0,
+        "speak_count": 9
+      },
+      {
+        "id": "char:qi",
+        "goal_rel": 0.0,
+        "initiative": 0.3,
+        "stake": 0.27,
+        "addressed": 0.0,
+        "is_narrator": false,
+        "since": 9,
+        "_streak": 0,
+        "speak_count": 2
+      },
+      {
+        "id": "narrator",
+        "goal_rel": 0.0,
+        "initiative": 0.5,
+        "stake": 0.0,
+        "addressed": 0.0,
+        "is_narrator": true,
+        "since": 99,
+        "_streak": 0,
+        "speak_count": 5
+      }
+    ],
+    "ctx": {
+      "conflict_level": 2.1,
+      "consecutive_dialogue": 2,
+      "beats_since_narrator": 3
+    },
+    "seed": 7,
+    "seq": 3,
+    "ranked": [
+      {
+        "id": "char:shen",
+        "base": 0.7792,
+        "score": 0.8274656740616652,
+        "jitter": 0.04826567406166511,
+        "parts": {
+          "goal": 0.34,
+          "addr": 0.3,
+          "stake": 0.09119999999999999,
+          "narr": 0.0,
+          "init": 0.048
+        },
+        "addressed": 1.0,
+        "speak_count": 9
+      },
+      {
+        "id": "char:lin",
+        "base": 0.5032,
+        "score": 0.5072381562876411,
+        "jitter": 0.0040381562876411195,
+        "parts": {
+          "goal": 0.34,
+          "addr": 0.0,
+          "stake": 0.09119999999999999,
+          "narr": 0.0,
+          "init": 0.07200000000000001
+        },
+        "addressed": 0.0,
+        "speak_count": 12
+      },
+      {
+        "id": "narrator",
+        "base": 0.16,
+        "score": 0.19551077052799648,
+        "jitter": 0.03551077052799647,
+        "parts": {
+          "goal": 0.0,
+          "addr": 0.0,
+          "stake": 0.0,
+          "narr": 0.12,
+          "init": 0.04
+        },
+        "addressed": 0.0,
+        "speak_count": 5
+      },
+      {
+        "id": "char:qi",
+        "base": 0.06720000000000001,
+        "score": 0.1164849903808553,
+        "jitter": 0.049284990380855286,
+        "parts": {
+          "goal": 0.0,
+          "addr": 0.0,
+          "stake": 0.0432,
+          "narr": 0.0,
+          "init": 0.024
+        },
+        "addressed": 0.0,
+        "speak_count": 2
+      }
+    ],
+    "damped": [
+      {
+        "id": "char:shen",
+        "score": 0.8274656740616652,
+        "capped": false
+      },
+      {
+        "id": "narrator",
+        "score": 0.19551077052799648,
+        "capped": false
+      },
+      {
+        "id": "char:lin",
+        "score": 0.17753335470067438,
+        "capped": false
+      },
+      {
+        "id": "char:qi",
+        "score": 0.1164849903808553,
+        "capped": false
+      }
+    ],
+    "capped_input": [
+      {
+        "id": "char:lin",
+        "goal_rel": 1.0,
+        "initiative": 1.0,
+        "stake": 1.0,
+        "addressed": 0.0,
+        "is_narrator": false,
+        "since": 0,
+        "_streak": 3,
+        "speak_count": 20
+      },
+      {
+        "id": "char:shen",
+        "goal_rel": 0.5,
+        "initiative": 0.5,
+        "stake": 0.4,
+        "addressed": 0.0,
+        "is_narrator": false,
+        "since": 2,
+        "_streak": 0,
+        "speak_count": 4
+      }
+    ],
+    "capped": [
+      {
+        "id": "char:shen",
+        "score": 0.3222656740616651,
+        "capped": false
+      },
+      {
+        "id": "char:lin",
+        "score": 0.0,
+        "capped": true
+      }
+    ],
+    "arbitration": false,
+    "pick": "char:shen"
+  },
+  "stake": [
+    {
+      "conflict": 0,
+      "secret": false,
+      "ownership": 0,
+      "value": 0.15
+    },
+    {
+      "conflict": 2.1,
+      "secret": true,
+      "ownership": 0,
+      "value": 0.5655
+    },
+    {
+      "conflict": 4,
+      "secret": true,
+      "ownership": 1.0,
+      "value": 0.8699999999999999
+    },
+    {
+      "conflict": 2,
+      "secret": false,
+      "ownership": 1.0,
+      "value": 0.46
+    }
+  ],
+  "context": {
+    "big": {
+      "kept": [
+        "card:c1",
+        "recent:b0",
+        "recent:b1",
+        "recent:b2",
+        "recent:b3",
+        "recent:b4",
+        "recent:b5",
+        "recent:b6",
+        "recent:b7",
+        "recent:b8",
+        "recent:b9",
+        "recent:b10",
+        "recent:b11",
+        "recent:b12",
+        "recent:b13",
+        "recent:b14",
+        "recent:b15",
+        "recent:b16",
+        "recent:b17",
+        "recent:b18",
+        "recent:b19",
+        "recent:b20",
+        "recent:b21",
+        "recent:b22",
+        "recent:b23",
+        "recent:b24",
+        "recent:b25",
+        "recent:b26",
+        "recent:b27",
+        "recent:b28",
+        "recent:b29",
+        "recent:b30",
+        "recent:b31",
+        "recent:b32",
+        "recent:b33",
+        "recent:b34",
+        "recent:b35",
+        "recent:b36",
+        "recent:b37",
+        "recent:b38",
+        "recent:b39",
+        "memory:m0",
+        "memory:m1",
+        "memory:m2",
+        "memory:m3",
+        "memory:m4",
+        "memory:m5",
+        "memory:m6",
+        "memory:m7",
+        "memory:m8",
+        "memory:m9",
+        "memory:m10",
+        "memory:m11",
+        "memory:m12",
+        "memory:m13",
+        "memory:m14",
+        "memory:m15",
+        "memory:m16",
+        "memory:m17",
+        "memory:m18",
+        "memory:m19",
+        "memory:m20",
+        "memory:m21",
+        "memory:m22",
+        "memory:m23",
+        "memory:m24",
+        "memory:m25",
+        "memory:m26",
+        "memory:m27",
+        "memory:m28",
+        "memory:m29",
+        "memory:m30",
+        "memory:m31",
+        "memory:m32",
+        "memory:m33",
+        "memory:m34",
+        "memory:m35",
+        "memory:m36",
+        "memory:m37",
+        "memory:m38",
+        "memory:m39",
+        "memory:m40",
+        "memory:m41",
+        "memory:m42",
+        "memory:m43",
+        "memory:m44",
+        "memory:m45",
+        "memory:m46",
+        "memory:m47",
+        "memory:m48",
+        "memory:m49",
+        "memory:m50",
+        "memory:m51",
+        "memory:m52",
+        "memory:m53",
+        "memory:m54",
+        "memory:m55",
+        "memory:m56",
+        "memory:m57",
+        "memory:m58",
+        "memory:m59",
+        "memory:m60",
+        "memory:m61",
+        "memory:m62",
+        "memory:m63",
+        "memory:m64",
+        "memory:m65",
+        "memory:m66",
+        "memory:m67",
+        "memory:m68",
+        "memory:m69",
+        "memory:m70",
+        "memory:m71",
+        "memory:m72",
+        "memory:m73",
+        "memory:m74",
+        "memory:m75",
+        "memory:m76",
+        "memory:m77",
+        "memory:m78",
+        "memory:m79",
+        "memory:m80",
+        "memory:m81",
+        "memory:m82",
+        "memory:m83",
+        "memory:m84",
+        "memory:m85",
+        "memory:m86",
+        "memory:m87",
+        "memory:m88",
+        "memory:m89",
+        "memory:m90",
+        "memory:m91",
+        "memory:m92",
+        "memory:m93",
+        "memory:m94",
+        "memory:m95",
+        "memory:m96",
+        "memory:m97",
+        "memory:m98",
+        "memory:m99",
+        "memory:m100",
+        "memory:m101",
+        "memory:m102",
+        "memory:m103",
+        "memory:m104",
+        "memory:m105",
+        "memory:m106",
+        "memory:m107",
+        "memory:m108",
+        "memory:m109",
+        "memory:m110",
+        "memory:m111",
+        "memory:m112",
+        "memory:m113",
+        "memory:m114",
+        "memory:m115",
+        "memory:m116",
+        "memory:m117",
+        "memory:m118",
+        "memory:m119",
+        "memory:m120",
+        "memory:m121",
+        "memory:m122",
+        "memory:m123",
+        "memory:m124",
+        "memory:m125",
+        "memory:m126",
+        "memory:m127",
+        "memory:m128",
+        "memory:m129",
+        "memory:m130",
+        "memory:m131",
+        "memory:m132",
+        "memory:m133",
+        "memory:m134",
+        "memory:m135",
+        "memory:m136",
+        "memory:m137",
+        "memory:m138",
+        "memory:m139",
+        "memory:m140",
+        "memory:m141",
+        "memory:m142",
+        "memory:m143",
+        "memory:m144",
+        "memory:m145",
+        "memory:m146",
+        "memory:m147",
+        "memory:m148",
+        "memory:m149",
+        "memory:m150",
+        "memory:m151",
+        "memory:m152",
+        "memory:m153",
+        "memory:m154",
+        "memory:m155",
+        "memory:m156",
+        "memory:m157",
+        "memory:m158",
+        "memory:m159",
+        "memory:m160",
+        "memory:m161",
+        "memory:m162",
+        "memory:m163",
+        "memory:m164",
+        "memory:m165",
+        "memory:m166",
+        "memory:m167",
+        "memory:m168",
+        "memory:m169",
+        "memory:m170",
+        "memory:m171",
+        "memory:m172",
+        "memory:m173",
+        "memory:m174",
+        "memory:m175",
+        "memory:m176",
+        "memory:m177",
+        "memory:m178",
+        "memory:m179",
+        "memory:m180",
+        "memory:m181",
+        "memory:m182",
+        "memory:m183",
+        "memory:m184",
+        "memory:m185",
+        "memory:m186",
+        "memory:m187",
+        "memory:m188",
+        "memory:m189",
+        "memory:m190",
+        "memory:m191",
+        "memory:m192",
+        "memory:m193",
+        "memory:m194",
+        "memory:m195",
+        "memory:m196",
+        "memory:m197",
+        "memory:m198",
+        "memory:m199"
+      ],
+      "level": "full",
+      "tokens": 4352,
+      "dropped": 0
+    },
+    "tiny": {
+      "kept": [],
+      "level": "id+drop",
+      "tokens": 0,
+      "dropped": 10
+    },
+    "fits": {
+      "kept": [
+        "s:s1"
+      ],
+      "level": "full",
+      "tokens": 1,
+      "dropped": 0
+    }
+  },
+  "knowledge": {
+    "lin": [
+      {
+        "id": "f1",
+        "object": "甲",
+        "redacted": false
+      },
+      {
+        "id": "f3",
+        "object": "（未知）",
+        "redacted": true
+      },
+      {
+        "id": "f4",
+        "object": "账本",
+        "redacted": false
+      }
+    ],
+    "shen": [
+      {
+        "id": "f2",
+        "object": "乙"
+      }
+    ],
+    "nobody": []
+  },
+  "audience": [
+    {
+      "mode": "public",
+      "audience": [
+        "qi",
+        "shen"
+      ]
+    },
+    {
+      "mode": "whisper",
+      "audience": [
+        "qi",
+        "shen"
+      ]
+    },
+    {
+      "mode": "soliloquy",
+      "audience": []
+    },
+    {
+      "mode": "narrator_reader",
+      "audience": []
+    }
+  ],
+  "exit": {
+    "state": {
+      "facts": [
+        {
+          "subject": "信",
+          "predicate": "送达",
+          "object": true
+        },
+        {
+          "subject": "账本",
+          "predicate": "持有",
+          "object": "shen"
+        }
+      ],
+      "rels": [
+        {
+          "from": "a",
+          "to": "b",
+          "axis": "trust",
+          "value": -0.5
+        }
+      ],
+      "beats": 19
+    },
+    "cases": [
+      {
+        "expr": {
+          "op": "fact",
+          "subject": "信",
+          "predicate": "送达",
+          "object": true
+        },
+        "expected": true
+      },
+      {
+        "expr": {
+          "op": "fact",
+          "subject": "信",
+          "predicate": "送达",
+          "object": false
+        },
+        "expected": false
+      },
+      {
+        "expr": {
+          "op": "fact",
+          "subject": "账本",
+          "predicate": "持有",
+          "object": "shen"
+        },
+        "expected": true
+      },
+      {
+        "expr": {
+          "op": "rel",
+          "from": "a",
+          "to": "b",
+          "axis": "trust",
+          "cmp": "<",
+          "value": -0.3
+        },
+        "expected": true
+      },
+      {
+        "expr": {
+          "op": "rel",
+          "from": "a",
+          "to": "b",
+          "axis": "affection",
+          "cmp": ">",
+          "value": 0.1
+        },
+        "expected": false
+      },
+      {
+        "expr": {
+          "op": "beats",
+          "cmp": ">=",
+          "value": 18
+        },
+        "expected": true
+      },
+      {
+        "expr": {
+          "op": "not",
+          "of": {
+            "op": "beats",
+            "cmp": ">=",
+            "value": 100
+          }
+        },
+        "expected": true
+      },
+      {
+        "expr": {
+          "op": "any",
+          "of": [
+            {
+              "op": "beats",
+              "cmp": ">=",
+              "value": 99
+            },
+            {
+              "op": "beats",
+              "cmp": ">=",
+              "value": 18
+            }
+          ]
+        },
+        "expected": true
+      },
+      {
+        "expr": {
+          "op": "all",
+          "of": [
+            {
+              "op": "beats",
+              "cmp": ">=",
+              "value": 18
+            },
+            {
+              "op": "beats",
+              "cmp": ">=",
+              "value": 99
+            }
+          ]
+        },
+        "expected": false
+      }
+    ]
+  },
+  "voice": [
+    {
+      "a": [
+        "我没说过这话。",
+        "账本不在我这儿。",
+        "你走吧。"
+      ],
+      "b": [
+        "我没说过这话。",
+        "账本不在我这儿。",
+        "你走吧。"
+      ],
+      "distance": 0.0
+    },
+    {
+      "a": [
+        "我没说过这话。",
+        "账本不在我这儿。",
+        "你走吧。"
+      ],
+      "b": [
+        "呵，这雨下得可真是时候呢……",
+        "你说呢？",
+        "我倒是想听听，你打算怎么解释呀？"
+      ],
+      "distance": 0.44263136415019044
+    },
+    {
+      "a": [],
+      "b": [
+        "我没说过这话。",
+        "账本不在我这儿。",
+        "你走吧。"
+      ],
+      "distance": 0.0
+    }
+  ],
+  "relation": [
+    {
+      "old": 0.0,
+      "new": 0.2,
+      "delta": 0.2,
+      "verdict": "ok"
+    },
+    {
+      "old": 0.0,
+      "new": 0.8,
+      "delta": 0.8,
+      "verdict": "needs_justification"
+    }
+  ],
+  "card": {
+    "deck": [
+      {
+        "id": "heavy",
+        "min_level": 4,
+        "consumed": false,
+        "one_shot": true
+      },
+      {
+        "id": "light",
+        "min_level": 0,
+        "consumed": false,
+        "one_shot": false
+      }
+    ],
+    "level": 1,
+    "turn": 6,
+    "flat": false,
+    "card": "light",
+    "rest": [
+      "heavy"
+    ]
+  }
+}
