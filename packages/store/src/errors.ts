@@ -52,6 +52,22 @@ export class SchemaVersionError extends NorythError {
   }
 }
 
+/** 模型调用失败或输出无法修复（重试用尽）。退出码 4。 */
+export class ModelError extends NorythError {
+  constructor(message: string) {
+    super(message, 'model');
+    this.name = 'ModelError';
+  }
+}
+
+/** 需要作者裁决（知识越界、等待人类席位）。退出码 5。 */
+export class HumanError extends NorythError {
+  constructor(message: string) {
+    super(message, 'human');
+    this.name = 'HumanError';
+  }
+}
+
 const CK_PATTERN = /\b(ck_[a-z0-9_]+)\b/i;
 
 /** 从任意 SQLite 错误里取出 ck_* 名；取不到返回 null。 */

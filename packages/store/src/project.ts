@@ -41,6 +41,11 @@ export function createProject(db: Db, input: CreateProjectInput): CreatedProject
       `INSERT INTO event(project_id, branch_id, kind, actor_type, actor_id, payload, idempotency_key, created_at)
        VALUES (?, ?, 'project.created', 'system', NULL, ?, NULL, ?)`,
     ).run(projectId, branchId, canonicalJson({ name: input.name }), now);
+    const headSeq = Number(
+      (db.prepare('SELECT COALESCE(MAX(seq), 0) AS seq FROM event').get() as { seq: number }).seq,
+    );
+    db.prepare('UPDATE branch SET head_seq = ? WHERE id = ?').run(headSeq, branchId);
+    db.prepare('UPDATE project_state SET head_seq = ? WHERE project_id = ?').run(headSeq, projectId);
   });
   tx.immediate();
   return { projectId, branchId };

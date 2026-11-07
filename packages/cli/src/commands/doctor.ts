@@ -19,7 +19,7 @@ export interface DoctorResult {
 }
 
 /**
- * 环境自检。P0 不做任何模型调用，所以模型连通性显式标 skip，
+ * 环境自检。P1 只有离线 provider，所以真实模型连通性显式标 skip，
  * 而不是假装检查过。
  */
 export function runDoctor(dirArg?: string): DoctorResult {
@@ -101,7 +101,7 @@ export function runDoctor(dirArg?: string): DoctorResult {
   checks.push({
     name: 'model',
     status: 'skip',
-    detail: 'P0 不做模型调用；连通性自检在 P1 接入模型后启用',
+    detail: 'P1 只做离线 provider（--offline）；真实 provider 连通性在 P2 接入后启用',
   });
 
   return { checks, ok: checks.every((c) => c.status !== 'fail') };

@@ -1,0 +1,80 @@
+{
+  "name": "祁昭",
+  "kind": "character",
+  "lines": [
+    {
+      "line": "半夜三更，客栈的门不关，是等人还是等雨？",
+      "action": "他靠在门框上，没有进来的意思。",
+      "thought": "两个人都没带兵器。",
+      "intent": "先看他们怎么接话。",
+      "addressed_to": [],
+      "emotion": "calm"
+    },
+    {
+      "line": "我只是路过。你们继续。",
+      "action": "他抬手示意，往后退了半步。",
+      "thought": "越说越有意思了。",
+      "intent": "装作无关，留在场里。",
+      "addressed_to": [],
+      "emotion": "calm"
+    },
+    {
+      "line": "这条街上的账，归衙门管。",
+      "action": "他从怀里摸出一块旧腰牌，在灯下晃了晃。",
+      "thought": "亮牌子，比亮刀子省事。",
+      "intent": "把场面压回规矩里。",
+      "addressed_to": [],
+      "emotion": "tense"
+    },
+    {
+      "line": "三年前那场火，卷宗还在。",
+      "action": "他把腰牌收回去，语气平得像在说天气。",
+      "thought": "他们都以为卷宗烧了。",
+      "intent": "把筹码摆上桌。",
+      "addressed_to": [],
+      "emotion": "calm"
+    },
+    {
+      "line": "你们俩说的，我一个字都不信。",
+      "action": "他走进来，顺手把门掩上。",
+      "thought": "但总有一个字是真的。",
+      "intent": "逼两个人对质。",
+      "addressed_to": [],
+      "emotion": "tense"
+    },
+    {
+      "line": "账本我看一眼，就一眼。",
+      "action": "他伸出手，掌心向上。",
+      "thought": "看完就知道谁在撒谎。",
+      "intent": "拿到物证。",
+      "addressed_to": [],
+      "emotion": "calm"
+    },
+    {
+      "line": "天亮之前，谁都别走。",
+      "action": "他把门闩落了下去。",
+      "thought": "今夜得有个结果。",
+      "intent": "封住退路。",
+      "addressed_to": [],
+      "emotion": "angry"
+    },
+    {
+      "line": "楼上的，下来吧。",
+      "action": "他抬头，冲房梁喊了一声。",
+      "thought": "木头响了三回。",
+      "intent": "把第三个人叫到明处。",
+      "addressed_to": [],
+      "emotion": "relieved"
+    }
+  ],
+  "closings": [
+    {
+      "line": "门闩落着，天却快亮了。",
+      "action": "他坐在门槛上，腰牌搁在膝头。",
+      "thought": "该来的都来了。",
+      "intent": "等一个交代。",
+      "addressed_to": [],
+      "emotion": "calm"
+    }
+  ]
+}

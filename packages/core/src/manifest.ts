@@ -54,6 +54,15 @@ export const INIT_ENTRY_SPECS: readonly InitEntrySpec[] = [
 
 export const INIT_ENTRIES: readonly string[] = INIT_ENTRY_SPECS.map((entry) => entry.path);
 
+/**
+ * Git 提交里的完整领域状态导出（01 §7）。
+ * 它**不是** init 骨架的第 8 项：只在场景关闭时写入，随提交进 Git，
+ * 用于 `restore --from-commit` 在丢库/换机器后恢复 8 个状态域。
+ */
+export const STATE_PACKAGE_PATH = '.noryth/state.json.zst';
+export const STATE_PACKAGE_FORMAT = 'noryth-state';
+export const STATE_PACKAGE_VERSION = 1;
+
 /** .noryth/ 里的运行时数据库与日志不进 Git；.noryth/state.json.zst 会进（01 §7）。 */
 export const PROJECT_GITIGNORE = [
   '# Noryth 运行时状态：数据库与日志不进 Git（01-architecture.md §7）',

@@ -1,0 +1,80 @@
+{
+  "name": "沈昼",
+  "kind": "character",
+  "lines": [
+    {
+      "line": "你母亲的忌日，快到了吧。",
+      "action": "他把伞收拢，水顺着伞骨一滴滴落在门槛上。",
+      "thought": "他在试探我。可他怎么知道是这几天？",
+      "intent": "逼林砚先开口。",
+      "addressed_to": [],
+      "emotion": "calm"
+    },
+    {
+      "line": "我不是来听故事的。账本，翻到第七页。",
+      "action": "他把一枚湿透的铜钱按在桌面上。",
+      "thought": "第七页的数目对不上。",
+      "intent": "直接落到证据上。",
+      "addressed_to": [],
+      "emotion": "tense"
+    },
+    {
+      "line": "三年前那场火，烧掉的不是货。",
+      "action": "他盯着对方的眼睛，语速慢下来。",
+      "thought": "他知道。他一定知道。",
+      "intent": "用旧案撬开缺口。",
+      "addressed_to": [],
+      "emotion": "tense"
+    },
+    {
+      "line": "你可以不说。天亮之前，我就在这儿坐着。",
+      "action": "他拖过一条长凳，坐在门边。",
+      "thought": "耗下去，先撑不住的不会是我。",
+      "intent": "把对峙变成消耗。",
+      "addressed_to": [],
+      "emotion": "calm"
+    },
+    {
+      "line": "楼下那个人，是你请来的，还是跟着我来的？",
+      "action": "他偏了偏头，示意窗外。",
+      "thought": "街对面有人站了半个时辰。",
+      "intent": "确认第三方。",
+      "addressed_to": [],
+      "emotion": "tense"
+    },
+    {
+      "line": "我不要你的命。我要那一页。",
+      "action": "他把手摊开，掌心空着。",
+      "thought": "先把话说死，才有得谈。",
+      "intent": "缩小诉求，换一次合作。",
+      "addressed_to": [],
+      "emotion": "calm"
+    },
+    {
+      "line": "你手在抖。",
+      "action": "他往前倾了倾身。",
+      "thought": "他怕的不是我。",
+      "intent": "逼出真正的恐惧。",
+      "addressed_to": [],
+      "emotion": "relieved"
+    },
+    {
+      "line": "账本给我，我今夜就走。",
+      "action": "他伸出手，停在半空。",
+      "thought": "这是最后一次好好说。",
+      "intent": "给对方最后一个台阶。",
+      "addressed_to": [],
+      "emotion": "angry"
+    }
+  ],
+  "closings": [
+    {
+      "line": "他把伞留在门边，走进了雨里。",
+      "action": "长凳还摆在原处。",
+      "thought": "账本没拿到，但门已经开了。",
+      "intent": "留一个未结的钩子。",
+      "addressed_to": [],
+      "emotion": "calm"
+    }
+  ]
+}

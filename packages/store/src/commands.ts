@@ -7,6 +7,7 @@ import {
 import { z } from 'zod';
 import type { Db } from './db.js';
 import { ConstraintError, UsageError, asConstraintError } from './errors.js';
+import { P1_HANDLERS } from './handlers.js';
 import { newId } from './ids.js';
 import { getActiveBranch, getProject } from './project.js';
 
@@ -149,6 +150,23 @@ export const messageAppendHandler: CommandHandler = {
     const contentHash = sha256Hex(`${payload.prose}\u0000${structuredJson}`);
     const tokenEst = payload.tokenEst ?? estTokens(payload.prose);
     const messageId = newId('m');
+    const messageRow = {
+      id: messageId,
+      branchId,
+      seq: headSeq,
+      sceneId: payload.sceneId,
+      beatId: payload.beatId ?? null,
+      agentId: payload.agentId,
+      roleType: payload.roleType,
+      prose: payload.prose,
+      structured: structuredJson,
+      audience: canonicalJson(payload.audience),
+      percept: payload.percept,
+      contentHash,
+      tokenEst,
+      createdAt: now,
+      supersedesId: null,
+    };
 
     return {
       eventKind: 'message.appended',
@@ -158,6 +176,8 @@ export const messageAppendHandler: CommandHandler = {
         sceneId: payload.sceneId,
         agentId: payload.agentId,
         percept: payload.percept,
+        // 重放需要完整行；只有摘要字段的事件无法回退（A6）。
+        message: messageRow,
       },
       apply(): MessageAppendResult {
         db.prepare(
@@ -165,20 +185,20 @@ export const messageAppendHandler: CommandHandler = {
              prose, structured, audience, percept, content_hash, token_est, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).run(
-          messageId,
-          branchId,
-          headSeq,
-          payload.sceneId,
-          payload.beatId ?? null,
-          payload.agentId,
-          payload.roleType,
-          payload.prose,
-          structuredJson,
-          canonicalJson(payload.audience),
-          payload.percept,
-          contentHash,
-          tokenEst,
-          now,
+          messageRow.id,
+          messageRow.branchId,
+          messageRow.seq,
+          messageRow.sceneId,
+          messageRow.beatId,
+          messageRow.agentId,
+          messageRow.roleType,
+          messageRow.prose,
+          messageRow.structured,
+          messageRow.audience,
+          messageRow.percept,
+          messageRow.contentHash,
+          messageRow.tokenEst,
+          messageRow.createdAt,
         );
         return { messageId, seq: headSeq, contentHash, tokenEst };
       },
@@ -186,7 +206,7 @@ export const messageAppendHandler: CommandHandler = {
   },
 };
 
-export const DEFAULT_HANDLERS: readonly CommandHandler[] = [messageAppendHandler];
+export const DEFAULT_HANDLERS: readonly CommandHandler[] = [messageAppendHandler, ...P1_HANDLERS];
 
 /**
  * 唯一写入路径：Command → 幂等收据 → 授权（actor）→ 提案 → 校验 →
@@ -256,7 +276,12 @@ export class CommandBus {
           'ck_stale_head',
         );
       }
-      const nextSeq = current.head_seq + 1;
+      // branch.head_seq / checkpoint.seq / snapshot.seq 都使用全局 event.seq。
+      // fork_seq 与 head_seq 只有在同一坐标系里比较才有意义（A6 的回退范围）。
+      const nextSeqRow = this.db
+        .prepare('SELECT COALESCE(MAX(seq), 0) + 1 AS n FROM event')
+        .get() as { n: number };
+      const nextSeq = Number(nextSeqRow.n);
       const ctx: CommandContext = {
         db: this.db,
         projectId: project.id,

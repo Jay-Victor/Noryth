@@ -7,6 +7,7 @@ import {
   SCHEMA_VERSION,
   SchemaVersionError,
   closeDatabase,
+  migrate,
   openDatabase,
   readStatus,
   type Db,
@@ -60,6 +61,44 @@ export function openProject(dirArg?: string): OpenedProject {
     if (version !== manifest.schemaVersion || version > SCHEMA_VERSION) {
       throw new SchemaVersionError(
         `schema 版本不一致：manifest v${manifest.schemaVersion}，数据库 v${version}，程序支持 v${SCHEMA_VERSION}`,
+      );
+    }
+    const { settings, warnings } = loadMergedSettings(manifest);
+    const status = readStatus(db);
+    return {
+      root,
+      manifest,
+      status,
+      settings,
+      warnings,
+      db,
+      close: () => closeDatabase(db),
+    };
+  } catch (error) {
+    closeDatabase(db);
+    throw error;
+  }
+}
+
+/**
+ * 写模式：迁移到当前 schema 后打开。剧场、回退、场景管理都需要写连接。
+ * 读命令仍走 openProject，避免"看一眼 status 就触发迁移"。
+ */
+export function openProjectForWrite(dirArg?: string): OpenedProject {
+  const root = resolveRoot(dirArg);
+  const manifest = readManifest(root);
+  assertManifestVersion(manifest);
+  const dbPath = path.join(root, PROJECT_LAYOUT.database);
+  if (!existsSync(dbPath)) {
+    throw new IoError(`数据库缺失：${dbPath}（项目文件不完整）`);
+  }
+  const db = openDatabase(dbPath);
+  try {
+    migrate(db);
+    const version = Number(db.pragma('user_version', { simple: true }));
+    if (version !== manifest.schemaVersion) {
+      throw new SchemaVersionError(
+        `schema 版本不一致：manifest v${manifest.schemaVersion}，数据库 v${version}`,
       );
     }
     const { settings, warnings } = loadMergedSettings(manifest);

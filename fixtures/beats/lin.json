@@ -1,0 +1,80 @@
+{
+  "name": "林砚",
+  "kind": "character",
+  "lines": [
+    {
+      "line": "账本在我肘下。你要看，先说说凭什么。",
+      "action": "他没有抬头，指尖在账页边缘停了一下。",
+      "thought": "他来得太快了。",
+      "intent": "先拖住，弄清对方知道多少。",
+      "addressed_to": [],
+      "emotion": "tense"
+    },
+    {
+      "line": "客栈的灯快尽了，有话明天再说。",
+      "action": "他把账本合上，压回肘下。",
+      "thought": "不能在这儿翻脸。",
+      "intent": "把话头推到明天。",
+      "addressed_to": [],
+      "emotion": "calm"
+    },
+    {
+      "line": "那页不是我撕的。",
+      "action": "他终于抬眼，目光在对方袖口停了一瞬。",
+      "thought": "他袖口有墨。",
+      "intent": "试探对方是否碰过账本。",
+      "addressed_to": [],
+      "emotion": "tense"
+    },
+    {
+      "line": "你要找的人，三年前就不在这条街上了。",
+      "action": "他起身去拨灯芯，背对着门口。",
+      "thought": "说出来，就再没有退路。",
+      "intent": "用旧事换一个喘息。",
+      "addressed_to": [],
+      "emotion": "sad"
+    },
+    {
+      "line": "雨这么大，你靴子倒是干的。",
+      "action": "他看了一眼门槛，水痕只到半步。",
+      "thought": "他不是从雨里来的。",
+      "intent": "点破对方的来路。",
+      "addressed_to": [],
+      "emotion": "calm"
+    },
+    {
+      "line": "我若说不知道，你信么。",
+      "action": "他把手从账本上移开，摊在桌面上。",
+      "thought": "再瞒下去，今晚就过不去了。",
+      "intent": "把选择交回给对方。",
+      "addressed_to": [],
+      "emotion": "relieved"
+    },
+    {
+      "line": "账可以给你看，人不能带走。",
+      "action": "他往前半步，挡在柜台与门之间。",
+      "thought": "这一步退不得。",
+      "intent": "划出底线。",
+      "addressed_to": [],
+      "emotion": "angry"
+    },
+    {
+      "line": "你听见楼上的动静了么。",
+      "action": "他压低声音，眼睛看向房梁。",
+      "thought": "楼上还有一个人。",
+      "intent": "把第三个人拖进这场对峙。",
+      "addressed_to": [],
+      "emotion": "afraid"
+    }
+  ],
+  "closings": [
+    {
+      "line": "灯灭了。账本还压在肘下。",
+      "action": "他坐在黑里，没有动。",
+      "thought": "明天会有人来取。",
+      "intent": "守住这一夜。",
+      "addressed_to": [],
+      "emotion": "calm"
+    }
+  ]
+}

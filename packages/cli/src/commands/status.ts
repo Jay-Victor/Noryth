@@ -53,7 +53,7 @@ export function formatView(v: ProjectView): string[] {
       : '  场景   （无进行中的场景）',
     `  章节   ${v.chapters.count} 章 · ${v.chapters.words.toLocaleString('zh-CN')} 字`,
     `  线索   ${v.openClues} 条未回收`,
-    `  预算   ${v.budget.limitCny > 0 ? `上限 ${v.budget.limitCny} 元` : '未设置上限'} · 已花费未统计（P0 无计费数据）`,
+    `  预算   ${v.budget.limitCny > 0 ? `上限 ${v.budget.limitCny} 元` : '未设置上限'} · 已花费未统计（暂无计费数据）`,
   ];
   return lines;
 }

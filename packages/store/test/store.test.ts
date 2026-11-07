@@ -112,7 +112,8 @@ describe('命令总线 · 幂等收据（P0 门禁 4）', () => {
     expect(second.result).toEqual(first.result);
     expect((db.prepare('SELECT count(*) AS c FROM message').get() as { c: number }).c).toBe(1);
     expect((db.prepare('SELECT count(*) AS c FROM receipt').get() as { c: number }).c).toBe(1);
-    expect(getActiveBranch(db)!.headSeq).toBe(1);
+    // head_seq 使用全局 event.seq：project.created = 1，第一条消息 = 2。
+    expect(getActiveBranch(db)!.headSeq).toBe(2);
   });
 
   it('同一请求不同键序命中同一条收据（canonical JSON）', () => {
@@ -143,7 +144,7 @@ describe('命令总线 · 幂等收据（P0 门禁 4）', () => {
       bus.submit({ type: 'user' }, { kind: 'message.append', idempotencyKey: 'k-1', payload: line('B') }),
     ).toThrowError(ConstraintError);
     expect((db.prepare('SELECT count(*) AS c FROM message').get() as { c: number }).c).toBe(1);
-    expect(getActiveBranch(db)!.headSeq).toBe(1);
+    expect(getActiveBranch(db)!.headSeq).toBe(2);
   });
 
   it('expectedHead 过期时拒绝，失败不占用幂等键', () => {
@@ -161,10 +162,10 @@ describe('命令总线 · 幂等收据（P0 门禁 4）', () => {
 
     const ok = bus.submit(
       { type: 'user' },
-      { kind: 'message.append', idempotencyKey: 'k-2', expectedHead: 1, payload: line('A') },
+      { kind: 'message.append', idempotencyKey: 'k-2', expectedHead: 2, payload: line('A') },
     );
     expect(ok.replayed).toBe(false);
-    expect(ok.seq).toBe(2);
+    expect(ok.seq).toBe(3);
   });
 
   it('投影失败时事件、消息、收据、head 全部回滚（引用完整性）', () => {
@@ -186,14 +187,15 @@ describe('命令总线 · 幂等收据（P0 门禁 4）', () => {
         c: number;
       }).c,
     ).toBe(0);
-    expect(getActiveBranch(db)!.headSeq).toBe(0);
+    // fixture 只写了 project.created（seq 1），失败的命令不能推进 head。
+    expect(getActiveBranch(db)!.headSeq).toBe(1);
 
     // 键没有被占用：同一个键可以用正确负载重试
     const retry = bus.submit(
       { type: 'user' },
       { kind: 'message.append', idempotencyKey: 'k-3', payload: line('A') },
     );
-    expect(retry.seq).toBe(1);
+    expect(retry.seq).toBe(2);
   });
 });
 
@@ -285,7 +287,7 @@ describe('消息写入的感知规则', () => {
     const row = db.prepare('SELECT seq, beat_id, role_type FROM message WHERE id = ?').get(
       (result.result as { messageId: string }).messageId,
     ) as { seq: number; beat_id: string | null; role_type: string };
-    expect(row.seq).toBe(1);
+    expect(row.seq).toBe(2);
     expect(row.beat_id).toBeNull();
     expect(row.role_type).toBe('user');
   });

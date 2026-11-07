@@ -42,8 +42,9 @@ export function drawEventCard(
   turn: number,
   flat: boolean,
   interval: number = CARD_INTERVAL,
+  eligible?: (card: DeckCard) => boolean,
 ): DrawResult {
-  if (!(turn % interval === 0 || flat)) {
+  if (!((turn > 0 && turn % interval === 0) || flat)) {
     return { card: null, deck: [...deck] };
   }
   for (let i = 0; i < deck.length; i += 1) {
@@ -51,6 +52,7 @@ export function drawEventCard(
     if (candidate.consumed) continue;
     if (candidate.minLevel > level) continue;
     if (candidate.oneShot && candidate.used) continue;
+    if (eligible && !eligible(candidate)) continue;
     const rest = [...deck.slice(0, i), ...deck.slice(i + 1)];
     const card: DeckCard = { ...candidate, used: true };
     if (card.oneShot) card.consumed = true;
