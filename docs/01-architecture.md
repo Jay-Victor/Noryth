@@ -450,9 +450,9 @@ noryth.json               项目清单（模型配置、分支指针）
 **状态导出包（`.noryth/state.json.zst`）**：
 
 - 编码：JSON（UTF-8）→ zstd；`format: noryth-state`、`version: 1`、`schemaVersion: 1`（与 `02-schema.sql` 的 schema 版本一致）。
-- 内容：8 个状态域 + 运行必需表（`entity` / `agent_config` / `scene` / `beat` / `message` / `fact` / `cognition` / `relation` / `chapter` / `revision` / `chapter_scene` / `issue` / `event_card` / `lock` / `outbox` / `job` / `memory_node` / `memory_edge`）；列名与 schema 一致，BLOB 以 base64 包装。
+- 内容：8 个状态域 + 运行必需表（`predicate_spec`（仅 `builtin=0`，全局表）/ `entity` / `agent_config` / `scene` / `beat` / `message` / `fact` / `cognition` / `relation` / `chapter` / `revision` / `chapter_scene` / `issue` / `event_card` / `lock` / `outbox` / `job` / `memory_node` / `memory_edge`）；列名与 schema 一致，BLOB 以 base64 包装。
 - 元数据：`projectId` / `projectName` / `createdAt`、源分支 id/name/seq、`activeSceneId`。
-- 导入：只创建新分支，不删除旧分支；主键重分配，外键 / JSON 引用 / 管道引用一起重映射；新分支 head 重新起算（取当前事件 max+1、包 seq+1、包内最大 `message.seq`+1 的最大值），保证复制消息仍排在后续新拍之前。
+- 导入：只创建新分支，不删除旧分支；主键重分配，外键 / JSON 引用 / 管道引用一起重映射；新分支 head 重新起算（取当前事件 max+1、包 seq+1、包内最大 `message.seq`+1 的最大值），保证复制消息仍排在后续新拍之前。`predicate_spec` 先于 `fact` 导入，且用 `INSERT OR IGNORE`：本地已有同名词谓时保留本地定义，不覆盖。
 - 复制来的 beat 没有本分支事件，`breakdown.eventSeq` 归零；该分支只能整体回退到恢复点，不能逐拍 `beat rewind`。需要另一条重来分支时，用同一提交加 `--label`。
 - 写入与提交：场景关闭（含收束 / WARN）或显式 `noryth commit` 写包；提交只带 `noryth.json`、状态包、`chapters/`，消息带 `Noryth-Checkpoint/Branch/Schema/Event` trailer。`restore --from-commit` 读提交里的包，不读工作区文件。
 - **敏感内容**：包内含完整正文、角色卡和秘密字段；对带远端的仓库执行 push 前必须确认可见性。

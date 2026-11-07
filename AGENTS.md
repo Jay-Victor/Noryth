@@ -12,7 +12,8 @@
 - 五个核心函数（评分 / 阻尼 / 上下文装配 / 限知过滤 / 收束求值）已用 TS 实现，探针的 44 条断言已搬成 vitest；跨语言数值夹具见 `packages/core/test/fixtures/parity.json`。
 - P0 期间补全的两处规格：项目骨架 7 项以 `packages/core/src/manifest.ts` 的 `INIT_ENTRY_SPECS` 为唯一权威（`docs/04-ui.md §2` 有同步表）；A2 配额见 `docs/01-architecture.md §6 A2`，只在 `id+drop` 阶段生效。
 - **P1 已完成**：剧场内核（调度器 / 装配 / 限知 / 导演 / 收束）、`noryth scene|run|beat|commit|restore|log`、检查点 8 域回退、Git 状态包与 `restore --from-commit` 均已落地；`pnpm gate:p1` 14/14（12 条路线图门禁 + 状态包恢复 + 手动提交端到端）。
-- **P2 已完成**：事实三态与槽位、认知/感知、设定锁、五类冲突检测中的 1–4 类、关系钳制、场景摘要与 `DERIVED_FROM`、四通道加权 RRF 检索（绝对刻度 + MMR）、可插拔嵌入管线、`job` + generation 队列；`pnpm gate:p2` 9/9。探针集 61 节点 / 20 查询（dev 14 / held-out 6），dev recall@8 100%、无关 precision@3 100%；5 万节点检索 p50 44–52 ms。
+- **P2 已完成**：实体/自定义谓词、事实三态与槽位、认知/感知、设定锁（含解锁）、冲突检测 1–4 类、关系钳制、场景摘要与 `DERIVED_FROM`、四通道加权 RRF 检索（绝对刻度 + MMR）、可插拔嵌入管线、`job` + generation 队列；`pnpm gate:p2` 9/9。探针集 61 节点 / 20 查询（dev 14 / held-out 6），dev recall@8 100%、无关 precision@3 100%；5 万节点检索 p50 44–52 ms。
+- **P2 明确延后**：冲突检测第 5 类（视角/称谓）移入 P3 审批。现有 schema 没有 POV 字段，`cognition` 也不记录称呼知识；在 P2 硬做只能是半成品。P3 审批 Agent 的“revision + 检索结果 → 带证据的 issue”正好承接。
 - **下一步是 P3**。P0 遗留的三平台 Electron 最小壳 + `better-sqlite3` 原生模块验证延后到最终打包（P6）前；本机仅 Windows，仓库还没有 CI。
 
 > 若所用工具只认固定文件名（`CLAUDE.md`、`.cursorrules`、`.github/copilot-instructions.md`），
@@ -155,7 +156,7 @@ P1 复盘的三条陷阱（已落地）：旁白靠硬节奏而不是权重；�
 
 - 纯函数：`packages/core/src/{facts,relations,retrieval,embed,summarize,text}.ts`
 - 命令与读路径：`packages/store/src/{p2-handlers,p2-read,memory-search}.ts`；场景关闭的摘要写入在 `handlers.ts`
-- CLI：`fact add|supersede|list|lock|close`、`clue list [--stale]`、`search`、`know grant`、`memory add|list|search|embed|tree|delete`、`job enqueue|list|run`
+- CLI：`entity add|list`、`predicate list|define`、`fact add|supersede|list|lock|close`、`lock set|release|list`、`clue list [--stale]`、`search`、`know grant`、`memory add|list|search|embed|tree|delete`、`job enqueue|list|run`
 - 探针集：`fixtures/p2/probes.json`（61 节点 / 7 类 / 20 查询；dev 14、held-out 6）。held-out 只在发布前单次运行，平时 `check-p2.mjs` 不碰它。
 
 P2 复盘的五条陷阱见 §8 第 21–25 条。
@@ -171,7 +172,7 @@ P2 复盘的五条陷阱见 §8 第 21–25 条。
 |---|---|---|---|
 | P0 | `noryth init` 建出可提交的项目 | 6 | 已过（三平台验证延后到 P6 打包前） |
 | P1 | CLI 跑完一场 40 拍，可回退 | 12 + 2 端到端 | 已过（14/14） |
-| P2 | 角色不再说漏，设定锁生效 | 9 | 已过（9/9） |
+| P2 | 角色不再说漏，设定锁生效 | 9 | 已过（9/9；第 5 类冲突延后 P3） |
 | P3 | 一场戏 → 一章稿 → 审出问题 → 改一版 | 11 | 下一期 |
 | P4 | 不用鼠标跑完 20 拍（TUI） | 4 | 未开始 |
 | P5 | 三条主路径可点通（GUI） | 6 | 未开始 |
@@ -206,10 +207,13 @@ P2 复盘的五条陷阱见 §8 第 21–25 条。
 19. **状态包恢复的分支只保留恢复点快照。** 复制来的 beat `eventSeq=0`，不能逐拍 `beat rewind`；要重来用同一提交加 `--label` 再开一条分支，或从更早的提交恢复。
 20. **场景提交只带 `noryth.json` + 状态包 + `chapters/`，且走 `commit-tree`，不触发 hooks/GPG。** 需要签名时手动 `git commit`；不要把用户暂存的无关文件顺手带进场景提交。
 21. **`DERIVED_FROM` 的方向是 child → summary。** 触发器 `ck_memory_has_children` 检查 `dst`，保护的是摘要节点；写反方向会让"有子节点的摘要删不掉"变成"原文删不掉"。
-22. **单通道命中过不了检索下限。** vector/fts/graph 单独排第一也不到 floor 0.45；探针集必须让每条查询至少两个通道命中。排名只保留各通道前 512 名是等价优化（512 名之后的理论最高 rel < 0.16），不是近似。
+22. **单通道命中过不了检索下限。** vector/fts/graph 单独排第一也不到 floor 0.45；探针集必须让每条查询至少两个通道命中。排名只保留各通道前 1024 名（slot 不截断）：1024 名之外的通道贡献 ≤ 4.9/1084，低于 floor；这是性能优化，不是近似语义。
 23. **`owner_id IS NULL` 的记忆是作者/规划材料，不能自动进角色上下文。** 角色自动召回用 `strictOwner`，只认 owner = 本人；否则场景摘要会把耳语内容漏给所有角色。
-24. **`predicate_spec` 是全局表，不在状态包导出清单。** P2 的 `fact` 只允许 schema 内置的 13 个谓词；自定义谓词要先解决"导出包如何携带全局表"，别在命令层偷加。
+24. **`predicate_spec` 是全局表，必须先进状态包。** `predicate.define` 现在可加自定义谓词（builtin=0），状态包/快照把它放在表清单第一位导出，导入用 `INSERT OR IGNORE`（本地已有定义优先）——顺序反了，`fact` 的外键会悬空。谓词不能含 `|`：`slot_key` 用它做分隔符。
 25. **P2 的 `job` 只有 embed 执行器。** summarize 在场景关闭时同步完成，extract/index 属于 P3；`job run` 对没有 runner 的任务标 `failed`，不假装 `done`。
+26. **解锁不改 schema：删 lock 行 + 写 `lock.released` 事件。** `lock` 表是当前状态，审计在只追加的 `event` 里；不要给表加 `released_at` 再补迁移。
+27. **`entity.add` 只建实体，不建 agent_config。** 角色实体的 agent 由 `scene.create` 在缺位时补；物品/地点/组织只需要实体。重复添加同 kind+name 且内容相同返回 `same`，内容不同则拒绝——P2 没有实体编辑命令。别名（`aliases`）会被 `resolveEntity` 用 `json_each` 匹配，事实与建场可以直接写别名；但别名不参与唯一约束，重名时按"角色优先、名字排序"取第一条。
+28. **第 5 类冲突（视角/称谓）不是忘了写。** schema 没有 POV 字段，`entity.aliases` 也没有“谁知道这个称呼”的关联；在 P2 实现只能做假。已记录为 P3 审批承接项，别在 P3 之前偷偷加半套。
 
 ---
 

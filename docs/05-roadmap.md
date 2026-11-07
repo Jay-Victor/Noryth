@@ -23,7 +23,7 @@
 
 ## 2. 各期交付物与验收门禁
 
-**实施状态**：P0、P1、P2 已完成。P0 的三平台 Electron / `better-sqlite3` 原生模块验证延后到 P6 打包前；P2 的 9 条门禁 9/9 通过（探针集 61 节点 / 20 查询，dev 70% = 14 条、held-out 30% = 6 条），下一期是 P3。
+**实施状态**：P0、P1、P2 已完成。P0 的三平台 Electron / `better-sqlite3` 原生模块验证延后到 P6 打包前；P2 的 9 条门禁 9/9 通过（探针集 61 节点 / 20 查询，dev 70% = 14 条、held-out 30% = 6 条）；第 5 类冲突（视角/称谓）延后到 P3 审批。下一期是 P3。
 
 ### P0 · 骨架与数据模型
 
@@ -102,17 +102,20 @@
 **状态**：已完成（9/9）。落点与实测：
 
 - 事实/认知/锁/记忆/任务：`packages/store/src/{p2-handlers,p2-read,memory-search}.ts`；纯函数在 `packages/core/src/{facts,relations,retrieval,embed,summarize,text}.ts`。
-- CLI：`fact add|supersede|list|lock|close`、`clue list [--stale]`、`search`、`know grant`、`memory add|list|search|embed|tree|delete`、`job enqueue|list|run`。
+- CLI：`entity add|list`、`predicate list|define`、`fact add|supersede|list|lock|close`、`lock set|release|list`、`clue list [--stale]`、`search`、`know grant`、`memory add|list|search|embed|tree|delete`、`job enqueue|list|run`。
 - 检索：61 节点探针集，dev recall@8 = 100%（12 条），无关查询 precision@3 = 100%；held-out 6 条在发布前单次运行 = 100%，未据其结果调参。
 - 性能：5 万节点 / 512 维，查询 p50 = 44–52 ms（索引构建不计入），门槛 100 ms。
 - 摘要：场景关闭同步写确定性摘要 + `DERIVED_FROM`（child → summary），原文降权不删；删摘要被 `ck_memory_has_children` 拒绝。
-- 自定义谓词：`predicate_spec` 是全局表且不在状态包导出清单，P2 只允许 schema 内置的 13 个谓词；扩展方案需单独确认（见 AGENTS §8 第 24 条）。
+- 实体与谓词：`entity add|list` 可为物品/地点/组织建实体；`predicate define` 增加自定义谓词（builtin=0），状态包与快照把 `predicate_spec` 作为全局表导出、导入时保留本地已有定义。
+- 设定锁可解除：`lock release` 删当前锁行并写 `lock.released` 事件，审计留在只追加的事件日志里，不需要 schema 增列。
+- **第 5 类冲突（视角/称谓）延后到 P3 审批**：现有 schema 没有 POV 字段，`cognition` 也不记录“谁只知道哪个称呼”。P2 只落地 1–4 类；第 5 类由 P3 的审批 Agent 在“revision + 检索结果 → 带证据的 issue”链路中承接。
 
 ---
 
 ### P3 · 六类 Agent 与正文
 
 **交付**：规划/写作/修订/审批四类 Agent 的契约与实现、章节文件与 outbox、revision 链、issue 生命周期、审批→修订直连（默认关）、Markdown 渲染与 diff。
+**承接 P2**：冲突检测第 5 类（视角/称谓）——需要先定 POV 与称呼知识的建模（`scene.pov` 字段或 `goal.pov`，以及称呼的按角色可见性），再在审批 Agent 里落成 `WARN` issue。
 
 **门禁**：
 
