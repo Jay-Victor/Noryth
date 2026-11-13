@@ -1,0 +1,32 @@
+# 设计文档（本地保留，不进仓库）
+/docs/
+
+# 依赖
+node_modules/
+
+# 构建与打包产物
+dist/
+out/
+release/
+build/
+coverage/
+*.tsbuildinfo
+
+# 本地环境
+.env
+.env.*
+!.env.example
+
+# 本地数据与日志
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.log
+logs/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
