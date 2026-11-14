@@ -7,7 +7,7 @@
 | 阶段 | 文档 | 状态 | 已完成 | 验收 | 已知问题 |
 |---:|---|---|---|---|---|
 | 01 | `docs/PHASE-01-SKELETON.md` | done | A1–A6、B1、B6、S1–S4、42+8 工具清单外壳、CI 实跑 | 全部通过：本地门禁 + CI run `43585776532` | 第二家供应商顺延阶段 04；Win10 干净机未测 |
-| 02 | `docs/PHASE-02-DATA.md` | in_progress | B2–B5、0002 迁移、13 类 repos（Kysely）、seq/hash/revision、outbox/mirror、backup、verify、fixture、57 个 DB 单测 | 本地门禁全绿：typecheck / lint / depcruise / 101 unit / 5 e2e / build；30 章打开 397ms | 待提交与 CI；备份与镜像调用点留阶段 07/10 |
+| 02 | `docs/PHASE-02-DATA.md` | done | B2–B5、0002 迁移、13 类 repos（Kysely）、seq/hash/revision、outbox/mirror、backup、verify、fixture、57 个 DB 单测、CI 实跑 | 全部通过：本地门禁 + CI run `43589148557`（verify + e2e 均绿） | 备份与镜像调用点留阶段 07/10 |
 | 03 | `docs/PHASE-03-TOOLS.md` | todo | — | — | 等 01 收口 |
 | 04 | `docs/PHASE-04-RUNTIME.md` | todo | — | — | — |
 | 05 | `docs/PHASE-05-SLICE.md` | todo | — | — | 硬门：未通过不得进入 06 |
@@ -72,6 +72,8 @@
 | 30 章性能 | `tests/unit/db/perf.test.ts` | 720 拍 / ≥120k 字；打开约 400ms（< 800ms） |
 | 正文单写 | `tests/unit/db/body-writer.test.ts` | 只有 `db/repos/beat.ts` 通过 Kysely 插入/更新 beat；无原生 `UPDATE beat ... body` |
 | Kysely | `package.json` + `src/main/db/{kysely,schema}.ts` | 全部 repos 走 Kysely builder；101 unit 全绿 |
+| CI | GitHub Actions run `43589148557`（`37e6eed`） | verify + e2e 均绿 |
+| 阶段标签 | `phase-02-done` → `37e6eed` | 已推送 origin |
 
 ## 关键决策
 
@@ -88,11 +90,11 @@
 
 ## 当前阻塞
 
-- 无功能阻塞。阶段 02 代码已提交到本地 `dev`（`b139f47`），待推送与 CI；`phase-02-done` 标签未打。
+- 无。阶段 02 已 `done`：本地门禁全绿 + CI run `43589148557`（verify 与 e2e 均通过），标签 `phase-02-done` 打在 `37e6eed`。
 
 ## 下一阶段交接
 
-- 阶段 02 状态 `in_progress`（已提交 `b139f47`，待推送 + CI）；阶段 03 可直接开工。
+- 阶段 02 已 `done`（`phase-02-done` = `37e6eed`）；阶段 03 可直接开工。
 - 数据层已就绪：`db/repos`（13 类 + outbox）、`seq`、`hash`、`revision`、`outbox`/`mirror`、`backup`、`verify`；`project/service.ts` 的内联 project SQL 已替换为 repos。
 - `0001_init.sql` 未改；新增 `0002_outbox_meta.sql`，`LATEST_SCHEMA_VERSION = 2`。任何新 DDL 必须 0003。
 - 阶段 03 工具 handler 只通过 repos 读写；正文写入只允许 `db/repos/beat.ts` 的 INSERT（`body-writer.test.ts` 会拦第二条路径）。
