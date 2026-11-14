@@ -124,6 +124,20 @@ export class JobRepo extends BaseRepo {
     return rows.map(mapJob)
   }
 
+  /** 最近任务（切片状态与诊断用），按创建时间倒序。 */
+  listRecent(projectId: string, limit = 5): JobRecord[] {
+    const rows = allRows<JobRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('job')
+        .selectAll()
+        .where('project_id', '=', projectId)
+        .orderBy('created_at', 'desc')
+        .limit(limit)
+    )
+    return rows.map(mapJob)
+  }
+
   setStatus(
     id: string,
     status: JobStatus,

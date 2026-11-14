@@ -21,6 +21,8 @@ import { vacuumInto } from '../db/backup'
 import { withTransaction } from '../db/tx'
 import { verifyDatabase, writeVerifyReport, type VerifyReport } from '../db/verify'
 import { isLockStale, readLock, startLock, type LockHandle, type LockInfo } from '../lock'
+import { recoverInterrupted } from '../doc/recovery'
+import { publishPendingMirrors } from '../doc/publish'
 import { projectDbFile, PROJECT_SUBDIRS, resolveProjectDir, validateNewProjectPath } from './paths'
 import type { ProjectRegistry, RegistryEntry } from './registry'
 
@@ -254,6 +256,10 @@ export class ProjectService {
         repos.project.setSchemaVersion(project.id, LATEST_SCHEMA_VERSION)
       }
 
+      if (!readOnly) {
+        this.recoverAfterCrash(repos, db, dir, project.id)
+      }
+
       const now = new Date().toISOString()
       const entry = this.deps.registry.find(project.id)
       if (entry) {
@@ -417,6 +423,70 @@ export class ProjectService {
     const report = verifyDatabase(current.db, { projectDir: current.dir })
     current.verify = report
     return report
+  }
+
+  /** 切片/主进程服务读取当前连接；外部不得长期持有。 */
+  currentHandle(): { dir: string; db: Db; repos: Repos; readOnly: boolean } | null {
+    const current = this.current
+    if (!current) return null
+    return { dir: current.dir, db: current.db, repos: current.repos, readOnly: current.readOnly }
+  }
+
+  /**
+   * 启动恢复（PRD §9.4 / §6.6）：
+   * running job 与 generating 拍标 interrupted；outbox 未发布行按退避重试。
+   * 两者都不阻塞打开——失败只记日志，项目仍可只读/编辑。
+   */
+  private recoverAfterCrash(repos: Repos, db: Db, dir: string, projectId: string): void {
+    try {
+      const recovery = recoverInterrupted(repos)
+      if (recovery.jobs.length > 0 || recovery.beats.length > 0) {
+        this.deps.logger.warn(
+          {
+            event: 'crash_recovery',
+            projectId,
+            jobs: recovery.jobs.length,
+            beats: recovery.beats.length
+          },
+          'interrupted jobs/beats marked for retry'
+        )
+      }
+    } catch (error) {
+      this.deps.logger.warn(
+        {
+          event: 'crash_recovery_failed',
+          projectId,
+          error: error instanceof Error ? error.message : String(error)
+        },
+        'crash recovery failed'
+      )
+    }
+
+    try {
+      const report = publishPendingMirrors(db, dir)
+      if (report.published.length > 0 || report.failed.length > 0 || report.conflicts.length > 0) {
+        this.deps.logger.info(
+          {
+            event: 'outbox_recovery',
+            projectId,
+            published: report.published.length,
+            skipped: report.skipped.length,
+            failed: report.failed.length,
+            conflicts: report.conflicts.length
+          },
+          'pending mirrors processed'
+        )
+      }
+    } catch (error) {
+      this.deps.logger.warn(
+        {
+          event: 'outbox_recovery_failed',
+          projectId,
+          error: error instanceof Error ? error.message : String(error)
+        },
+        'outbox recovery failed'
+      )
+    }
   }
 
   dispose(): void {

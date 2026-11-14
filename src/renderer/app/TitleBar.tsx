@@ -7,7 +7,8 @@ const PAGE_LABEL: Record<Page, string> = {
   write: '创作台',
   review: '审批台',
   memory: '记忆台',
-  settings: '设置'
+  settings: '设置',
+  slice: '开发切片'
 }
 
 export function TitleBar(): React.JSX.Element {

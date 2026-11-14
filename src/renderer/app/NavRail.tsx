@@ -1,7 +1,7 @@
 import { Icon, type IconName } from '../components/Icon'
-import { navGuard, useApp, type Page } from '../stores/app'
+import { navGuard, useApp, type NavPage } from '../stores/app'
 
-const ITEMS: Array<{ page: Page; label: string; icon: IconName }> = [
+const ITEMS: Array<{ page: NavPage; label: string; icon: IconName }> = [
   { page: 'home', label: '首页', icon: 'home' },
   { page: 'plan', label: '规划', icon: 'plan' },
   { page: 'write', label: '创作', icon: 'write' },
@@ -15,7 +15,7 @@ export function NavRail(): React.JSX.Element {
   const setPage = useApp((state) => state.setPage)
   const toast = useApp((state) => state.toast)
 
-  const renderItem = (item: { page: Page; label: string; icon: IconName }): React.JSX.Element => {
+  const renderItem = (item: { page: NavPage; label: string; icon: IconName }): React.JSX.Element => {
     const guard = navGuard(item.page, current)
     const active = page === item.page
     const onClick = (): void => {

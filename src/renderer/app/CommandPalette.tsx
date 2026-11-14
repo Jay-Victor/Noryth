@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getBridge } from '../lib/bridge'
 import { useOverlayDismiss } from '../hooks'
-import { navGuard, useApp, type Page } from '../stores/app'
+import { navGuard, useApp, type NavPage } from '../stores/app'
 
 interface Command {
   id: string
@@ -12,7 +12,7 @@ interface Command {
   run(): void | Promise<void>
 }
 
-const PAGE_COMMANDS: Array<{ page: Page; label: string }> = [
+const PAGE_COMMANDS: Array<{ page: NavPage; label: string }> = [
   { page: 'home', label: '首页 · 项目库' },
   { page: 'plan', label: '规划台' },
   { page: 'write', label: '创作台' },

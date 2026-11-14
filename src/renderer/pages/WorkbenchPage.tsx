@@ -2,7 +2,7 @@ import { GRID, type LayoutMode } from '../../shared/layout/grid'
 import { Icon } from '../components/Icon'
 import type { Page } from '../stores/app'
 
-type Workbench = Exclude<Page, 'home' | 'settings'>
+type Workbench = Exclude<Page, 'home' | 'settings' | 'slice'>
 
 interface WorkbenchCopy {
   title: string

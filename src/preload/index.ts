@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, IPC_EVENTS } from '../shared/ipc-channels'
 import type { IpcResult } from '../shared/schema/ipc'
 import type { ProjectStateEvent } from '../shared/schema/project'
+import type { SliceBeatEvent } from '../shared/schema/slice'
 import type { NorythBridge } from '../shared/schema/bridge'
 
 let requestSeq = 0
@@ -49,6 +50,14 @@ const bridge: NorythBridge = {
   diagnostics: {
     export: () => invoke(IPC.diagnosticsExport, {})
   },
+  slice: {
+    seed: () => invoke(IPC.sliceSeed, {}),
+    state: () => invoke(IPC.sliceState, {}),
+    generate: (beatId) => invoke(IPC.sliceGenerate, { beatId }),
+    regenerate: (beatId) => invoke(IPC.sliceRegenerate, { beatId }),
+    confirm: (beatId) => invoke(IPC.sliceConfirm, { beatId }),
+    edit: (input) => invoke(IPC.sliceEdit, input)
+  },
   app: {
     info: () => invoke(IPC.appInfo, {})
   },
@@ -60,6 +69,15 @@ const bridge: NorythBridge = {
       ipcRenderer.on(IPC_EVENTS.projectState, handler)
       return () => {
         ipcRenderer.removeListener(IPC_EVENTS.projectState, handler)
+      }
+    },
+    onSliceBeat: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: SliceBeatEvent): void => {
+        listener(payload)
+      }
+      ipcRenderer.on(IPC_EVENTS.sliceBeat, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_EVENTS.sliceBeat, handler)
       }
     }
   }

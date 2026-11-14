@@ -9,6 +9,9 @@ import { ProjectService } from './project/service'
 import { registerAppProtocol } from './protocol'
 import { devCsp, PROD_CSP } from './security'
 import { SettingsStore } from './settings/store'
+import { DevSliceService } from './slice/service'
+import { ALL_MANIFESTS } from './tools/manifests'
+import { buildRegistry } from './tools/registry'
 import { createMainWindow, preloadPathFor } from './window'
 import { IPC_EVENTS } from '../shared/schema/ipc'
 import type { AppInfo, ProjectStateEvent } from '../shared/schema/project'
@@ -116,7 +119,7 @@ async function bootstrap(): Promise<void> {
     }
   }
 
-  projectService = new ProjectService({
+  const projectServiceInstance = new ProjectService({
     registry,
     appVersion: app.getVersion(),
     windowId: `win_${window.id}`,
@@ -125,14 +128,30 @@ async function bootstrap(): Promise<void> {
     emit,
     appInfo: buildAppInfo
   })
+  projectService = projectServiceInstance
+
+  const sliceEnabled = !app.isPackaged && process.env.NORYTH_SLICE !== '0'
+  const slice = sliceEnabled
+    ? new DevSliceService({
+        host: () => projectServiceInstance.currentHandle(),
+        registry: buildRegistry(ALL_MANIFESTS, { at: new Date().toISOString() }),
+        fixturePath: join(app.getAppPath(), 'tests', 'fixtures', 'slice', 'project.json'),
+        send: (event) => {
+          if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.sliceBeat, event)
+        },
+        log: (message, details) => logger?.info({ event: message, ...details }, message),
+        chunkDelayMs: Number(process.env.NORYTH_SLICE_STREAM_DELAY_MS ?? '8')
+      })
+    : null
 
   registerIpc({
-    project: projectService,
+    project: projectServiceInstance,
     settings,
     logger,
     logPath: logFilePath(logDir),
     userDataDir,
-    appInfo: buildAppInfo
+    appInfo: buildAppInfo,
+    ...(slice ? { slice } : {})
   })
 
   window.on('closed', () => {

@@ -1,6 +1,13 @@
 import type { IpcResult } from './ipc'
 import type { ProviderProbeInput, ProviderProbeResult } from './model'
 import type {
+  SliceBeatEvent,
+  SliceEditInput,
+  SliceGenerateResult,
+  SliceSeedResult,
+  SliceState
+} from './slice'
+import type {
   AppInfo,
   CreateProjectInput,
   CreateProjectResult,
@@ -49,12 +56,26 @@ export interface DiagnosticsApi {
   export(): Promise<IpcResult<{ path: string }>>
 }
 
+/**
+ * 开发切片 API（PHASE-05）。生产包不注册这些通道，调用会得到 invalid_args；
+ * renderer 只在未打包构建的 `#/dev/slice` 页面使用。
+ */
+export interface SliceApi {
+  seed(): Promise<IpcResult<SliceSeedResult>>
+  state(): Promise<IpcResult<SliceState>>
+  generate(beatId: string): Promise<IpcResult<SliceGenerateResult>>
+  regenerate(beatId: string): Promise<IpcResult<SliceGenerateResult>>
+  confirm(beatId: string): Promise<IpcResult<SliceState>>
+  edit(input: SliceEditInput): Promise<IpcResult<SliceState>>
+}
+
 export interface AppApi {
   info(): Promise<IpcResult<AppInfo>>
 }
 
 export interface EventApi {
   onProjectState(listener: (event: ProjectStateEvent) => void): () => void
+  onSliceBeat(listener: (event: SliceBeatEvent) => void): () => void
 }
 
 export interface NorythBridge {
@@ -62,6 +83,7 @@ export interface NorythBridge {
   dialog: DialogApi
   settings: SettingsApi
   diagnostics: DiagnosticsApi
+  slice: SliceApi
   app: AppApi
   events: EventApi
 }

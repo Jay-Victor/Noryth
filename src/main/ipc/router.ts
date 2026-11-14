@@ -15,11 +15,17 @@ import {
   type AppInfo
 } from '../../shared/schema/project'
 import { ProviderProbeInputSchema } from '../../shared/schema/model'
+import {
+  SliceBeatInputSchema,
+  SliceEditInputSchema,
+  SliceEmptyInputSchema
+} from '../../shared/schema/slice'
 import { probeProvider } from '../model/probe'
 import type { Logger } from '../observability/logger'
 import { exportDiagnostics } from '../observability/diagnostics'
 import type { ProjectService } from '../project/service'
 import type { SettingsStore } from '../settings/store'
+import type { SliceService } from '../slice/service'
 
 const EnvelopeSchema = z.strictObject({ requestId: z.string().min(1), payload: z.unknown() })
 const EmptySchema = z.strictObject({})
@@ -31,6 +37,8 @@ export interface IpcDeps {
   logPath: string
   userDataDir: string
   appInfo: () => AppInfo
+  /** 仅未打包构建注入；生产包不注册切片通道。 */
+  slice?: SliceService
 }
 
 interface HandlerDefinition<S extends z.ZodTypeAny, R> {
@@ -195,6 +203,36 @@ export function registerIpc(deps: IpcDeps): void {
       return { path }
     }
   })
+
+  const slice = deps.slice
+  if (slice) {
+    register(IPC.sliceSeed, {
+      schema: SliceEmptyInputSchema,
+      mutation: true,
+      handler: () => slice.seed()
+    })
+    register(IPC.sliceState, { schema: SliceEmptyInputSchema, handler: () => slice.state() })
+    register(IPC.sliceGenerate, {
+      schema: SliceBeatInputSchema,
+      mutation: true,
+      handler: (payload) => slice.generate(payload.beatId)
+    })
+    register(IPC.sliceRegenerate, {
+      schema: SliceBeatInputSchema,
+      mutation: true,
+      handler: (payload) => slice.regenerate(payload.beatId)
+    })
+    register(IPC.sliceConfirm, {
+      schema: SliceBeatInputSchema,
+      mutation: true,
+      handler: (payload) => slice.confirm(payload.beatId)
+    })
+    register(IPC.sliceEdit, {
+      schema: SliceEditInputSchema,
+      mutation: true,
+      handler: (payload) => slice.edit(payload)
+    })
+  }
 }
 
 export function unregisterIpc(): void {

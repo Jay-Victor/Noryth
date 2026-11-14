@@ -9,7 +9,13 @@ import type {
 } from '../../shared/schema/project'
 import { getBridge } from '../lib/bridge'
 
-export type Page = 'home' | 'plan' | 'write' | 'review' | 'memory' | 'settings'
+export type Page = 'home' | 'plan' | 'write' | 'review' | 'memory' | 'settings' | 'slice'
+/** 主导航只覆盖正式页面；dev 切片不进入导航。 */
+export type NavPage = Exclude<Page, 'slice'>
+
+function devSliceRequested(): boolean {
+  return typeof window !== 'undefined' && window.location.hash === '#/dev/slice'
+}
 
 export interface Toast {
   id: string
@@ -90,11 +96,13 @@ export const useApp = create<AppState>((set, get) => {
         bridge.project.list(),
         bridge.project.current()
       ])
+      const devSlice = info.ok && !info.data.packaged && devSliceRequested()
       set({
         ready: true,
         appInfo: info.ok ? info.data : null,
         projects: projects.ok ? projects.data : [],
-        current: current.ok ? current.data : null
+        current: current.ok ? current.data : null,
+        ...(devSlice ? { page: 'slice' as Page } : {})
       })
       if (!projects.ok) pushError(projects.error)
     },
@@ -246,7 +254,7 @@ export const useApp = create<AppState>((set, get) => {
 })
 
 /** 未过 G1 时创作 / 审批 / 记忆置灰（UI-DESIGN §2.1）。 */
-export function navGuard(page: Page, current: OpenProjectResult | null): { disabled: boolean; reason?: string } {
+export function navGuard(page: NavPage, current: OpenProjectResult | null): { disabled: boolean; reason?: string } {
   if (page === 'home' || page === 'settings') return { disabled: false }
   if (!current) return { disabled: true, reason: '先打开一个项目' }
   if (page === 'plan') return { disabled: false }

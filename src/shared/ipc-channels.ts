@@ -21,14 +21,22 @@ export const IPC = {
   settingsGet: 'settings.get',
   settingsSet: 'settings.set',
   settingsProbeProvider: 'settings.probeProvider',
-  diagnosticsExport: 'diagnostics.export'
+  diagnosticsExport: 'diagnostics.export',
+  // 开发切片（PHASE-05）：只在未打包构建注册
+  sliceSeed: 'slice.seed',
+  sliceState: 'slice.state',
+  sliceGenerate: 'slice.generate',
+  sliceRegenerate: 'slice.regenerate',
+  sliceConfirm: 'slice.confirm',
+  sliceEdit: 'slice.edit'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
 
 /** 事件通道：payload 必带 jobId（无 job 时为空串）与单调 seq。 */
 export const IPC_EVENTS = {
-  projectState: 'event:project.state'
+  projectState: 'event:project.state',
+  sliceBeat: 'event:slice.beat'
 } as const
 
 export type IpcEventChannel = (typeof IPC_EVENTS)[keyof typeof IPC_EVENTS]

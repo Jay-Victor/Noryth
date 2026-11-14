@@ -39,6 +39,8 @@ export const TurnJobPayloadSchema = z.strictObject({
   beat_id: z.string().min(1),
   actor: z.string().min(1),
   mode: z.enum(['interactive', 'auto', 'batch']),
+  /** 重生成/重试时被替换的旧版本；首生成为 null 或缺省。 */
+  supersedes_id: z.string().min(1).nullable().optional(),
   bindings: BindingSnapshotSchema,
   binding_hash: z.string().min(1),
   toolset_version: z.string().min(1),
@@ -55,6 +57,8 @@ export function beatJobIdempotencyKey(input: {
   actor: string
   toolsetVersion: string
   bindingHash: string
+  /** 重试/重生成的非重复尝试标记；缺省表示「同一任务重放」。 */
+  attempt?: string | null
 }): string {
   return sha256Hex(
     [
@@ -65,7 +69,8 @@ export function beatJobIdempotencyKey(input: {
       input.expectedRevision ?? '',
       input.actor,
       input.toolsetVersion,
-      input.bindingHash
+      input.bindingHash,
+      input.attempt ?? ''
     ].join('|')
   )
 }
@@ -76,6 +81,10 @@ export interface CreateTurnJobInput {
   actor: AgentInstanceKey
   mode: 'interactive' | 'auto' | 'batch'
   at: string
+  /** 重生成/重试：旧拍 ID；首生成不传。 */
+  supersedesId?: string | null
+  /** 人为重试的尝试标记；不传则同一 (拍, revision, 绑定) 视为同一任务。 */
+  attempt?: string
   /** 测试注入固定 id。 */
   id?: string
 }
@@ -126,6 +135,7 @@ export function createTurnJob(
     beat_id: input.beatId,
     actor: input.actor,
     mode: input.mode,
+    supersedes_id: input.supersedesId ?? null,
     bindings,
     binding_hash: bindings.hash,
     toolset_version: registry.version,
@@ -140,7 +150,8 @@ export function createTurnJob(
     expectedRevision: chapter.currentRevisionId,
     actor: input.actor,
     toolsetVersion: registry.version,
-    bindingHash: bindings.hash
+    bindingHash: bindings.hash,
+    attempt: input.attempt ?? null
   })
 
   const existing = repos.job.findByIdempotency(project.id, idempotencyKey)

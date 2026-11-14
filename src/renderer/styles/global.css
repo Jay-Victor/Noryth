@@ -1250,6 +1250,260 @@ kbd {
   line-height: 1.8;
 }
 
+/* ── 开发切片（PHASE-05）：只验证状态，不追求正式页面的视觉 ── */
+
+.slice-page {
+  height: 100%;
+  overflow: auto;
+  padding: 20px 24px 40px;
+  background: var(--bg);
+}
+
+.slice-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.slice-header h2 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.slice-sub,
+.slice-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.slice-error {
+  margin: 8px 0;
+  padding: 6px 10px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--danger-weak);
+  color: var(--danger);
+}
+
+.slice-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.slice-beats {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 860px;
+  margin-top: 12px;
+}
+
+.slice-beat {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  padding: 12px 14px;
+}
+
+.slice-beat__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slice-beat__ord {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent-weak);
+  color: var(--accent-strong);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.slice-beat__speaker {
+  font-weight: 600;
+}
+
+.slice-beat__meta,
+.slice-beat__words {
+  margin-left: 6px;
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.slice-beat__words {
+  margin-left: auto;
+}
+
+.slice-status {
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.slice-status--confirmed,
+.slice-status--author_edited {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.slice-status--waiting_for_human,
+.slice-status--draft {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.slice-status--generating,
+.slice-status--regenerating {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: var(--warn-weak);
+}
+
+.slice-status--rejected,
+.slice-status--interrupted {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-weak);
+}
+
+.slice-intent {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.slice-body {
+  margin: 8px 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+}
+
+.slice-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.slice-btn {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  background: var(--bg-raised);
+  color: var(--fg-soft);
+  font-size: 11px;
+}
+
+.slice-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.slice-btn.is-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fffdfa;
+}
+
+.slice-busy {
+  color: var(--warn);
+  font-size: 11px;
+}
+
+.slice-edit__input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  font-family: var(--font-display);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.slice-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.slice-chip-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.slice-chip {
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 1px 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.slice-chip.is-open {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-weak);
+}
+
+.slice-quote {
+  max-width: 420px;
+  padding: 4px 8px;
+  border-left: 2px solid var(--accent);
+  color: var(--fg-soft);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
+
+.slice-trace {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.slice-trace summary {
+  cursor: pointer;
+}
+
+.slice-trace dl {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 2px 8px;
+  margin: 6px 0 0;
+}
+
+.slice-trace dt {
+  color: var(--faint);
+}
+
+.slice-trace dd {
+  margin: 0;
+  word-break: break-all;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

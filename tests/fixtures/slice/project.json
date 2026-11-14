@@ -1,0 +1,184 @@
+{
+  "$comment": "PHASE-05 垂直切片 fixture：1 项目 / 1 章 / 1 场景 / 2 拍 / 5 角色。只用于开发与测试，不含真实作品内容。",
+  "project": {
+    "title": "黑漆匣子 · 切片",
+    "genre": "悬疑",
+    "pov": "third_limited",
+    "targetWords": 120000,
+    "embeddingModel": "bge-small-zh-v1.5",
+    "embeddingDim": 512,
+    "defaultPreset": "deepseek"
+  },
+  "characters": [
+    {
+      "id": "chr_lin",
+      "name": "林砚",
+      "card": {
+        "role": "主角",
+        "identity": "账房学徒",
+        "age": 28,
+        "want": "查清父亲失踪的真相",
+        "fear": "发现自己也是共犯",
+        "voice": "短句，少用形容词",
+        "taboo": "不提母亲的死"
+      }
+    },
+    {
+      "id": "chr_shen",
+      "name": "沈青梧",
+      "card": {
+        "role": "女主",
+        "identity": "沈家祠堂的守祠人",
+        "age": 26,
+        "want": "守住沈家的祠堂",
+        "fear": "被逐出族谱",
+        "voice": "客气但留三分",
+        "taboo": "不谈老太爷的病"
+      }
+    },
+    {
+      "id": "chr_mu",
+      "name": "穆掌柜",
+      "card": {
+        "role": "线人",
+        "identity": "当铺掌柜",
+        "age": 51,
+        "want": "把旧账脱手",
+        "fear": "被林家追债",
+        "voice": "绕着说，爱打比方"
+      }
+    },
+    {
+      "id": "chr_servant",
+      "name": "阿棠",
+      "card": {
+        "role": "仆役",
+        "identity": "沈家烧火丫头",
+        "age": 17,
+        "want": "攒钱赎身",
+        "fear": "被发卖",
+        "voice": "怯声，句子短"
+      }
+    },
+    {
+      "id": "chr_elder",
+      "name": "沈老太爷",
+      "card": {
+        "role": "长辈",
+        "identity": "沈家族长",
+        "age": 74,
+        "want": "把秘密带进棺材",
+        "fear": "死后族谱被改",
+        "voice": "慢，喜欢反问"
+      }
+    }
+  ],
+  "chapter": {
+    "id": "ch_slice_01",
+    "ord": 1,
+    "title": "第一章 祠堂夜谈",
+    "goal": "林砚确认黑漆匣子的下落，沈青梧试探他知道多少。",
+    "coreEvent": "两人在祠堂对峙，谁都没有先说出匣子的全貌。",
+    "forbiddenReveals": ["账本的真正持有人", "匣子的第三把钥匙"]
+  },
+  "scene": {
+    "id": "scn_slice_01",
+    "ord": 1,
+    "location": "沈家祠堂",
+    "participants": ["chr_lin", "chr_shen"],
+    "goal": "用一盏茶的时间问出匣子的位置",
+    "entry": "雨夜，祠堂只剩一盏灯",
+    "exit": {
+      "resolved": false,
+      "hook": "沈青梧没有否认匣子在祠堂"
+    }
+  },
+  "beats": [
+    {
+      "id": "bt_slice_01",
+      "ord": 1,
+      "speakerType": "narrator",
+      "speakerId": "narrator",
+      "intent": "雨夜祠堂，先落一个静场，让两人都不先开口",
+      "maxWords": 120
+    },
+    {
+      "id": "bt_slice_02",
+      "ord": 2,
+      "speakerType": "character",
+      "speakerId": "chr_lin",
+      "intent": "林砚试探沈青梧是否见过父亲书房里的黑漆匣子",
+      "maxWords": 120
+    }
+  ],
+  "memories": [
+    {
+      "id": "mem_slice_lin_1",
+      "characterId": "chr_lin",
+      "kind": "experience",
+      "text": "父亲书房有一只上锁的黑漆匣子",
+      "importance": 0.9,
+      "pinned": 1,
+      "learnedSeq": 1
+    },
+    {
+      "id": "mem_slice_lin_2",
+      "characterId": "chr_lin",
+      "kind": "cognition",
+      "text": "沈青梧看他的眼神不像第一次听见匣子",
+      "importance": 0.5,
+      "pinned": 0,
+      "learnedSeq": 2
+    },
+    {
+      "id": "mem_slice_shen_1",
+      "characterId": "chr_shen",
+      "kind": "fact",
+      "text": "祠堂的钥匙在老太爷手里",
+      "importance": 0.7,
+      "pinned": 0,
+      "learnedSeq": 1
+    }
+  ],
+  "facts": [
+    {
+      "id": "wf_slice_1",
+      "subject": "黑漆匣子",
+      "predicate": "位置",
+      "object": "祠堂供桌下面",
+      "visibility": "public",
+      "revealSeq": 2,
+      "validFromSeq": 1
+    }
+  ],
+  "fakeModel": {
+    "beats": [
+      {
+        "intent": "雨夜祠堂，先落一个静场，让两人都不先开口",
+        "bodies": [
+          "雨敲在瓦上，一声接一声。祠堂里只点了一盏灯，光停在供桌边缘，照不到两个人的脸。",
+          "灯芯爆了一下。雨声压下来，谁都没有先开口，供桌上的灰被风翻起一线。"
+        ],
+        "grounding": []
+      },
+      {
+        "intent": "林砚试探沈青梧是否见过父亲书房里的黑漆匣子",
+        "toolCall": {
+          "name": "memory.retrieve_own",
+          "args": { "query": "黑漆匣子" }
+        },
+        "bodies": [
+          "「沈姑娘，」他把茶盏往她那边推了推，「我爹书房里那只黑漆匣子，你见过没有？」",
+          "「我不问匣子里装了什么。」他盯着她的手，「我只想问，那匣子，你见过没有。」"
+        ],
+        "grounding": [
+          {
+            "type": "memory",
+            "id": "mem_slice_lin_1",
+            "quote": "父亲书房有一只上锁的黑漆匣子"
+          }
+        ]
+      }
+    ]
+  }
+}

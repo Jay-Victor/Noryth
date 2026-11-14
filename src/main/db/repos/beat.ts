@@ -230,4 +230,14 @@ export class BeatRepo extends BaseRepo {
     )
     return row?.count ?? 0
   }
+
+  /** 启动扫描用：按状态找卡住的拍（DEV-PLAN §9.4 / PRD §6.6）。 */
+  listByStatuses(statuses: readonly BeatStatus[]): BeatRecord[] {
+    if (statuses.length === 0) return []
+    const rows = allRows<BeatRow>(
+      this.runner,
+      this.runner.db.selectFrom('beat').selectAll().where('status', 'in', statuses as BeatStatus[])
+    )
+    return rows.map(mapBeat)
+  }
 }

@@ -64,6 +64,8 @@ export interface TurnDeps {
   hooks?: TurnHooks
   choices?: ChoiceResolver
   signal?: AbortSignal
+  /** 校验通过后落盘；缺省时只有校验（阶段 04 行为，测试用）。 */
+  commit?: TurnCommitter
   /** 测试可关闭落库；默认写 turn_metric。 */
   writeMetric?: boolean
 }
@@ -80,6 +82,39 @@ export interface TurnRejection {
   details?: unknown
 }
 
+/**
+ * 校验通过后的落盘回调（PHASE-05 V2）。
+ *
+ * runtime 不在 agents 层直接写正文：调用方注入 DocController.commitBeat，
+ * 这样阶段 07 换调度器时 runTurn 不改，单一写入者也不被绕过。
+ * 回调抛错 → 事务回滚 + job failed；不会出现「job 成功但正文没落盘」。
+ */
+export interface TurnCommitInput {
+  jobId: string
+  turnId: string
+  chapterId: string
+  /** 生成时的槽位拍（可能是被替换的旧版本）。 */
+  beatId: string
+  expectedRevision: string | null
+  epoch: number
+  supersedesId: string | null
+  mode: 'interactive' | 'auto' | 'batch'
+  envelope: Envelope
+  context: { bundle: ContextBundle; prefixHash: string }
+  binding: { provider: string; model: string; version: number }
+}
+
+export interface TurnCommitResult {
+  beatId: string
+  revisionId: string
+  seq: number
+  contentHash: string
+  mirrorHash?: string
+  traceRef?: string | null
+}
+
+export type TurnCommitter = (input: TurnCommitInput) => TurnCommitResult
+
 export interface TurnResult {
   status: 'validated' | 'rejected'
   jobId: string
@@ -87,6 +122,8 @@ export interface TurnResult {
   beatId: string
   envelope: Envelope | null
   rejection: TurnRejection | null
+  /** 未注入 committer 时为 null（阶段 04 的纯校验路径）。 */
+  commit: TurnCommitResult | null
   context: {
     bundle: ContextBundle
     prefixHash: string
@@ -103,6 +140,11 @@ export interface TurnResult {
 
 const MAX_TOOL_ROUNDS = 4
 const MAX_FALLBACK_STEPS = 4
+
+/** turn ID 的唯一格式；流式事件与 trace 路径都用它，避免两处拼串漂移。 */
+export function turnIdFor(jobId: string, beatId: string): string {
+  return `turn_${jobId}_${beatId}`
+}
 
 interface TurnRuntime {
   deps: TurnDeps
@@ -298,7 +340,7 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
     throw error
   }
 
-  const turnId = `turn_${job.id}_${beat.id}`
+  const turnId = turnIdFor(job.id, beat.id)
   repos.job.setStatus(job.id, 'running')
 
   let collected: ReturnType<typeof collectContext>
@@ -419,6 +461,30 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
 
   const usage = sumUsage(runtime.rounds)
   const cost = estimateCostCny(capabilities, usage.tokensIn, usage.tokensOut)
+
+  let committed: TurnCommitResult | null = null
+  if (deps.commit) {
+    try {
+      committed = deps.commit({
+        jobId: job.id,
+        turnId,
+        chapterId: payload.chapter_id,
+        beatId: beat.id,
+        expectedRevision: job.expectedRevision,
+        epoch: job.epoch,
+        supersedesId: payload.supersedes_id ?? null,
+        mode: payload.mode,
+        envelope: validation.envelope,
+        context: { bundle: assembled.bundle, prefixHash: prompt.prefixHash },
+        binding: { provider: binding.provider, model: binding.model, version: binding.version }
+      })
+    } catch (error) {
+      failJob(repos, job.id, error)
+      deps.hooks?.onPhase?.('rejected')
+      throw error
+    }
+  }
+
   if (deps.writeMetric !== false) {
     repos.turnMetric.upsert({
       turnId,
@@ -455,7 +521,15 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
       grounding_count: validation.envelope.grounding.length,
       degraded: validation.envelope.meta.degraded,
       binding_hash: payload.binding_hash,
-      toolset_version: payload.toolset_version
+      toolset_version: payload.toolset_version,
+      ...(committed === null
+        ? {}
+        : {
+            committed_beat_id: committed.beatId,
+            revision_id: committed.revisionId,
+            seq: committed.seq,
+            content_hash: committed.contentHash
+          })
     })
   })
   deps.hooks?.onPhase?.('validated')
@@ -467,6 +541,7 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
     beatId: beat.id,
     envelope: validation.envelope,
     rejection: null,
+    commit: committed,
     context: {
       bundle: assembled.bundle,
       prefixHash: prompt.prefixHash,
@@ -530,6 +605,7 @@ function rejectedResult(
     beatId,
     envelope: null,
     rejection,
+    commit: null,
     context: {
       bundle: runtime.contextBundle,
       prefixHash: runtime.prompt.prefixHash,

@@ -10,9 +10,11 @@ import { NewProjectDialog } from './NewProjectDialog'
 import { StatusBar } from './StatusBar'
 import { ReadOnlyBanner, TitleBar } from './TitleBar'
 import { Toasts } from './Toasts'
+import { SlicePage } from './dev/Slice'
 import { HomePage } from '../pages/HomePage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { WorkbenchPage } from '../pages/WorkbenchPage'
+import { useSlice } from '../stores/slice'
 
 export function App(): React.JSX.Element {
   const ready = useApp((state) => state.ready)
@@ -29,9 +31,28 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     const bridge = getBridge()
     if (!bridge) return
-    return bridge.events.onProjectState((event) => {
+    const offProject = bridge.events.onProjectState((event) => {
       useApp.getState().applyStateEvent(event)
     })
+    const offSlice = bridge.events.onSliceBeat((event) => {
+      useSlice.getState().applyEvent(event)
+    })
+    return () => {
+      offProject()
+      offSlice()
+    }
+  }, [])
+
+  // dev 切片入口：只有未打包构建 + #/dev/slice 才切换；生产包不认这个 hash。
+  useEffect(() => {
+    const apply = (): void => {
+      const state = useApp.getState()
+      if (!state.appInfo || state.appInfo.packaged) return
+      if (window.location.hash === '#/dev/slice') state.setPage('slice')
+    }
+    apply()
+    window.addEventListener('hashchange', apply)
+    return () => window.removeEventListener('hashchange', apply)
   }, [])
 
   useEffect(() => {
@@ -94,7 +115,12 @@ export function App(): React.JSX.Element {
       <TitleBar />
       {current?.readOnly ? <ReadOnlyBanner /> : null}
       <div className="body">
-        {page === 'home' ? (
+        {page === 'slice' ? (
+          <div className="shell-grid" style={{ gridTemplateColumns: `${SHELL.nav}px minmax(0, 1fr)` }}>
+            <NavRail />
+            <SlicePage />
+          </div>
+        ) : page === 'home' ? (
           <div className="shell-grid" style={{ gridTemplateColumns: `${SHELL.nav}px minmax(0, 1fr)` }}>
             <NavRail />
             <HomePage />
