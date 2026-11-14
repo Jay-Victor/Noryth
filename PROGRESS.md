@@ -88,11 +88,11 @@
 
 ## 当前阻塞
 
-- 无功能阻塞。阶段 02 代码已提交到本地 `dev`，待推送与 CI；`phase-02-done` 标签未打。
+- 无功能阻塞。阶段 02 代码已提交到本地 `dev`（`b139f47`），待推送与 CI；`phase-02-done` 标签未打。
 
 ## 下一阶段交接
 
-- 阶段 02 状态 `in_progress`（只差提交 + CI）；阶段 03 可直接开工。
+- 阶段 02 状态 `in_progress`（已提交 `b139f47`，待推送 + CI）；阶段 03 可直接开工。
 - 数据层已就绪：`db/repos`（13 类 + outbox）、`seq`、`hash`、`revision`、`outbox`/`mirror`、`backup`、`verify`；`project/service.ts` 的内联 project SQL 已替换为 repos。
 - `0001_init.sql` 未改；新增 `0002_outbox_meta.sql`，`LATEST_SCHEMA_VERSION = 2`。任何新 DDL 必须 0003。
 - 阶段 03 工具 handler 只通过 repos 读写；正文写入只允许 `db/repos/beat.ts` 的 INSERT（`body-writer.test.ts` 会拦第二条路径）。
