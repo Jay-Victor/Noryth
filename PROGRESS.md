@@ -10,7 +10,7 @@
 | 02 | `docs/PHASE-02-DATA.md` | done | B2–B5、0002 迁移、13 类 repos（Kysely）、seq/hash/revision、outbox/mirror、backup、verify、fixture、57 个 DB 单测、CI 实跑 | 全部通过：本地门禁 + CI run `43589148557`（verify + e2e 均绿） | 备份与镜像调用点留阶段 07/10 |
 | 03 | `docs/PHASE-03-TOOLS.md` | done | C1–C7：42 manifest / 36 实现 / 6 开关、授权解析、九步流水线、闸门/幂等/审计、36×6 契约 harness | 全部通过：本地门禁 + CI run `43591949465`（verify + e2e 均绿） | 工具日志面板未做（可选）；T31/T33/T34 提案暂存 `tool_call.result_json`，阶段 06 接草案表 |
 | 04 | `docs/PHASE-04-RUNTIME.md` | done | D1–D6：SSE/OpenAI 兼容适配器与重试、能力探测→settings、L0–L3 装配与预算裁剪、信封/grounding 校验、六角色提示词 + JSON 回退、绑定快照 + 审计；假 LLM 服务器 + 9 条 runTurn 集成 | 全部通过：本地门禁 + CI run 43595192603（verify 与 e2e 均绿） | 真实第二家供应商未补测（无 Key，见 ADR-0003）；trace 落盘与 commitBeat 留阶段 05；嵌入随包（ADR-0004）不在本阶段范围，推迟阶段 09/10 |
-| 05 | `docs/PHASE-05-SLICE.md` | done | V1–V3：`commitBeat` + trace 归档 + 拍状态迁移 + 启动恢复/outbox 补发；fixture、假适配器、`#/dev/slice` 切片页；`E2E-SLICE-01` 与强杀重启 | 全部通过：本地门禁；unit 477 / E2E 7 | `verify` 的 seq 单调检查会误报「改早期拍」（ADR-0005 §4，阶段 07 修） |
+| 05 | `docs/PHASE-05-SLICE.md` | done | V1–V3：`commitBeat` + trace 归档 + 拍状态迁移 + 启动恢复/outbox 补发；fixture、假适配器、`#/dev/slice` 切片页；`E2E-SLICE-01` 与强杀重启 | 全部通过：本地门禁 + CI run `43597992157`（verify 与 e2e 均绿） | `verify` 的 seq 单调检查会误报「改早期拍」（ADR-0005 §4，阶段 07 修） |
 | 06 | `docs/PHASE-06-PLANNING.md` | todo | — | — | — |
 | 07 | `docs/PHASE-07-WRITING.md` | todo | — | — | — |
 | 08 | `docs/PHASE-08-REVIEW.md` | todo | — | — | — |
@@ -142,8 +142,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `f343668` | 随本次 docs 提交推送 origin/dev |
-| CI | 推送后触发 | verify + e2e 待跑 |
+| 提交 | `f343668` | 已推送 origin/dev |
+| CI | GitHub Actions run `43597992157`（`8ab717b`） | verify + e2e 均绿 |
+| 阶段标签 | `phase-05-done` → `f343668` | 已推送 origin |
 
 ## 关键决策
 
@@ -180,7 +181,7 @@
 
 ## 当前阻塞
 
-- 无。阶段 05 已 `done`：本地门禁全绿（typecheck / lint / depcruise / unit 477 / e2e 7 / build / gen:check）；CI 与标签在提交后打。
+- 无。阶段 05 已 `done`：本地门禁全绿（typecheck / lint / depcruise / unit 477 / e2e 7 / build / gen:check）+ CI run `43597992157`（verify 与 e2e 均绿），标签 `phase-05-done` → `f343668`。
 - 待补测（不阻塞阶段 06）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
 - 已知问题：`db/verify.ts` 的 `seq_not_monotonic` 按拍序检查，改早期拍会误报；阶段 07 必须改为按提交序/唯一性检查（ADR-0005 §4）。
 
