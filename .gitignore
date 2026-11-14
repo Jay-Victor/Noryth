@@ -1,5 +1,9 @@
-# 设计文档（本地保留，不进仓库）
-/docs/
+# 设计文档中的本地草稿（其余 docs/ 入库）
+/docs/**/*.local.md
+
+# Python 缓存
+__pycache__/
+*.pyc
 
 # 依赖
 node_modules/
