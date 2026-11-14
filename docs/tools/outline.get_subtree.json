@@ -28,9 +28,109 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "node_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "kinds": {
+        "minItems": 1,
+        "maxItems": 3,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "main",
+            "volume",
+            "chapter"
+          ]
+        }
+      },
+      "depth": {
+        "default": 2,
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 6
+      }
+    },
+    "required": [
+      "depth"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "nodes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "type": "string"
+            },
+            "ord": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "title": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "id",
+            "parent_id",
+            "kind",
+            "ord",
+            "title",
+            "content",
+            "status",
+            "version"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "nodes"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T02"

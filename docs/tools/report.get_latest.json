@@ -1,8 +1,8 @@
 {
   "name": "report.get_latest",
   "version": "1.0.0",
-  "family": "knowledge",
-  "summary": "返回最近一次审批报告摘要（结论、阻断数、问题引用），全文不进上下文",
+  "family": "verify",
+  "summary": "返回本章最近一次审批报告摘要：verdict、阻断数与 issue_refs，不含全文",
   "actors": [
     "orchestrator",
     "reviewer",
@@ -14,23 +14,109 @@
   "idempotency": "natural",
   "injected": [],
   "limits": {
-    "timeout_ms": 800,
-    "max_result_tokens": 2000,
+    "timeout_ms": 2000,
+    "max_result_tokens": 3000,
     "max_calls_per_turn": 2
   },
   "degrade": [
     "full",
-    "summary",
-    "facts_only",
-    "empty"
+    "summary"
   ],
   "audit": {
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "chapter_id"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "found": {
+        "type": "boolean"
+      },
+      "report": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "report_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "round": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "verdict": {
+                "type": "string"
+              },
+              "blocking_count": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "issue_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "degraded": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "report_id",
+              "round",
+              "verdict",
+              "blocking_count",
+              "issue_refs",
+              "degraded",
+              "created_at"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "chapter_id",
+      "found",
+      "report"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T30"

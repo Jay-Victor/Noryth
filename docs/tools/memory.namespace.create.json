@@ -2,7 +2,7 @@
   "name": "memory.namespace.create",
   "version": "1.0.0",
   "family": "propose",
-  "summary": "为角色创建记忆命名空间并做跨角色隔离自检，G1 长期授权",
+  "summary": "按 G1 长期授权创建角色记忆命名空间并做隔离自检；失败可重试",
   "actors": [
     "memory"
   ],
@@ -22,12 +22,80 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "character_ids": {
+        "minItems": 1,
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "with_public_canon": {
+        "default": true,
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "character_ids",
+      "with_public_canon"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "namespaces": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "character_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "namespace": {
+              "type": "string"
+            },
+            "entries": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "character_id",
+            "namespace",
+            "entries"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "isolation_verified": {
+        "type": "boolean"
+      },
+      "setup_state": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "namespaces",
+      "isolation_verified",
+      "setup_state"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T38"

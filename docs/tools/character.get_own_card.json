@@ -10,7 +10,9 @@
   "agent_callable": true,
   "requires_gate": null,
   "idempotency": "natural",
-  "injected": [],
+  "injected": [
+    "character_id"
+  ],
   "limits": {
     "timeout_ms": 800,
     "max_result_tokens": 2000,
@@ -25,9 +27,46 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "character_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "name": {
+        "type": "string"
+      },
+      "card_version": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "card": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      }
+    },
+    "required": [
+      "character_id",
+      "name",
+      "card_version",
+      "card"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T04"

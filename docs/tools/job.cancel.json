@@ -24,9 +24,35 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "job_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "job_id"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "cancelled": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "cancelled"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "S08",

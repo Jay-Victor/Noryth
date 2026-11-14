@@ -25,9 +25,99 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "character_ids": {
+        "minItems": 1,
+        "maxItems": 12,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    },
+    "required": [
+      "character_ids"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "profiles": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "name": {
+              "type": "string"
+            },
+            "role": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "age": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "appearance": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "public_identity": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "public_voice": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "role",
+            "age",
+            "appearance",
+            "public_identity",
+            "public_voice"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "missing_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "profiles",
+      "missing_count"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T05"

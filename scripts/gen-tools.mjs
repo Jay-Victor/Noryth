@@ -1,101 +1,139 @@
-// 由 src/main/tools/tool-catalog.json 生成 docs/tools/*.json（阶段 1 只含契约外壳）。
-// 阶段 3 的 C5 补齐 input_schema / output_schema 并把 contract_complete 置 true。
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+// 由 src/main/tools/manifests/** 的 TS 定义生成：
+//   docs/tools/*.json               与 PRD §4.10 比对的机器清单
+//   src/main/tools/generated/*.ts   allowlist 与 toolset_version
+//
+// TS 源码是唯一真源；脚本通过 Vite 的 ssrLoadModule 直接加载 TS（不落中间产物）。
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createServer } from 'vite'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const catalog = JSON.parse(readFileSync(join(root, 'src/main/tools/tool-catalog.json'), 'utf8'))
+const AGENTS = ['planner', 'orchestrator', 'character', 'narrator', 'reviewer', 'memory']
+const M0_COUNTS = { planner: 8, orchestrator: 16, character: 9, narrator: 5, reviewer: 17, memory: 13 }
 
-const DEFAULTS = {
-  structure: { timeout_ms: 800, max_result_tokens: 2000, max_calls_per_turn: 2 },
-  knowledge: { timeout_ms: 800, max_result_tokens: 2000, max_calls_per_turn: 2 },
-  verify: { timeout_ms: 2000, max_result_tokens: 3000, max_calls_per_turn: 2 },
-  propose: { timeout_ms: 5000, max_result_tokens: 2000, max_calls_per_turn: 1 },
-  interaction: { timeout_ms: 10000, max_result_tokens: 1000, max_calls_per_turn: 1 }
-}
-
-const DEGRADE = {
-  structure: ['full', 'summary', 'empty'],
-  knowledge: ['full', 'summary', 'facts_only', 'empty'],
-  verify: ['full', 'summary'],
-  propose: ['full', 'summary', 'fail'],
-  interaction: ['full', 'fail']
-}
-
-function toManifest(entry, system = false) {
-  const base = DEFAULTS[entry.family] ?? DEFAULTS.structure
-  const limits = { ...base, ...(entry.limits ?? {}) }
-  return {
-    name: entry.name,
-    version: entry.version,
-    family: entry.family,
-    summary: entry.summary,
-    actors: entry.actors,
-    side_effect: entry.sideEffect,
-    agent_callable: entry.agentCallable,
-    requires_gate: entry.requiresGate,
-    idempotency: entry.idempotency,
-    injected: [],
-    limits: {
-      timeout_ms: entry.limits?.timeoutMs ?? limits.timeout_ms,
-      max_result_tokens: limits.max_result_tokens,
-      max_calls_per_turn: limits.max_calls_per_turn
-    },
-    degrade: DEGRADE[entry.family] ?? DEGRADE.structure,
-    audit: {
-      log_args: entry.sideEffect === 'none' ? 'hash' : 'full',
-      log_result_ids: true
-    },
-    input_schema: null,
-    output_schema: null,
-    contract_complete: false,
-    milestone: entry.milestone,
-    m0: entry.m0,
-    tool_id: entry.id,
-    ...(system ? { system: true } : {})
+async function loadModules() {
+  const server = await createServer({
+    configFile: false,
+    root,
+    server: { middlewareMode: true },
+    appType: 'custom',
+    logLevel: 'error'
+  })
+  try {
+    const manifests = await server.ssrLoadModule('/src/main/tools/manifests/index.ts')
+    const define = await server.ssrLoadModule('/src/main/tools/define.ts')
+    const registry = await server.ssrLoadModule('/src/main/tools/registry.ts')
+    return { ...manifests, ...define, ...registry }
+  } finally {
+    await server.close()
   }
 }
 
-export function buildArtifacts() {
-  const files = new Map()
-  files.set('_index.json', JSON.stringify({
-    generated_by: 'scripts/gen-tools.mjs',
-    phase: 1,
-    contract_complete: false,
-    tool_count: catalog.tools.length,
-    system_count: catalog.system.length,
-    m0_tool_count: catalog.tools.filter((tool) => tool.m0).length,
-    allowlist: Object.fromEntries(
-      ['planner', 'orchestrator', 'character', 'narrator', 'reviewer', 'memory'].map((agent) => [
-        agent,
-        catalog.tools.filter((tool) => tool.m0 && tool.actors.includes(agent)).map((tool) => tool.name).sort()
-      ])
-    )
-  }, null, 2) + '\n')
-
-  for (const entry of catalog.tools) {
-    files.set(`${entry.name}.json`, JSON.stringify(toManifest(entry, false), null, 2) + '\n')
-  }
-  for (const entry of catalog.system) {
-    files.set(`${entry.name}.json`, JSON.stringify(toManifest(entry, true), null, 2) + '\n')
-  }
-  return files
+function allowlistOf(tools, agent) {
+  return tools
+    .filter((tool) => tool.enabled && !tool.system && tool.agentCallable && tool.actors.includes(agent))
+    .map((tool) => tool.name)
+    .sort()
 }
 
-export function writeArtifacts(targetDir) {
+export async function buildArtifacts() {
+  const { AGENT_TOOLS, ALL_MANIFESTS, toManifestJson, computeToolsetVersion } = await loadModules()
+
+  const problems = []
+  if (AGENT_TOOLS.length !== 42) problems.push(`Agent 工具 ${AGENT_TOOLS.length} != 42`)
+  if (ALL_MANIFESTS.length !== 50) problems.push(`全部清单 ${ALL_MANIFESTS.length} != 50`)
+  for (const tool of ALL_MANIFESTS) {
+    if (tool.validationErrors.length > 0) problems.push(`${tool.name}: ${tool.validationErrors.join(' | ')}`)
+  }
+  const allowlist = Object.fromEntries(AGENTS.map((agent) => [agent, allowlistOf(AGENT_TOOLS, agent)]))
+  for (const agent of AGENTS) {
+    if (allowlist[agent].length !== M0_COUNTS[agent]) {
+      problems.push(`${agent}: M0 工具数 ${allowlist[agent].length} != ${M0_COUNTS[agent]}`)
+    }
+  }
+  const m0Count = AGENT_TOOLS.filter((tool) => tool.enabled && !tool.system).length
+  if (m0Count !== 36) problems.push(`M0 有效工具 ${m0Count} != 36`)
+  if (problems.length > 0) {
+    throw new Error(`工具契约不合法：\n  - ${problems.join('\n  - ')}`)
+  }
+
+  const docs = new Map()
+  const generated = new Map()
+  const toolsetVersion = computeToolsetVersion(ALL_MANIFESTS)
+
+  docs.set(
+    '_index.json',
+    JSON.stringify(
+      {
+        generated_by: 'scripts/gen-tools.mjs',
+        phase: 3,
+        contract_complete: true,
+        tool_count: AGENT_TOOLS.length,
+        system_count: ALL_MANIFESTS.length - AGENT_TOOLS.length,
+        m0_tool_count: m0Count,
+        toolset_version: toolsetVersion,
+        allowlist
+      },
+      null,
+      2
+    ) + '\n'
+  )
+  for (const tool of ALL_MANIFESTS) {
+    docs.set(`${tool.name}.json`, JSON.stringify(toManifestJson(tool), null, 2) + '\n')
+  }
+
+  generated.set(
+    'allowlist.ts',
+    [
+      '// AUTO-GENERATED by scripts/gen-tools.mjs — do not edit.',
+      "import type { AgentKey } from '../types'",
+      '',
+      'export const TOOL_ALLOWLIST: Record<AgentKey, readonly string[]> = {',
+      ...AGENTS.map((agent) => `  ${agent}: [${allowlist[agent].map((name) => `'${name}'`).join(', ')}],`),
+      '}',
+      '',
+      'export const M0_TOOL_COUNTS: Record<AgentKey, number> = {',
+      ...AGENTS.map((agent) => `  ${agent}: ${allowlist[agent].length},`),
+      '}',
+      ''
+    ].join('\n')
+  )
+  generated.set(
+    'toolset-version.ts',
+    [
+      '// AUTO-GENERATED by scripts/gen-tools.mjs — do not edit.',
+      `export const TOOLSET_VERSION = '${toolsetVersion}'`,
+      ''
+    ].join('\n')
+  )
+
+  return { docs, generated, toolsetVersion, allowlist }
+}
+
+function writeDocs(targetDir, docs) {
   mkdirSync(targetDir, { recursive: true })
-  const artifacts = buildArtifacts()
   for (const name of readdirSync(targetDir)) {
     if (name.endsWith('.json')) rmSync(join(targetDir, name))
   }
-  for (const [name, content] of artifacts) {
-    writeFileSync(join(targetDir, name), content, 'utf8')
-  }
-  return artifacts.size
+  for (const [name, content] of docs) writeFileSync(join(targetDir, name), content, 'utf8')
+  return docs.size
+}
+
+function writeGenerated(targetDir, generated) {
+  mkdirSync(targetDir, { recursive: true })
+  for (const [name, content] of generated) writeFileSync(join(targetDir, name), content, 'utf8')
+  return generated.size
+}
+
+export async function writeArtifacts() {
+  const artifacts = await buildArtifacts()
+  const docsCount = writeDocs(join(root, 'docs/tools'), artifacts.docs)
+  const generatedCount = writeGenerated(join(root, 'src/main/tools/generated'), artifacts.generated)
+  return docsCount + generatedCount
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const count = writeArtifacts(join(root, 'docs/tools'))
-  console.log(`gen-tools: ${count} files -> docs/tools`)
+  const count = await writeArtifacts()
+  console.log(`gen-tools: ${count} files -> docs/tools + src/main/tools/generated`)
 }

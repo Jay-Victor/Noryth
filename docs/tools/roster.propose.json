@@ -2,7 +2,7 @@
   "name": "roster.propose",
   "version": "1.0.0",
   "family": "propose",
-  "summary": "提交角色注册清单与初始事实，规划不建库、不写向量",
+  "summary": "提交角色注册清单与初始事实提案；规划不建库、不写向量",
   "actors": [
     "planner"
   ],
@@ -22,12 +22,162 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "roster": {
+        "type": "object",
+        "properties": {
+          "characters": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "card": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "name",
+                "card"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "initial_facts": {
+            "default": [],
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "subject": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "predicate": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "object": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "visibility": {
+                  "default": "public",
+                  "type": "string",
+                  "enum": [
+                    "public",
+                    "secret"
+                  ]
+                }
+              },
+              "required": [
+                "subject",
+                "predicate",
+                "object",
+                "visibility"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "characters",
+          "initial_facts"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "roster"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "roster_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "characters": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "temp_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "name",
+            "temp_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "initial_facts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "subject": {
+              "type": "string"
+            },
+            "predicate": {
+              "type": "string"
+            },
+            "object": {
+              "type": "string"
+            },
+            "visibility": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "subject",
+            "predicate",
+            "object",
+            "visibility"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "roster_id",
+      "characters",
+      "initial_facts"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T33"

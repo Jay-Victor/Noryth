@@ -2,7 +2,7 @@
   "name": "timeline.query",
   "version": "1.0.0",
   "family": "knowledge",
-  "summary": "查询故事时间三轴（起止、索引、时间线），三轴分开返回",
+  "summary": "按章或 as_of 查询时间线（M1），story_start/end 与 idx 分轴返回",
   "actors": [
     "orchestrator",
     "reviewer",
@@ -28,9 +28,78 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "as_of": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "story_start": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "story_end": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "idx": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "timeline": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "seq": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "story_time": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "seq",
+            "story_time"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "story_start",
+      "story_end",
+      "idx",
+      "timeline"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M1",
   "m0": false,
   "tool_id": "T23"

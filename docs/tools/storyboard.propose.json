@@ -2,7 +2,7 @@
   "name": "storyboard.propose",
   "version": "1.0.0",
   "family": "propose",
-  "summary": "提交章分镜提案，提交前自动跑分镜校验，不改正文",
+  "summary": "提交分镜提案；提交前自动跑 T27，硬冲突不落盘，软冲突告警",
   "actors": [
     "orchestrator"
   ],
@@ -22,12 +22,167 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "scenes": {
+        "minItems": 1,
+        "maxItems": 10,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "scene_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "location": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "participants": {
+              "minItems": 1,
+              "maxItems": 20,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              }
+            },
+            "goal": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "entry": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "exit": {},
+            "beats": {
+              "minItems": 1,
+              "maxItems": 40,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "speaker_type": {
+                    "type": "string",
+                    "enum": [
+                      "character",
+                      "narrator"
+                    ]
+                  },
+                  "speaker_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "intent": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "max_words": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2000
+                  }
+                },
+                "required": [
+                  "speaker_type",
+                  "speaker_id",
+                  "intent"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "location",
+            "participants",
+            "goal",
+            "beats"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "chapter_id",
+      "scenes"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "storyboard_rev": {
+        "type": "string"
+      },
+      "valid": {
+        "type": "boolean"
+      },
+      "conflicts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "hard",
+                "soft"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "scene_ord": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "beat_ord": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "code",
+            "severity",
+            "message",
+            "scene_ord"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "storyboard_rev",
+      "valid",
+      "conflicts"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T34"

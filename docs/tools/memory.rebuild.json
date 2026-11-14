@@ -2,7 +2,7 @@
   "name": "memory.rebuild",
   "version": "1.0.0",
   "family": "propose",
-  "summary": "按章重建记忆，旧条目软失效，需作者确认令牌",
+  "summary": "按章重建记忆（M1）：旧 revision 记忆标 inactive，不物理删除",
   "actors": [
     "memory"
   ],
@@ -22,12 +22,46 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "chapter_id"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "inactive_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "rebuilt_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "inactive_count",
+      "rebuilt_count"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M1",
   "m0": false,
   "tool_id": "T40"

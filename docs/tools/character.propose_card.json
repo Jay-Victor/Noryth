@@ -2,7 +2,7 @@
   "name": "character.propose_card",
   "version": "1.0.0",
   "family": "propose",
-  "summary": "提交角色卡提案或改版，不更换角色 ID，改版需列受影响章节",
+  "summary": "提交角色卡提案；不更换 character_id，改版列出受影响章节",
   "actors": [
     "planner"
   ],
@@ -22,12 +22,82 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "character_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "card": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      }
+    },
+    "required": [
+      "card"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "card_draft_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "character_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "card_version": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "affected_chapters": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    },
+    "required": [
+      "card_draft_id",
+      "character_id",
+      "card_version",
+      "affected_chapters"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T32"

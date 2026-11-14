@@ -54,5 +54,31 @@ export default tseslint.config(
         }
       ]
     }
+  },
+  {
+    files: ['src/main/tools/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'better-sqlite3', message: '工具层只能通过 repos 访问数据（DEV-PLAN §6.10）' },
+            { name: 'electron', message: '工具层不知道窗口与进程' },
+            { name: 'node:fs', message: '工具层不得直接读文件' },
+            { name: 'node:fs/promises', message: '工具层不得直接读文件' }
+          ],
+          patterns: [
+            {
+              group: ['node:fs/*', 'node:child_process', 'node:net', 'node:http', 'node:https', 'undici'],
+              message: '工具层不得读文件、发网络、开子进程'
+            }
+          ]
+        }
+      ],
+      'no-restricted-globals': [
+        'error',
+        { name: 'fetch', message: '工具层不得发网络请求（DEV-PLAN §6.10）' }
+      ]
+    }
   }
 )

@@ -15,7 +15,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "lint": "eslint .",
     "depcruise": "depcruise src --config .dependency-cruiser.cjs",
-    "test:unit": "vitest run tests/unit",
+    "test:unit": "vitest run tests/unit tests/contract",
     "test:e2e": "playwright test",
     "gen:layout": "python docs/scripts/check_ui_spec.py --emit-json > layout.tmp.json && node scripts/gen-layout.mjs layout.tmp.json",
     "prepare:native": "node scripts/prepare-native.mjs",

@@ -8,7 +8,7 @@
 |---:|---|---|---|---|---|
 | 01 | `docs/PHASE-01-SKELETON.md` | done | A1–A6、B1、B6、S1–S4、42+8 工具清单外壳、CI 实跑 | 全部通过：本地门禁 + CI run `43585776532` | 第二家供应商顺延阶段 04；Win10 干净机未测 |
 | 02 | `docs/PHASE-02-DATA.md` | done | B2–B5、0002 迁移、13 类 repos（Kysely）、seq/hash/revision、outbox/mirror、backup、verify、fixture、57 个 DB 单测、CI 实跑 | 全部通过：本地门禁 + CI run `43589148557`（verify + e2e 均绿） | 备份与镜像调用点留阶段 07/10 |
-| 03 | `docs/PHASE-03-TOOLS.md` | todo | — | — | 等 01 收口 |
+| 03 | `docs/PHASE-03-TOOLS.md` | in_progress | C1–C7：42 manifest / 36 实现 / 6 开关、授权解析、九步流水线、闸门/幂等/审计、36×6 契约 harness | 本地门禁全绿：391 单测 + 5 E2E + build + gen:check + 两个规格脚本；**CI 待推送** | 工具日志面板未做（可选）；T31/T33/T34 提案暂存 `tool_call.result_json`，阶段 06 接草案表 |
 | 04 | `docs/PHASE-04-RUNTIME.md` | todo | — | — | — |
 | 05 | `docs/PHASE-05-SLICE.md` | todo | — | — | 硬门：未通过不得进入 06 |
 | 06 | `docs/PHASE-06-PLANNING.md` | todo | — | — | — |
@@ -23,7 +23,7 @@
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（101 个） / `pnpm test:e2e`（5 个）
+- `pnpm test:unit`（391 个：unit 156 + contract 235） / `pnpm test:e2e`（5 个）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
 - `python docs/scripts/check_ui_spec.py` / `python docs/scripts/check_tool_spec.py`
 - `pnpm pack`（win-unpacked） / `pnpm dist`（NSIS）
@@ -75,6 +75,26 @@
 | CI | GitHub Actions run `43589148557`（`37e6eed`） | verify + e2e 均绿 |
 | 阶段标签 | `phase-02-done` → `37e6eed` | 已推送 origin |
 
+## 验证记录（阶段 03，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过 |
+| 依赖边界 | `pnpm depcruise` | 115 modules / 409 deps，0 违规 |
+| Lint | `pnpm lint` | 通过（新增 `src/main/tools/**` 禁 fs/SQL/网络规则） |
+| 单元 + 契约 | `pnpm test:unit` | 391 passed（unit 156 / contract 235） |
+| 契约 harness | `tests/contract/tool-contracts.test.ts` | 36 × 6 = 216 + fixture 完整性 2 |
+| 注册表 | `tests/contract/registry.test.ts` | 12 条全绿（含 allowlist 零 diff、快照不漂移） |
+| memory.apply 闸门 | `tests/contract/memory-apply-gates.test.ts` | 无令牌 `gate_required` / 错实体 `stale_revision` / 重放 `duplicate` / 复用 `gate_consumed`；world_fact 写入校验 |
+| 限知投影 | `tests/contract/world-limited.test.ts` | `filtered_count=1`；`as_of` 不能越过运行时水位 |
+| 工具边界 | `tests/unit/tools/tool-boundaries.test.ts` | 无 better-sqlite3 / node:fs / fetch / 原生 SQL |
+| 闸门令牌 | `tests/unit/tools/gates.test.ts` | 篡改/过期/错闸门/跨 job/消费/ G1 长期授权 11 条 |
+| E2E | `pnpm test:e2e` | 5 passed |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| CI | 待推送 | — |
+
 ## 关键决策
 
 | 决策 | 结论 | 记录 |
@@ -87,22 +107,24 @@
 | outbox 扩展 | 0002 增加 `chapter_id` / `revision_id` / `next_attempt_at`；`expected_hash` = 渲染后文件 hash | `DEV-PLAN` §5.5/§5.8 已同步 |
 | verify 时机 | 打开项目自动跑；error 只记日志不阻塞；镜像不一致只 warn | `src/main/project/service.ts` / `src/main/db/verify.ts` |
 | 备份方式 | DB 用 `VACUUM INTO`；日备份逐项复制并排除 `backups/`、DB/WAL/lock | `src/main/db/backup.ts` |
+| manifest 真源 | `defineTool` TS 定义 → `docs/tools/*.json` + `generated/*`；Vite `ssrLoadModule` 直接加载 TS，删除 `tool-catalog.json` | `src/main/tools/define.ts`、`scripts/gen-tools.mjs` |
+| 授权收窄 | `selfOnly` 工具在 `character:<id>` 解析期 omit `character_id` 并注入身份 | `src/main/tools/resolve.ts` |
+| 闸门消费 | 校验不消费；job 成功提交后调用 `consumeGate`；G1 长期授权不消费 | `src/main/tools/gates.ts` |
+| 提案持久化 | T31/T33/T34 目前由幂等层把提案结果存 `tool_call.result_json`；专用草案表留阶段 06 | 阶段 06 交接 |
+| memory.apply | 阶段 03 工具 handler 经 repos 直接写记忆/世界状态；阶段 09 换 `MemoryExecutor` 服务 | 阶段 09 交接 |
 
 ## 当前阻塞
 
-- 无。阶段 02 已 `done`：本地门禁全绿 + CI run `43589148557`（verify 与 e2e 均通过），标签 `phase-02-done` 打在 `37e6eed`。
+- 无代码阻塞。阶段 03 本地验收全绿；待提交并推送后跑 Windows CI，CI 全绿才能标 `done` 并打 `phase-03-done`。
 
 ## 下一阶段交接
 
-- 阶段 02 已 `done`（`phase-02-done` = `37e6eed`）；阶段 03 可直接开工。
-- 数据层已就绪：`db/repos`（13 类 + outbox）、`seq`、`hash`、`revision`、`outbox`/`mirror`、`backup`、`verify`；`project/service.ts` 的内联 project SQL 已替换为 repos。
-- `0001_init.sql` 未改；新增 `0002_outbox_meta.sql`，`LATEST_SCHEMA_VERSION = 2`。任何新 DDL 必须 0003。
-- 阶段 03 工具 handler 只通过 repos 读写；正文写入只允许 `db/repos/beat.ts` 的 INSERT（`body-writer.test.ts` 会拦第二条路径）。
-- repos 的查询全部由 Kysely builder 构造（`src/main/db/schema.ts` 是表类型真源）；执行仍走 `QueryRunner` 的同步 `compile()`，事务边界不变。
-- `OutboxPublisher` 已实现，但调用点（commit 后发布、启动恢复扫描）留阶段 07；`createDailyBackup` / `pruneBackups` 的调用点留阶段 07/10。
-- 测试用 `tests/fixtures/m0-a/project.json`（5 角色 / 2 章 / 48 拍）与 `tests/unit/db/support/test-writer.ts`（TEST-ONLY，阶段 07 由 DocController 替换）。
-- `docs/tools/*.json` 仍 `contract_complete=false`；阶段 03 C5 补 schema，工具名与 actors 不变。
-- 阶段 01 未做项仍在 `docs/BACKLOG.md`（自动打开上次项目、应用图标、诊断 zip、第二家供应商）。
+- 阶段 03 已交付：`tools/define|registry|resolve|invoke|gates|idempotency|budget|audit` + 42 manifest + 36 实现 + 8 系统能力契约；契约测试在 `tests/contract/**`（`test:unit` 会跑）。
+- 阶段 04 直接复用：`buildRegistry(ALL_MANIFESTS)` 取快照；`resolveToolset(agentKey, policy, snapshot)` 生成有效工具集；`invokeTool(intent, TurnContext, deps, services)` 执行九步流水线。
+- `TurnContext` 需要 phase 04 从 job 构造：`chapterId` / `beatId` 来自 `job.payload_json`，`mode` 来自运行模式，`asOf` 来自 `project.seq_head` 或章 `covered_until_seq`；`toolset_version` 写入 job / `turn_metric`。
+- 一次性令牌只在 job **成功提交后**调用 `consumeGate(repos, token)`；G5/G6/G7 的令牌签发 UI 在阶段 06–09 接。
+- 待决：T31/T33/T34 的提案目前没有专用表，结果落在 `tool_call.result_json`；阶段 06 规划台需要草案持久化时先加迁移（0003）再改 manifest。
+- `memory.apply` 阶段 03 直接经 repos 写 `memory_entry` / `world_fact` / `character_belief`；阶段 09 换成 `MemoryExecutor` 后工具 handler 只做参数适配。
 
 ## 更新规则
 

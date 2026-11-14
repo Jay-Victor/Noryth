@@ -2,7 +2,7 @@
   "name": "manuscript.get_final_chapter",
   "version": "1.0.0",
   "family": "knowledge",
-  "summary": "读取章节定稿全文，无定稿返回空，不回退到草稿",
+  "summary": "读取定稿全文；无定稿返回空，不回退到草稿",
   "actors": [
     "orchestrator",
     "reviewer",
@@ -28,9 +28,84 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "chapter_id"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "found": {
+        "type": "boolean"
+      },
+      "revision_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "beats": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "beat_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "speaker_type": {
+              "type": "string"
+            },
+            "speaker_id": {
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "beat_id",
+            "speaker_type",
+            "speaker_id",
+            "body"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "chapter_id",
+      "found",
+      "revision_id",
+      "beats"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T20"

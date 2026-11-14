@@ -20,12 +20,69 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "proposal_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "decisions": {
+        "minItems": 1,
+        "maxItems": 80,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "item_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "accept",
+                "edit",
+                "reject"
+              ]
+            }
+          },
+          "required": [
+            "item_id",
+            "decision"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "proposal_id",
+      "decisions"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "applied_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "applied_count"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "S04",

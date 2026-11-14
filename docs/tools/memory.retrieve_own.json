@@ -2,7 +2,7 @@
   "name": "memory.retrieve_own",
   "version": "1.0.0",
   "family": "knowledge",
-  "summary": "检索本人私有记忆，返回引用 id、quote、seq 与重要度；空结果不算失败",
+  "summary": "检索本人私有记忆，返回引用与叙事序；空结果不算失败",
   "actors": [
     "character"
   ],
@@ -10,11 +10,14 @@
   "agent_callable": true,
   "requires_gate": null,
   "idempotency": "natural",
-  "injected": [],
+  "injected": [
+    "character_id",
+    "as_of"
+  ],
   "limits": {
     "timeout_ms": 800,
     "max_result_tokens": 2000,
-    "max_calls_per_turn": 2
+    "max_calls_per_turn": 3
   },
   "degrade": [
     "full",
@@ -26,9 +29,94 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "kinds": {
+        "minItems": 1,
+        "maxItems": 4,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "experience",
+            "fact",
+            "relationship",
+            "cognition"
+          ]
+        }
+      },
+      "top_k": {
+        "default": 5,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 8
+      }
+    },
+    "required": [
+      "query",
+      "top_k"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "hit_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "kind": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "learned_seq": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "importance": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "text",
+            "learned_seq",
+            "importance"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "hit_count",
+      "items"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T10"

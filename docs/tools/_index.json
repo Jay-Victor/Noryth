@@ -1,10 +1,11 @@
 {
   "generated_by": "scripts/gen-tools.mjs",
-  "phase": 1,
-  "contract_complete": false,
+  "phase": 3,
+  "contract_complete": true,
   "tool_count": 42,
   "system_count": 8,
   "m0_tool_count": 36,
+  "toolset_version": "930b0333b51e5966727dd5b40ff26fd3c0a6ef554d9931aadfc8f13dceefd70e",
   "allowlist": {
     "planner": [
       "author.request_choice",

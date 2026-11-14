@@ -2,7 +2,7 @@
   "name": "coverage.check",
   "version": "1.0.0",
   "family": "verify",
-  "summary": "检查卷纲关键事件落点、角色出场动机与主线断档，结果只作建议",
+  "summary": "检查卷纲关键事件无落点、角色无出场动机与章纲冲突（P1），只给建议",
   "actors": [
     "planner"
   ],
@@ -24,9 +24,54 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "scope": {
+        "type": "string",
+        "enum": [
+          "volume",
+          "chapter",
+          "project"
+        ]
+      }
+    },
+    "required": [
+      "scope"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "gaps": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "gaps"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "P1",
   "m0": false,
   "tool_id": "T26"

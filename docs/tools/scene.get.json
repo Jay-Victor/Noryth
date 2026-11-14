@@ -2,7 +2,7 @@
   "name": "scene.get",
   "version": "1.0.0",
   "family": "structure",
-  "summary": "读取场景地点、在场者、目标、入口与上一场结果；在场者超阈值返回告警",
+  "summary": "读取场景地点、在场者、目标、入口与上一场结果，在场者超阈值返回告警",
   "actors": [
     "orchestrator",
     "reviewer"
@@ -26,9 +26,82 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "scene_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "scene_id"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "scene_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "location": {
+        "type": "string"
+      },
+      "participants": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "participant_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "goal": {
+        "type": "string"
+      },
+      "entry": {
+        "type": "string"
+      },
+      "exit": {},
+      "status": {
+        "type": "string"
+      },
+      "previous_scene_result": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "warning": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "scene_id",
+      "location",
+      "participants",
+      "participant_count",
+      "goal",
+      "entry",
+      "exit",
+      "status",
+      "previous_scene_result",
+      "warning"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T09"

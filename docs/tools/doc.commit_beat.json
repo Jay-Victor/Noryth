@@ -20,12 +20,94 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "scene_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "ord": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 10000
+      },
+      "speaker_type": {
+        "type": "string",
+        "enum": [
+          "character",
+          "narrator"
+        ]
+      },
+      "speaker_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "body": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 20000
+      },
+      "supersedes_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "expected_revision": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "chapter_id",
+      "scene_id",
+      "ord",
+      "speaker_type",
+      "speaker_id",
+      "body"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "beat_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "revision_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "seq": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "beat_id",
+      "revision_id",
+      "seq"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "S01",

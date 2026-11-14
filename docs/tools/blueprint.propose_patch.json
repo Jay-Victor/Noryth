@@ -2,7 +2,7 @@
   "name": "blueprint.propose_patch",
   "version": "1.0.0",
   "family": "propose",
-  "summary": "提交蓝图补丁提案，只写草案，不直接改大纲节点",
+  "summary": "提交大纲变更提案（新增/修改/删除节点），只写草案，不直接改大纲",
   "actors": [
     "planner"
   ],
@@ -22,12 +22,183 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "ops": {
+        "minItems": 1,
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "add"
+                },
+                "parent_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "main",
+                    "volume",
+                    "chapter"
+                  ]
+                },
+                "ord": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 20000
+                }
+              },
+              "required": [
+                "op",
+                "parent_id",
+                "kind",
+                "ord",
+                "title"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "update"
+                },
+                "node_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 20000
+                }
+              },
+              "required": [
+                "op",
+                "node_id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "remove"
+                },
+                "node_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "required": [
+                "op",
+                "node_id"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      }
+    },
+    "required": [
+      "ops"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "proposal_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "status": {
+        "type": "string",
+        "const": "draft"
+      },
+      "diff_summary": {
+        "type": "object",
+        "properties": {
+          "added": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "updated": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "removed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          }
+        },
+        "required": [
+          "added",
+          "updated",
+          "removed",
+          "nodes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "proposal_id",
+      "status",
+      "diff_summary"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T31"

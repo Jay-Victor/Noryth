@@ -2,7 +2,7 @@
   "name": "refusal.raise",
   "version": "1.0.0",
   "family": "propose",
-  "summary": "角色拒演：合法输出，暂停场景，理由不得越过角色已知范围",
+  "summary": "角色拒演：合法输出不是失败，调度器据此暂停场景等作者裁决",
   "actors": [
     "character"
   ],
@@ -10,7 +10,9 @@
   "agent_callable": true,
   "requires_gate": null,
   "idempotency": "key_required",
-  "injected": [],
+  "injected": [
+    "character_id"
+  ],
   "limits": {
     "timeout_ms": 5000,
     "max_result_tokens": 2000,
@@ -22,12 +24,49 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "enum": [
+          "out_of_knowledge",
+          "out_of_character",
+          "storyboard_conflict",
+          "content_boundary"
+        ]
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 4,
+        "maxLength": 500
+      }
+    },
+    "required": [
+      "code",
+      "reason"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "const": "character_refusal"
+      }
+    },
+    "required": [
+      "status"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T41"

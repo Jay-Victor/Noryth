@@ -336,6 +336,36 @@ export class RelationshipRepo extends BaseRepo {
     return rows.map(mapRelationship)
   }
 
+  /** 与本人相关的边：出边或入边（角色只能看这些，PRD §4.10 T18）。 */
+  listActiveFor(characterId: string): RelationshipEdgeRecord[] {
+    const rows = allRows<RelationshipRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('relationship_edge')
+        .selectAll()
+        .where((eb) => eb.or([eb('from_id', '=', characterId), eb('to_id', '=', characterId)]))
+        .where('valid_to_seq', 'is', null)
+        .orderBy('from_id')
+        .orderBy('to_id')
+        .orderBy('axis')
+    )
+    return rows.map(mapRelationship)
+  }
+
+  listActiveAll(): RelationshipEdgeRecord[] {
+    const rows = allRows<RelationshipRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('relationship_edge')
+        .selectAll()
+        .where('valid_to_seq', 'is', null)
+        .orderBy('from_id')
+        .orderBy('to_id')
+        .orderBy('axis')
+    )
+    return rows.map(mapRelationship)
+  }
+
   current(fromId: string, toId: string, axis: RelationshipAxis): RelationshipEdgeRecord | null {
     const row = firstRow<RelationshipRow>(
       this.runner,

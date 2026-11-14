@@ -6,6 +6,7 @@ import { CharacterRepo } from './character'
 import { systemClock, type Clock } from './common'
 import { JobRepo } from './job'
 import { MemoryRepo } from './memory'
+import { MemoryProposalRepo } from './memory-proposal'
 import { OutlineRepo } from './outline'
 import { OutboxRepo } from './outbox'
 import { PatchRepo } from './patch'
@@ -37,6 +38,7 @@ export function createRepos(db: Db, options: RepoOptions = {}) {
     revision: new RevisionRepo(runner, now),
     patch: new PatchRepo(runner, now),
     memory: new MemoryRepo(runner, now),
+    memoryProposal: new MemoryProposalRepo(runner, now),
     world: new WorldFactRepo(runner, now),
     belief: new CharacterBeliefRepo(runner, now),
     relationship: new RelationshipRepo(runner),
@@ -56,6 +58,7 @@ export * from './character'
 export * from './common'
 export * from './job'
 export * from './memory'
+export * from './memory-proposal'
 export * from './outline'
 export * from './outbox'
 export * from './patch'

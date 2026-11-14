@@ -2,7 +2,7 @@
   "name": "relationship.get_edges",
   "version": "1.0.0",
   "family": "knowledge",
-  "summary": "读取信任、亲密、张力关系边与 since_seq；角色实例只看与本人相关的边",
+  "summary": "读取信任、亲密、张力边；角色实例只能看与本人相关的边",
   "actors": [
     "orchestrator",
     "character",
@@ -29,9 +29,80 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "character_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "axis": {
+        "type": "string",
+        "enum": [
+          "trust",
+          "intimacy",
+          "tension"
+        ]
+      }
+    },
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "edges": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "from_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "to_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "axis": {
+              "type": "string"
+            },
+            "value": {
+              "type": "number"
+            },
+            "since_seq": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "id",
+            "from_id",
+            "to_id",
+            "axis",
+            "value",
+            "since_seq"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "edges"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T18"

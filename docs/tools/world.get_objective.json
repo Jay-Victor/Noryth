@@ -2,7 +2,7 @@
   "name": "world.get_objective",
   "version": "1.0.0",
   "family": "knowledge",
-  "summary": "读取全量客观事实与可见性，仅用于排戏、审计与记忆抽取",
+  "summary": "返回全量客观事实（含秘密），只用于排戏、审计与记忆抽取",
   "actors": [
     "orchestrator",
     "reviewer",
@@ -28,9 +28,121 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "as_of": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "subjects": {
+        "minItems": 1,
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    },
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "as_of": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "facts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "subject": {
+              "type": "string"
+            },
+            "predicate": {
+              "type": "string"
+            },
+            "object": {
+              "type": "string"
+            },
+            "truth": {
+              "type": "string"
+            },
+            "visibility": {
+              "type": "string"
+            },
+            "known_by": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reveal_seq": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "valid_from_seq": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "valid_to_seq": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "subject",
+            "predicate",
+            "object",
+            "truth",
+            "visibility",
+            "known_by",
+            "reveal_seq",
+            "valid_from_seq",
+            "valid_to_seq"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "as_of",
+      "facts"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T15"

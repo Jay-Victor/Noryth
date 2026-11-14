@@ -2,7 +2,7 @@
   "name": "patch.propose",
   "version": "1.0.0",
   "family": "propose",
-  "summary": "提交修订 patch，需 G5 令牌，只改草稿区已有拍，不加戏不加场景",
+  "summary": "凭 G5 令牌提交草稿 patch；只改已有拍，不加戏、不加场景",
   "actors": [
     "reviewer"
   ],
@@ -22,12 +22,93 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "patches": {
+        "minItems": 1,
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "beat_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "before": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "after": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 500
+            },
+            "issue_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "beat_id",
+            "before",
+            "after",
+            "reason",
+            "issue_ref"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "patches"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "proposal_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "patch_ids": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "revision_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "proposal_id",
+      "patch_ids",
+      "revision_id"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T36"

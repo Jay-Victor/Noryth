@@ -2,7 +2,7 @@
   "name": "author.request_choice",
   "version": "1.0.0",
   "family": "interaction",
-  "summary": "向作者提出二到四个选项的交互问题，自动模式与批处理中拒绝",
+  "summary": "向作者提出带 2–4 个选项的问题并等待选择；自动模式与批处理中不可用",
   "actors": [
     "planner"
   ],
@@ -10,7 +10,9 @@
   "agent_callable": true,
   "requires_gate": null,
   "idempotency": "natural",
-  "injected": [],
+  "injected": [
+    "mode"
+  ],
   "limits": {
     "timeout_ms": 10000,
     "max_result_tokens": 1000,
@@ -24,9 +26,74 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "question": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 300
+      },
+      "options": {
+        "minItems": 2,
+        "maxItems": 4,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "required": [
+            "id",
+            "label"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "question",
+      "options"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "choice": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "choice"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T42"

@@ -888,12 +888,13 @@ title: 祠堂夜谈
 ```
 src/main/tools/
 ├─ define.ts              # defineTool()：类型收窄 + 运行时断言
-├─ manifests/             # 42 个 .ts，一类一文件，一个工具一个导出
+├─ manifests/             # 42 个定义，一类一文件：structure / knowledge / verify / propose / interaction
 │  ├─ structure.ts        # T01–T09
 │  ├─ knowledge.ts        # T10–T23
 │  ├─ verify.ts           # T24–T30
 │  ├─ propose.ts          # T31–T41
-│  └─ interaction.ts      # T42
+│  ├─ interaction.ts      # T42
+│  └─ shared.ts           # 限额/降级默认值与 JSON 解析
 ├─ system.ts              # 8 个系统能力（agent_callable=false）
 ├─ registry.ts            # 唯一目录：加载、校验、版本索引
 ├─ resolve.ts             # 基线 ∩ 实例收窄 ∩ 项目策略
@@ -902,7 +903,10 @@ src/main/tools/
 ├─ idempotency.ts         # canonical hash + 重放
 ├─ budget.ts              # 单轮/单工具计数
 ├─ audit.ts               # tool_call 落库
-├─ errors.ts              # 错误码 + 模型可见文案（唯一文案源）
+├─ tokens.ts / truncate.ts # token 估算与整条截断
+├─ turn-refs.ts           # 轮内引用登记（grounding 子集校验）
+├─ support/               # text / cards / dsl / storyboard 纯函数
+├─ types.ts               # ToolRuntime / ToolResult / ToolRef / 服务接口
 └─ generated/
    ├─ allowlist.ts        # 由 manifests 生成：agent → tool names
    └─ toolset-version.ts  # 清单内容 hash
@@ -956,6 +960,8 @@ export const ToolManifest = z.object({
 
 **字段命名**：TS 内部用 camelCase（`sideEffect` / `agentCallable`），生成 `docs/tools/*.json` 时按 PRD §4.9.2 的 snake_case（`side_effect` / `agent_callable` / `input_schema` …）输出；映射只在 codegen 一处做，避免两份真源。
 
+**实现附加元数据（阶段 03）**：TS 定义额外携带 `toolId`（T01–T42 / S01–S08）、`milestone`、`enabled`、`system`、`selfOnly`。它们只影响生成物与注册表，不改变 PRD §4.9.2 面向 Agent 的字段；`selfOnly` 声明解析期实例收窄（角色实例裁掉 `character_id` 参数，身份改由注入提供）。
+
 **运行期剔除**：单个工具加载或初始化失败 → 标 `tool_unavailable`，从有效工具集移除，不影响其他工具；不静默替换实现（PRD §4.9.2）。
 
 ### 6.3 授权解析
@@ -972,7 +978,7 @@ function narrowForInstance(t: Tool, agentKey: AgentKey): Tool {
   if (!agentKey.startsWith('character:')) return t;
   const characterId = agentKey.slice('character:'.length);
   // 角色实例：裁掉「查别人」的参数，身份改由注入提供
-  const input = t.instanceNarrowing === 'self_only'
+  const input = t.selfOnly
     ? t.input.omit({ character_id: true })
     : t.input;
   return { ...t, input, injected: [...t.injected, 'character_id'], instanceId: characterId };
@@ -1040,6 +1046,8 @@ export async function invokeTool(call: ToolCallIntent, ctx: TurnContext): Promis
 - 「授权 → 参数」必须在「身份注入」之前：未授权工具不进入参数解析，避免通过报错探测 schema。
 - 「幂等」必须在「预算」之前：重放不该消耗额度，也不该被拒。
 - 「闸门」必须在「执行」之前，且令牌**成功后才消费**：失败重试复用同一令牌（PRD §4.9.5）。
+
+**上下文注入扩展（阶段 03）**：除上述九项外，`chapter_id` / `beat_id` / `mode` 也由 job 上下文注入，模型不可见、不可覆盖；工具在 manifest 的 `injected` 中声明后才会出现在清单里。`project_id` / `actor_id` / `job_id` / `turn_id` / `epoch` 对所有工具注入，不允许出现在任何 `input_schema`。
 
 ### 6.5 闸门令牌与幂等
 
@@ -2603,6 +2611,7 @@ jobs:
 | `storyboard_exhausted` | 分镜已用完但场景未收束 | 补分镜 |
 | `file_conflict` | 正文文件被外部修改 | 以 DB 为准 / 导入 |
 | `human_takeover` | 已修订 3 轮，转人工 | 定稿 / 人工处理 |
+| `tool_not_found` | 工具不可用 | 无需操作 |
 | `tool_unavailable` | 工具不可用，任务已暂停 | 重试 / 查看日志 |
 | `tool_protocol_error` | 模型无法按要求调用工具 | 换模型 / 重试 |
 | `tool_budget_exceeded` | 本轮取材已达上限 | 继续（依据不足） |

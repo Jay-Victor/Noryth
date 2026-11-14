@@ -2,7 +2,7 @@
   "name": "belief.get_for_character",
   "version": "1.0.0",
   "family": "knowledge",
-  "summary": "按角色读取信念，用于排戏与泄漏判定，不得写进正文",
+  "summary": "读取指定角色信念，用于排戏与泄漏判定；不得写进正文",
   "actors": [
     "orchestrator",
     "reviewer",
@@ -28,9 +28,82 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "character_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "character_id"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "character_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "beliefs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "fact_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "belief_text": {
+              "type": "string"
+            },
+            "confidence": {
+              "type": "number"
+            },
+            "learned_seq": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "id",
+            "fact_id",
+            "belief_text",
+            "confidence",
+            "learned_seq"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "character_id",
+      "beliefs"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T17"

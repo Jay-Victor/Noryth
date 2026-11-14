@@ -26,9 +26,143 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "chapter_id"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "status": {
+        "type": "string"
+      },
+      "scenes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "scene_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "ord": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "location": {
+              "type": "string"
+            },
+            "participants": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "goal": {
+              "type": "string"
+            },
+            "entry": {
+              "type": "string"
+            },
+            "exit": {},
+            "status": {
+              "type": "string"
+            },
+            "beats": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "beat_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "ord": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "speaker_type": {
+                    "type": "string"
+                  },
+                  "speaker_id": {
+                    "type": "string"
+                  },
+                  "intent": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "max_words": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "beat_id",
+                  "ord",
+                  "speaker_type",
+                  "speaker_id",
+                  "intent",
+                  "status",
+                  "max_words"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "scene_id",
+            "ord",
+            "location",
+            "participants",
+            "goal",
+            "entry",
+            "exit",
+            "status",
+            "beats"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "chapter_id",
+      "status",
+      "scenes"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T07"

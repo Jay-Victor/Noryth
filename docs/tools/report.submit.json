@@ -2,7 +2,7 @@
   "name": "report.submit",
   "version": "1.0.0",
   "family": "propose",
-  "summary": "提交审批报告；schema 失败降级纯文本并标 degraded，阻断项仍需拍与证据",
+  "summary": "提交审批报告；结构化失败时接受纯文本并标降级，阻断项必须定位到拍",
   "actors": [
     "reviewer"
   ],
@@ -22,12 +22,169 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "report": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "verdict": {
+                "type": "string",
+                "enum": [
+                  "pass",
+                  "pass_with_notes",
+                  "fail"
+                ]
+              },
+              "blocking": {
+                "default": [],
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "issue_ref": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "dimension": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40
+                    },
+                    "beat_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    }
+                  },
+                  "required": [
+                    "issue_ref",
+                    "dimension",
+                    "beat_id",
+                    "evidence"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "suggestions": {
+                "default": [],
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "issue_ref": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    },
+                    "dimension": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40
+                    },
+                    "suggestion": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    }
+                  },
+                  "required": [
+                    "issue_ref",
+                    "suggestion"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "dimensions": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "number"
+                }
+              },
+              "model": {
+                "type": "string",
+                "maxLength": 120
+              }
+            },
+            "required": [
+              "verdict",
+              "blocking",
+              "suggestions"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "plain_text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20000
+              }
+            },
+            "required": [
+              "plain_text"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "required": [
+      "report"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "report_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "round": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "verdict": {
+        "type": "string"
+      },
+      "degraded": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "report_id",
+      "round",
+      "verdict",
+      "degraded"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T35"

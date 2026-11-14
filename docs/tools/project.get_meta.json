@@ -28,9 +28,150 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "title": {
+            "type": "string"
+          },
+          "genre": {
+            "type": "string"
+          },
+          "pov": {
+            "type": "string"
+          },
+          "target_words": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "setup_state": {
+            "type": "string"
+          },
+          "chapter_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "finalized_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "word_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "genre",
+          "pov",
+          "target_words",
+          "status",
+          "setup_state",
+          "chapter_count",
+          "finalized_count",
+          "word_count"
+        ],
+        "additionalProperties": false
+      },
+      "chapters": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "ord": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "status": {
+              "type": "string"
+            },
+            "covered_until_seq": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "has_final": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "id",
+            "ord",
+            "status",
+            "covered_until_seq",
+            "has_final"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "gates": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "gate_id": {
+              "type": "string"
+            },
+            "decision": {
+              "type": "string"
+            },
+            "created_at": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "gate_id",
+            "decision",
+            "created_at"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "project",
+      "chapters",
+      "gates"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T01"

@@ -2,7 +2,7 @@
   "name": "foreshadow.list_open",
   "version": "1.0.0",
   "family": "knowledge",
-  "summary": "列出未回收伏笔与埋设章，只报节奏不报逻辑错误",
+  "summary": "列出未回收伏笔与埋设章（P1），只报节奏，不报逻辑错误",
   "actors": [
     "orchestrator",
     "reviewer",
@@ -28,9 +28,63 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "as_of": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "text": {
+              "type": "string"
+            },
+            "planted_chapter_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "text",
+            "planted_chapter_id"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "items"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "P1",
   "m0": false,
   "tool_id": "T22"

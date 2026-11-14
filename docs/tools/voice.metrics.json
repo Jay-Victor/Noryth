@@ -2,7 +2,7 @@
   "name": "voice.metrics",
   "version": "1.0.0",
   "family": "verify",
-  "summary": "计算句长分布、口头禅与问句率、角色两两区分度，只出指标不判失败",
+  "summary": "统计句长分布、口头禅与问句率（M2）；只出指标，不自动判 fail",
   "actors": [
     "reviewer"
   ],
@@ -24,9 +24,47 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "scene_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "scene_id"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "sentence_length_jsd": {
+        "type": "number"
+      },
+      "catchphrase_rate": {
+        "type": "number"
+      },
+      "question_rate": {
+        "type": "number"
+      },
+      "pairwise_distinctness": {
+        "type": "number"
+      }
+    },
+    "required": [
+      "sentence_length_jsd",
+      "catchphrase_rate",
+      "question_rate",
+      "pairwise_distinctness"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M2",
   "m0": false,
   "tool_id": "T25"

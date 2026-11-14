@@ -2,7 +2,7 @@
   "name": "consistency.check",
   "version": "1.0.0",
   "family": "verify",
-  "summary": "确定性检查引用、时间轴、单值槽、生死身份与出口状态，语义问题只标候选",
+  "summary": "对 revision 做确定性检查：引用缺失、时间轴、单值槽、出口状态与泄漏候选",
   "actors": [
     "reviewer"
   ],
@@ -24,9 +24,92 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "revision_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "revision_id"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "revision_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "issue_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "error",
+                "warn",
+                "candidate"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "beat_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "ref_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "code",
+            "severity",
+            "message",
+            "beat_id",
+            "ref_id"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "revision_id",
+      "issue_count",
+      "issues"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T24"

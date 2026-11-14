@@ -1,5 +1,7 @@
-import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import { sha256Hex } from '../crypto'
+
+export { sha256Hex }
 
 /**
  * 正文清单的规范形式（DEV-PLAN §5.4，PHASE-02 §5.2 固定下来）：
@@ -26,10 +28,6 @@ export interface ManifestRow {
 
 export function normalizeBody(body: string): string {
   return body.replace(/\r\n/g, '\n')
-}
-
-export function sha256Hex(input: string | Buffer): string {
-  return createHash('sha256').update(input).digest('hex')
 }
 
 export function hashText(text: string): string {

@@ -2,7 +2,7 @@
   "name": "exit_dsl.validate",
   "version": "1.0.0",
   "family": "verify",
-  "summary": "校验出口 DSL 的深度、叶子与可判定性，自然语言出口直接拒绝",
+  "summary": "校验出口 DSL 是否合法且可判定；自然语言出口直接拒绝",
   "actors": [
     "orchestrator"
   ],
@@ -24,9 +24,46 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "expr": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "required": [
+      "expr"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "valid": {
+        "type": "boolean"
+      },
+      "machine_decidable": {
+        "type": "boolean"
+      },
+      "reasons": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "valid",
+      "machine_decidable",
+      "reasons"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T28"

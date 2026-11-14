@@ -2,7 +2,7 @@
   "name": "memory.apply",
   "version": "1.0.0",
   "family": "propose",
-  "summary": "凭 G7 令牌应用记忆决策，只写记忆与世界状态，不碰正文",
+  "summary": "凭 G7 令牌应用记忆提案：写记忆、世界状态与关系；不碰正文",
   "actors": [
     "memory"
   ],
@@ -22,12 +22,98 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "proposal_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "decisions": {
+        "minItems": 1,
+        "maxItems": 80,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "item_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "accept",
+                "edit",
+                "reject"
+              ]
+            },
+            "edited_text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "required": [
+            "item_id",
+            "decision"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "proposal_id",
+      "decisions"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "applied_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "rejected_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "superseded": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "inactive": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    },
+    "required": [
+      "applied_count",
+      "rejected_count",
+      "superseded",
+      "inactive"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T39"

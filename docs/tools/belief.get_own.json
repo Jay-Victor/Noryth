@@ -2,7 +2,7 @@
   "name": "belief.get_own",
   "version": "1.0.0",
   "family": "knowledge",
-  "summary": "返回本人信念，可错可矛盾，不自动升格为客观事实",
+  "summary": "返回本人信念；信念可错、可矛盾，不自动升格为世界事实",
   "actors": [
     "character"
   ],
@@ -10,7 +10,9 @@
   "agent_callable": true,
   "requires_gate": null,
   "idempotency": "natural",
-  "injected": [],
+  "injected": [
+    "character_id"
+  ],
   "limits": {
     "timeout_ms": 800,
     "max_result_tokens": 2000,
@@ -26,9 +28,67 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "beliefs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "fact_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "belief_text": {
+              "type": "string"
+            },
+            "confidence": {
+              "type": "number"
+            },
+            "learned_seq": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "id",
+            "fact_id",
+            "belief_text",
+            "confidence",
+            "learned_seq"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "beliefs"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T16"

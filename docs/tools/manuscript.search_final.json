@@ -2,7 +2,7 @@
   "name": "manuscript.search_final",
   "version": "1.0.0",
   "family": "knowledge",
-  "summary": "只检索定稿正文，返回章节、拍与引用；初稿永不进入结果",
+  "summary": "检索定稿正文，返回章、拍与引用；初稿不进入检索",
   "actors": [
     "orchestrator",
     "reviewer",
@@ -28,9 +28,90 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "limit": {
+        "default": 5,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 8
+      },
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      }
+    },
+    "required": [
+      "query",
+      "limit"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "hit_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "chapter_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "beat_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "quote": {
+              "type": "string"
+            },
+            "seq": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "chapter_id",
+            "beat_id",
+            "quote",
+            "seq"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "hit_count",
+      "items"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T19"

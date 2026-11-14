@@ -2,7 +2,7 @@
   "name": "memory.proposal.submit",
   "version": "1.0.0",
   "family": "propose",
-  "summary": "提交记忆固化提案，只从定稿抽取；台词只能进信念或声称",
+  "summary": "只从定稿抽取记忆固化提案；台词只能进信念或声称，不写客观事实",
   "actors": [
     "memory"
   ],
@@ -22,12 +22,111 @@
     "fail"
   ],
   "audit": {
-    "log_args": "full",
+    "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "proposal": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "minItems": 1,
+            "maxItems": 80,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "experience",
+                    "fact",
+                    "relationship",
+                    "cognition",
+                    "world_fact",
+                    "belief"
+                  ]
+                },
+                "character_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
+                "payload": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                },
+                "source_beat_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "importance": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "pinned": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "kind",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "proposal"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "job_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "status": {
+        "type": "string",
+        "const": "proposed"
+      },
+      "item_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      }
+    },
+    "required": [
+      "job_id",
+      "status",
+      "item_count"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T37"

@@ -2,7 +2,7 @@
   "name": "impact.analyze",
   "version": "1.0.0",
   "family": "verify",
-  "summary": "分析蓝图变更影响的章节、记忆与关系边，变更前必须执行",
+  "summary": "分析蓝图变更影响的章节、记忆条目与关系边（P1），结果进变更记录",
   "actors": [
     "planner"
   ],
@@ -24,9 +24,60 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "change": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      }
+    },
+    "required": [
+      "change"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "chapters": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "memory_entries": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "relationships": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    },
+    "required": [
+      "chapters",
+      "memory_entries",
+      "relationships"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "P1",
   "m0": false,
   "tool_id": "T29"

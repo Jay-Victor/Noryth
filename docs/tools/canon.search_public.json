@@ -2,7 +2,7 @@
   "name": "canon.search_public",
   "version": "1.0.0",
   "family": "knowledge",
-  "summary": "检索公共设定，不返回私有记忆 ID 与未揭示事实",
+  "summary": "检索公共设定与已揭示事实；不返回私有记忆 ID，不返回未揭示事实",
   "actors": [
     "planner",
     "orchestrator",
@@ -15,7 +15,9 @@
   "agent_callable": true,
   "requires_gate": null,
   "idempotency": "natural",
-  "injected": [],
+  "injected": [
+    "as_of"
+  ],
   "limits": {
     "timeout_ms": 800,
     "max_result_tokens": 2000,
@@ -31,9 +33,81 @@
     "log_args": "hash",
     "log_result_ids": true
   },
-  "input_schema": null,
-  "output_schema": null,
-  "contract_complete": false,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "top_k": {
+        "default": 5,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 5
+      }
+    },
+    "required": [
+      "query",
+      "top_k"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "hit_count": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "canon",
+                "fact"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "title": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "title",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "hit_count",
+      "items"
+    ],
+    "additionalProperties": false
+  },
+  "contract_complete": true,
   "milestone": "M0",
   "m0": true,
   "tool_id": "T12"
