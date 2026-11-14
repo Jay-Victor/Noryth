@@ -43,7 +43,7 @@
 ## 下一阶段交接
 
 - 尚未开工。
-- 开工前确认：`docs/` 已入库、`AGENTS.md` 可读、`PROMPTS.md` 可用。
+- 开工前确认：`docs/` 已入库、`AGENTS.md` 可读、`PROGRESS.md` 可写。
 
 ## 更新规则
 

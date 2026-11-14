@@ -6,14 +6,14 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 
 - 仓库目前只有设计文档与工作流文件，**没有代码**。不要假设 `package.json`、构建脚本或依赖已经存在。
 - `docs/` 已入库，是项目规格的一部分；不要删除、移动或重写。
-- 每阶段开始/结束用 `PROMPTS.md` 的模板；进度与交接写 `PROGRESS.md`。
+- 进度与交接写 `PROGRESS.md`；阶段范围与验收以 `docs/PHASE-0X-*.md` 为准。
 - 如果 `docs/` 缺失，先向用户确认，不要凭记忆补规格。
 
 ## Git 策略
 
 - 分支：`dev` 为开发分支；阶段验收全绿后打标签 `phase-0X-done`。
 - 提交：一个任务一次提交；说明写「改了什么、怎么验证」。
-- 入库：`AGENTS.md`、`PROGRESS.md`、`PROMPTS.md`、`docs/`（PRD、UI-DESIGN、DEV-PLAN、PHASE-*、scripts、assets）。
+- 入库：`AGENTS.md`、`PROGRESS.md`、`docs/`（PRD、UI-DESIGN、DEV-PLAN、PHASE-*、scripts、assets）。
 - 忽略：`node_modules/`、`dist/`、`out/`、`release/`、`*.db`、`*.db-wal`、`*.db-shm`、`logs/`、`docs/**/*.local.md`、`__pycache__/`、`*.pyc`。
 - 永不提交：API Key、项目数据库、正文、`backups/`、`exports/`。
 - 不重写历史；阶段回退用新提交，不用 `reset --hard` 覆盖已推送内容。
@@ -27,7 +27,7 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 2. `docs/UI-DESIGN.md` — 六页布局、四分区栅格、逐拍确认条、状态矩阵。
 3. `docs/DEV-PLAN.md` — 技术选型、DDL、模块边界、调用流水线、测试与验收。
 4. `docs/PHASE-01` 至 `PHASE-10` — 开发顺序、每阶段任务/交付物/验收/退出条件。
-5. `PROGRESS.md` — 当前进度与交接；`PROMPTS.md` — 阶段开场/收尾模板。
+5. `PROGRESS.md` — 当前进度与交接。
 
 ## 开发顺序
 
@@ -84,7 +84,6 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 | 改 UI 栅格 | `UI-DESIGN.md` §2.2 + `check_ui_spec.py` |
 | 当前阶段任务 | `docs/PHASE-0X-*.md` §4 |
 | 当前进度/交接 | `PROGRESS.md` |
-| 阶段开场/收尾 | `PROMPTS.md` |
 
 ## 完成标准
 
