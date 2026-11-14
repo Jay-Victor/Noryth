@@ -24,6 +24,9 @@ export interface ProjectRecord {
   seqHead: number
   writeEpoch: number
   schemaVersion: number
+  blueprintVersion: number
+  blueprintLockedAt: string | null
+  metadataJson: string
   createdAt: string
   updatedAt: string
 }
@@ -67,6 +70,9 @@ function mapProject(row: ProjectRow): ProjectRecord {
     seqHead: row.seq_head,
     writeEpoch: row.write_epoch,
     schemaVersion: row.schema_version,
+    blueprintVersion: row.blueprint_version,
+    blueprintLockedAt: row.blueprint_locked_at,
+    metadataJson: row.metadata_json,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }
@@ -146,6 +152,72 @@ export class ProjectRepo extends BaseRepo {
         .set({ setup_state: state, updated_at: this.now() })
         .where('id', '=', id)
     )
+  }
+
+  /** 草案版本：应用一次蓝图提案 +1；G1 锁定时至少为 1（PHASE-06 E2）。 */
+  bumpBlueprintVersion(id: string): number {
+    const row = firstRow<{ blueprint_version: number }>(
+      this.runner,
+      this.runner.db
+        .updateTable('project')
+        .set({ blueprint_version: sql`blueprint_version + 1`, updated_at: this.now() })
+        .where('id', '=', id)
+        .returning('blueprint_version')
+    )
+    if (!row) throw new Error(`project ${id} not found`)
+    return row.blueprint_version
+  }
+
+  /** G1 通过后锁定蓝图；建库失败也不回滚（PHASE-06 §5.3）。 */
+  lockBlueprint(id: string): void {
+    runStatement(
+      this.runner,
+      this.runner.db
+        .updateTable('project')
+        .set({
+          blueprint_locked_at: this.now(),
+          blueprint_version: sql`CASE WHEN blueprint_version < 1 THEN 1 ELSE blueprint_version END`,
+          updated_at: this.now()
+        })
+        .where('id', '=', id)
+    )
+  }
+
+  /** 项目元数据（isolation_verified 等）：浅合并，不覆盖其他键。 */
+  mergeMetadata(id: string, patch: Record<string, unknown>): Record<string, unknown> {
+    const project = this.getById(id)
+    if (!project) throw new Error(`project ${id} not found`)
+    let current: Record<string, unknown> = {}
+    try {
+      const parsed: unknown = JSON.parse(project.metadataJson)
+      if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        current = parsed as Record<string, unknown>
+      }
+    } catch {
+      current = {}
+    }
+    const next = { ...current, ...patch }
+    runStatement(
+      this.runner,
+      this.runner.db
+        .updateTable('project')
+        .set({ metadata_json: JSON.stringify(next), updated_at: this.now() })
+        .where('id', '=', id)
+    )
+    return next
+  }
+
+  metadata(id: string): Record<string, unknown> {
+    const project = this.getById(id)
+    if (!project) return {}
+    try {
+      const parsed: unknown = JSON.parse(project.metadataJson)
+      return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {}
+    } catch {
+      return {}
+    }
   }
 
   setStatus(id: string, status: ProjectStatus): void {

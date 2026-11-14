@@ -5,6 +5,7 @@ import type { ProposalKind } from '../../db/repos/memory-proposal'
 import { defineTool } from '../define'
 import { canonicalJson } from '../idempotency'
 import { sha256Hex } from '../../crypto'
+import { ensureNamespaces } from '../../memory/namespace'
 import { validateStoryboard, DraftSceneSchema } from '../support/storyboard'
 import { AUDIT, Id, degradeFor, limitsFor, parseJson } from './shared'
 
@@ -22,6 +23,9 @@ const BlueprintOp = z.discriminatedUnion('op', [
   z.strictObject({
     op: z.literal('add'),
     parent_id: Id.nullable(),
+    /** 同一提案内引用前面 add 的 `ref`，用于一次提交整棵树。 */
+    parent_ref: z.string().min(1).max(40).optional(),
+    ref: z.string().min(1).max(40).optional(),
     kind: z.enum(['main', 'volume', 'chapter']),
     ord: z.number().int().min(0).max(10_000),
     title: z.string().min(1).max(200),
@@ -63,13 +67,30 @@ const blueprintProposePatch = defineTool({
   audit: AUDIT,
   milestone: 'M0',
   handler: (args, ctx, services) => {
+    const project = services.repos.project.getById(ctx.runtime.project_id)
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    if (project.blueprintLockedAt !== null) {
+      throw new AppError('invalid_args', '蓝图已锁定；修改必须先走变更流程（阶段 06 只读）')
+    }
+
     let added = 0
     let updated = 0
     let removed = 0
     const nodes: string[] = []
+    const refs = new Set<string>()
 
     for (const op of args.ops) {
       if (op.op === 'add') {
+        if (op.ref !== undefined) {
+          if (refs.has(op.ref)) throw new AppError('invalid_args', `提案内 ref 重复 ${op.ref}`)
+          refs.add(op.ref)
+        }
+        if (op.parent_ref !== undefined && !refs.has(op.parent_ref)) {
+          throw new AppError('invalid_args', `parent_ref ${op.parent_ref} 未在前面定义`)
+        }
+        if (op.parent_ref !== undefined && op.parent_id !== null) {
+          throw new AppError('invalid_args', 'parent_id 与 parent_ref 只能给一个')
+        }
         if (op.parent_id !== null) {
           const parent = services.repos.outline.get(op.parent_id)
           if (!parent || parent.projectId !== ctx.runtime.project_id) {
@@ -77,7 +98,7 @@ const blueprintProposePatch = defineTool({
           }
         }
         added += 1
-        nodes.push(op.parent_id ?? '(root)')
+        nodes.push(op.ref ?? op.parent_ref ?? op.parent_id ?? '(root)')
         continue
       }
       const node = services.repos.outline.get(op.node_id)
@@ -96,9 +117,18 @@ const blueprintProposePatch = defineTool({
       }
     }
 
+    const record = services.repos.proposal.insert({
+      projectId: project.id,
+      kind: 'blueprint_patch',
+      jobId: ctx.runtime.job_id,
+      turnId: ctx.runtime.turn_id,
+      payloadJson: canonicalJson({ ops: args.ops }),
+      summaryJson: JSON.stringify({ added, updated, removed, nodes })
+    })
+
     return {
       data: {
-        proposal_id: newId('prop'),
+        proposal_id: record.id,
         status: 'draft' as const,
         diff_summary: { added, updated, removed, nodes }
       }
@@ -132,26 +162,63 @@ const characterProposeCard = defineTool({
   audit: AUDIT,
   milestone: 'M0',
   handler: (args, ctx, services) => {
+    const project = services.repos.project.getById(ctx.runtime.project_id)
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+
     if (!args.character_id) {
+      const record = services.repos.proposal.insert({
+        projectId: project.id,
+        kind: 'character_card',
+        jobId: ctx.runtime.job_id,
+        turnId: ctx.runtime.turn_id,
+        payloadJson: canonicalJson({ character_id: null, card: args.card }),
+        summaryJson: JSON.stringify({ note: '未指定角色；需作者先选择目标角色' })
+      })
       return {
-        data: { card_draft_id: newId('card'), character_id: null, card_version: null, affected_chapters: [] }
+        data: {
+          card_draft_id: record.id,
+          character_id: null,
+          card_version: null,
+          affected_chapters: []
+        }
       }
     }
+
+    const planCharacter = services.repos.planCharacter.get(args.character_id)
     const character = services.repos.character.get(args.character_id)
-    if (!character || character.projectId !== ctx.runtime.project_id) {
+    const target = planCharacter ?? character
+    if (!target || target.projectId !== ctx.runtime.project_id) {
       throw new AppError('invalid_args', 'character not in project')
     }
-    const affected = services.repos.chapter
-      .listByProject(ctx.runtime.project_id)
-      .filter((chapter) =>
-        services.repos.beat.listLiveByChapter(chapter.id).some((beat) => beat.speakerId === character.id)
-      )
-      .map((chapter) => chapter.id)
+
+    const affected = character
+      ? services.repos.chapter
+          .listByProject(ctx.runtime.project_id)
+          .filter((chapter) =>
+            services.repos.beat.listLiveByChapter(chapter.id).some((beat) => beat.speakerId === character.id)
+          )
+          .map((chapter) => chapter.id)
+      : []
+
+    const name = planCharacter?.name ?? character!.name
+    const record = services.repos.proposal.insert({
+      projectId: project.id,
+      kind: 'character_card',
+      jobId: ctx.runtime.job_id,
+      turnId: ctx.runtime.turn_id,
+      payloadJson: canonicalJson({
+        character_id: args.character_id,
+        target: planCharacter ? 'plan' : 'character',
+        card: args.card
+      }),
+      summaryJson: JSON.stringify({ character_name: name, affected_chapters: affected })
+    })
+
     return {
       data: {
-        card_draft_id: newId('card'),
-        character_id: character.id,
-        card_version: character.cardVersion,
+        card_draft_id: record.id,
+        character_id: args.character_id,
+        card_version: planCharacter?.cardVersion ?? character!.cardVersion,
         affected_chapters: affected
       }
     }
@@ -199,16 +266,35 @@ const rosterPropose = defineTool({
   degrade: degradeFor('propose'),
   audit: AUDIT,
   milestone: 'M0',
-  handler: (args) => {
+  handler: (args, ctx, services) => {
+    const project = services.repos.project.getById(ctx.runtime.project_id)
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    if (project.blueprintLockedAt !== null) {
+      throw new AppError('invalid_args', '蓝图已锁定；新增角色必须走变更流程')
+    }
+
     const seen = new Set<string>()
     for (const character of args.roster.characters) {
       const name = character.name.trim()
       if (seen.has(name)) throw new AppError('invalid_args', `角色名重复 ${name}`)
       seen.add(name)
     }
+
+    const record = services.repos.proposal.insert({
+      projectId: project.id,
+      kind: 'roster',
+      jobId: ctx.runtime.job_id,
+      turnId: ctx.runtime.turn_id,
+      payloadJson: canonicalJson({ roster: args.roster }),
+      summaryJson: JSON.stringify({
+        characters: args.roster.characters.length,
+        facts: args.roster.initial_facts.length
+      })
+    })
+
     return {
       data: {
-        roster_id: newId('roster'),
+        roster_id: record.id,
         characters: args.roster.characters.map((character, index) => ({
           name: character.name.trim(),
           temp_id: `tmp_${index + 1}`
@@ -551,25 +637,33 @@ const memoryNamespaceCreate = defineTool({
       throw new AppError('stale_revision', 'gate entity mismatch')
     }
 
-    const namespaces = args.character_ids.map((characterId) => {
+    for (const characterId of args.character_ids) {
       const character = services.repos.character.get(characterId)
       if (!character || character.projectId !== project.id) {
         throw new AppError('invalid_args', `character ${characterId} not in project`)
       }
-      const entries = services.repos.memory.listByCharacter(characterId)
-      return {
-        character_id: characterId,
-        namespace: `${project.id}:mem:${characterId}`,
-        entries: entries.length,
-        isolated: entries.every((entry) => entry.characterId === characterId)
-      }
-    })
+    }
+
+    const result = ensureNamespaces(services.repos, project.id)
+    if (result.isolationVerified) {
+      services.repos.project.setSetupState(project.id, 'complete')
+      services.repos.project.mergeMetadata(project.id, {
+        isolation_verified: true,
+        setup_completed_at: new Date().toISOString()
+      })
+    }
 
     return {
       data: {
-        namespaces: namespaces.map(({ isolated: _isolated, ...rest }) => rest),
-        isolation_verified: namespaces.every((namespace) => namespace.isolated),
-        setup_state: project.setupState
+        namespaces: result.namespaces
+          .filter((namespace) => namespace.characterId !== null)
+          .map((namespace) => ({
+            character_id: namespace.characterId!,
+            namespace: namespace.name,
+            entries: namespace.entries
+          })),
+        isolation_verified: result.isolationVerified,
+        setup_state: services.repos.project.getById(project.id)?.setupState ?? project.setupState
       }
     }
   }

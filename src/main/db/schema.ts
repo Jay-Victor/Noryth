@@ -20,6 +20,9 @@ export interface ProjectTable {
   seq_head: Generated<number>
   write_epoch: Generated<number>
   schema_version: number
+  blueprint_version: Generated<number>
+  blueprint_locked_at: string | null
+  metadata_json: Generated<string>
   created_at: string
   updated_at: string
 }
@@ -343,6 +346,80 @@ export interface MemoryProposalItemTable {
   decided_at: string | null
 }
 
+export interface PlanSessionTable {
+  id: string
+  project_id: string
+  title: string
+  status: Generated<string>
+  created_at: string
+  updated_at: string
+  last_message_at: string | null
+}
+
+export interface PlanMessageTable {
+  id: string
+  session_id: string
+  project_id: string
+  role: string
+  kind: Generated<string>
+  body: Generated<string>
+  status: Generated<string>
+  meta_json: Generated<string>
+  attempt: Generated<number>
+  retry_of: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PlanCharacterTable {
+  id: string
+  project_id: string
+  name: string
+  card_json: string
+  card_version: Generated<number>
+  ord: number
+  status: Generated<string>
+  registered_character_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PlanFactTable {
+  id: string
+  project_id: string
+  subject: string
+  predicate: string
+  object: string
+  visibility: Generated<string>
+  ord: number
+  status: Generated<string>
+  created_at: string
+  updated_at: string
+}
+
+export interface AgentProposalTable {
+  id: string
+  project_id: string
+  kind: string
+  status: Generated<string>
+  job_id: string
+  turn_id: string
+  summary_json: Generated<string>
+  payload_json: string
+  created_at: string
+  applied_at: string | null
+}
+
+export interface MemoryNamespaceTable {
+  id: string
+  project_id: string
+  character_id: string | null
+  kind: string
+  name: string
+  isolation_verified: Generated<number>
+  created_at: string
+}
+
 export interface Database {
   project: ProjectTable
   outline_node: OutlineNodeTable
@@ -367,4 +444,10 @@ export interface Database {
   outbox: OutboxTable
   turn_metric: TurnMetricTable
   memory_proposal_item: MemoryProposalItemTable
+  plan_session: PlanSessionTable
+  plan_message: PlanMessageTable
+  plan_character: PlanCharacterTable
+  plan_fact: PlanFactTable
+  agent_proposal: AgentProposalTable
+  memory_namespace: MemoryNamespaceTable
 }

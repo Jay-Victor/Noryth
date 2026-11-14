@@ -846,7 +846,7 @@ title: 祠堂夜谈
 
 ### 5.10 迁移与 schema 版本
 
-- 迁移文件 `src/main/db/migrations/0001_init.sql`、`0002_*.sql`，只前进不回滚。
+- 迁移文件 `src/main/db/migrations/0001_init.sql`、`0002_outbox_meta.sql`、`0003_planning.sql`，只前进不回滚。
 - 每个文件首行 `-- name: ...`；迁移器计算 sha256 存入 `_migration.checksum`，已应用文件被改动 → 启动失败并报 `migration_checksum_mismatch`。
 - `schema_version` = 最大迁移号，写入 `project.schema_version`。
 - 打开更高版本项目：只读打开 + 提示「需要更新应用」；打开更低版本：先备份，再迁移，失败不写库。
@@ -876,6 +876,100 @@ title: 祠堂夜谈
 | 打开项目 | 迁移 + verify + 最近章加载 | 小项目 <300ms；30 章目标见 §13.7 |
 
 **结论**：这个产品的数据规模很小，性能风险不在数据库，在「流式渲染」与「上下文组装」。不要把工程预算花在存储优化上。
+
+### 5.13 规划台表（迁移 0003）
+
+阶段 06 的草案与对话不写正式实体：G1 之前 `character` / `world_fact` 保持为空，规划数据落独立表。
+
+```sql
+ALTER TABLE project ADD COLUMN blueprint_version INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE project ADD COLUMN blueprint_locked_at TEXT;              -- G1 通过后非空
+ALTER TABLE project ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'; -- isolation_verified 等
+
+CREATE TABLE plan_session (
+  id              TEXT PRIMARY KEY,
+  project_id      TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  title           TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived')),
+  created_at      TEXT NOT NULL,
+  updated_at      TEXT NOT NULL,
+  last_message_at TEXT
+);
+
+CREATE TABLE plan_message (
+  id          TEXT PRIMARY KEY,
+  session_id  TEXT NOT NULL REFERENCES plan_session(id) ON DELETE CASCADE,
+  project_id  TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  role        TEXT NOT NULL CHECK (role IN ('author','planner','system')),
+  kind        TEXT NOT NULL DEFAULT 'text' CHECK (kind IN ('text','draft','coverage','g1','error')),
+  body        TEXT NOT NULL DEFAULT '',
+  status      TEXT NOT NULL DEFAULT 'done' CHECK (status IN ('streaming','done','stopped','failed')),
+  meta_json   TEXT NOT NULL DEFAULT '{}',       -- label / proposal_ids / usage / error
+  attempt     INTEGER NOT NULL DEFAULT 1,        -- 重试复用同一行，不产生孤儿消息
+  retry_of    TEXT,
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
+
+CREATE TABLE plan_character (
+  id                      TEXT PRIMARY KEY,
+  project_id              TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  name                    TEXT NOT NULL,
+  card_json               TEXT NOT NULL,
+  card_version            INTEGER NOT NULL DEFAULT 1,
+  ord                     INTEGER NOT NULL,
+  status                  TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','registered')),
+  registered_character_id TEXT,
+  created_at              TEXT NOT NULL,
+  updated_at              TEXT NOT NULL,
+  UNIQUE (project_id, name)
+);
+
+CREATE TABLE plan_fact (
+  id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  subject     TEXT NOT NULL,
+  predicate   TEXT NOT NULL,
+  object      TEXT NOT NULL,
+  visibility  TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public','secret')),
+  ord         INTEGER NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','applied')),
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
+
+CREATE TABLE agent_proposal (
+  id            TEXT PRIMARY KEY,
+  project_id    TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  kind          TEXT NOT NULL CHECK (kind IN ('blueprint_patch','character_card','roster')),
+  status        TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','applied','rejected')),
+  job_id        TEXT NOT NULL,
+  turn_id       TEXT NOT NULL,
+  summary_json  TEXT NOT NULL DEFAULT '{}',
+  payload_json  TEXT NOT NULL,
+  created_at    TEXT NOT NULL,
+  applied_at    TEXT
+);
+
+CREATE TABLE memory_namespace (
+  id                 TEXT PRIMARY KEY,
+  project_id         TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  character_id       TEXT REFERENCES character(id) ON DELETE CASCADE,
+  kind               TEXT NOT NULL CHECK (kind IN ('private','public')),
+  name               TEXT NOT NULL,
+  isolation_verified INTEGER NOT NULL DEFAULT 0,
+  created_at         TEXT NOT NULL,
+  UNIQUE (project_id, name)
+);
+CREATE UNIQUE INDEX memory_namespace_private ON memory_namespace(project_id, character_id) WHERE kind = 'private';
+CREATE UNIQUE INDEX memory_namespace_public ON memory_namespace(project_id) WHERE kind = 'public';
+```
+
+规则：
+
+- T31/T32/T33 只写 `agent_proposal`；作者「应用建议」才写 `plan_character` / `plan_fact` / `outline_node`，蓝图草案版本 +1。
+- G1 在单个事务里写 `gate_record(G1)`、把 `outline_node.status` 置 `locked`、把章节点落成 `chapter` 行、由 `agents/roster.registerRoster` 把 `plan_character` 注册成 `character`、由 `memory/setup.applyInitialFacts` 把 `plan_fact` 写进 `world_fact`，并置 `blueprint_locked_at`。建库失败只把 `setup_state` 置 `failed`，不回滚上述事务。
+- `memory_namespace` 承载「5 私有 + 1 公共」；M0 的隔离自检按 `character_id` 与命名空间映射核对，阶段 09 接入向量检索后同一命名空间名作为过滤键。
 
 ---
 

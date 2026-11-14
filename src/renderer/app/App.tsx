@@ -12,8 +12,10 @@ import { ReadOnlyBanner, TitleBar } from './TitleBar'
 import { Toasts } from './Toasts'
 import { SlicePage } from './dev/Slice'
 import { HomePage } from '../pages/HomePage'
+import { PlanPage } from '../pages/plan/PlanPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { WorkbenchPage } from '../pages/WorkbenchPage'
+import { usePlan } from '../stores/plan'
 import { useSlice } from '../stores/slice'
 
 export function App(): React.JSX.Element {
@@ -37,9 +39,17 @@ export function App(): React.JSX.Element {
     const offSlice = bridge.events.onSliceBeat((event) => {
       useSlice.getState().applyEvent(event)
     })
+    const offPlan = bridge.events.onPlanMessage((event) => {
+      usePlan.getState().applyEvent(event)
+    })
+    const offChoice = bridge.events.onPlanChoice((event) => {
+      usePlan.getState().applyChoice(event)
+    })
     return () => {
       offProject()
       offSlice()
+      offPlan()
+      offChoice()
     }
   }, [])
 
@@ -132,7 +142,7 @@ export function App(): React.JSX.Element {
             style={{ gridTemplateColumns: gridTemplateColumns(mode) }}
           >
             <NavRail />
-            <WorkbenchPage page={page} mode={mode} />
+            {page === 'plan' ? <PlanPage mode={mode} /> : <WorkbenchPage page={page} mode={mode} />}
           </div>
         ) : (
           <div className="shell-grid" style={{ gridTemplateColumns: `${SHELL.nav}px minmax(0, 1fr)` }}>

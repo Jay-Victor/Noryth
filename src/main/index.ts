@@ -6,6 +6,7 @@ import { registerIpc, unregisterIpc } from './ipc/router'
 import { createLogger, logFilePath, type Logger } from './observability/logger'
 import { ProjectRegistry } from './project/registry'
 import { ProjectService } from './project/service'
+import { PlanService } from './plan/service'
 import { registerAppProtocol } from './protocol'
 import { devCsp, PROD_CSP } from './security'
 import { SettingsStore } from './settings/store'
@@ -130,11 +131,30 @@ async function bootstrap(): Promise<void> {
   })
   projectService = projectServiceInstance
 
+  const toolRegistry = buildRegistry(ALL_MANIFESTS, { at: new Date().toISOString() })
+
+  const planService = new PlanService({
+    host: () => projectServiceInstance.currentHandle(),
+    registry: toolRegistry,
+    settings: () => settings.read(),
+    allowFakeModel: !app.isPackaged,
+    emit: (event) => {
+      if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.planMessage, event)
+    },
+    emitChoice: (event) => {
+      if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.planChoice, event)
+    },
+    onStateChange: () => {
+      projectServiceInstance.refreshState()
+    },
+    log: (message, details) => logger?.info({ event: message, ...details }, message)
+  })
+
   const sliceEnabled = !app.isPackaged && process.env.NORYTH_SLICE !== '0'
   const slice = sliceEnabled
     ? new DevSliceService({
         host: () => projectServiceInstance.currentHandle(),
-        registry: buildRegistry(ALL_MANIFESTS, { at: new Date().toISOString() }),
+        registry: toolRegistry,
         fixturePath: join(app.getAppPath(), 'tests', 'fixtures', 'slice', 'project.json'),
         send: (event) => {
           if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.sliceBeat, event)
@@ -146,6 +166,7 @@ async function bootstrap(): Promise<void> {
 
   registerIpc({
     project: projectServiceInstance,
+    plan: planService,
     settings,
     logger,
     logPath: logFilePath(logDir),

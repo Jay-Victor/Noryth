@@ -23,6 +23,7 @@ export interface NewCharacterInput {
   projectId: string
   name: string
   cardJson: string
+  cardVersion?: number
   status?: CharacterStatus
   createdAt?: string
   updatedAt?: string
@@ -56,6 +57,7 @@ export class CharacterRepo extends BaseRepo {
       project_id: input.projectId,
       name: input.name,
       card_json: input.cardJson,
+      ...(input.cardVersion === undefined ? {} : { card_version: input.cardVersion }),
       status: input.status ?? 'active',
       created_at: at,
       updated_at: input.updatedAt ?? at

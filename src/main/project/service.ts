@@ -425,6 +425,36 @@ export class ProjectService {
     return report
   }
 
+  /**
+   * 规划台 G1/建库重试后调用：重读 project 摘要并广播 setupState。
+   * 不重开数据库、不触碰锁；失败只记日志。
+   */
+  refreshState(): ProjectSummary | null {
+    const current = this.current
+    if (!current) return null
+    try {
+      const entry = this.deps.registry.find(current.summary.id)
+      current.summary = this.summaryFromDb(
+        current.repos,
+        entry ?? {
+          id: current.summary.id,
+          title: current.summary.title,
+          path: current.dir,
+          createdAt: current.summary.createdAt,
+          lastOpenedAt: current.summary.lastOpenedAt
+        }
+      )
+      this.emitState()
+      return current.summary
+    } catch (error) {
+      this.deps.logger.warn(
+        { event: 'project_state_refresh_failed', error: error instanceof Error ? error.message : String(error) },
+        'failed to refresh project state'
+      )
+      return null
+    }
+  }
+
   /** 切片/主进程服务读取当前连接；外部不得长期持有。 */
   currentHandle(): { dir: string; db: Db; repos: Repos; readOnly: boolean } | null {
     const current = this.current

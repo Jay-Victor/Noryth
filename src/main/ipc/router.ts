@@ -16,6 +16,26 @@ import {
 } from '../../shared/schema/project'
 import { ProviderProbeInputSchema } from '../../shared/schema/model'
 import {
+  PlanAddOutlineInputSchema,
+  PlanCharacterAddInputSchema,
+  PlanCharacterIdInputSchema,
+  PlanCharacterSaveInputSchema,
+  PlanChooseInputSchema,
+  PlanEmptyInputSchema,
+  PlanFactAddInputSchema,
+  PlanFactIdInputSchema,
+  PlanFactSaveInputSchema,
+  PlanMessageIdInputSchema,
+  PlanProposalIdInputSchema,
+  PlanRemoveOutlineInputSchema,
+  PlanSaveOutlineInputSchema,
+  PlanSendInputSchema,
+  PlanSessionCreateInputSchema,
+  PlanSessionIdInputSchema,
+  PlanSessionRenameInputSchema,
+  PlanStateInputSchema
+} from '../../shared/schema/plan'
+import {
   SliceBeatInputSchema,
   SliceEditInputSchema,
   SliceEmptyInputSchema
@@ -23,6 +43,7 @@ import {
 import { probeProvider } from '../model/probe'
 import type { Logger } from '../observability/logger'
 import { exportDiagnostics } from '../observability/diagnostics'
+import type { PlanService } from '../plan/service'
 import type { ProjectService } from '../project/service'
 import type { SettingsStore } from '../settings/store'
 import type { SliceService } from '../slice/service'
@@ -37,6 +58,7 @@ export interface IpcDeps {
   logPath: string
   userDataDir: string
   appInfo: () => AppInfo
+  plan: PlanService
   /** 仅未打包构建注入；生产包不注册切片通道。 */
   slice?: SliceService
 }
@@ -50,6 +72,11 @@ interface HandlerDefinition<S extends z.ZodTypeAny, R> {
 
 function windowOf(event: Electron.IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender)
+}
+
+/** 规划会话生成中不允许切换/关闭项目：DB 连接会关闭，异步写入没有落点。 */
+function assertPlanIdle(plan: PlanService): void {
+  if (plan.isBusy()) throw new AppError('invalid_args', '规划会话生成中，请先停止再切换项目')
 }
 
 export function registerIpc(deps: IpcDeps): void {
@@ -101,6 +128,7 @@ export function registerIpc(deps: IpcDeps): void {
   register(IPC.projectCreate, {
     schema: CreateProjectInputSchema,
     handler: (payload) => {
+      assertPlanIdle(deps.plan)
       const result = deps.project.create(payload)
       deps.settings.write({ lastOpenedProjectId: result.projectId })
       return result
@@ -110,6 +138,7 @@ export function registerIpc(deps: IpcDeps): void {
   register(IPC.projectOpen, {
     schema: OpenProjectInputSchema,
     handler: (payload) => {
+      assertPlanIdle(deps.plan)
       const result = deps.project.open(payload)
       deps.settings.write({ lastOpenedProjectId: result.project.id })
       return result
@@ -118,17 +147,26 @@ export function registerIpc(deps: IpcDeps): void {
 
   register(IPC.projectClose, {
     schema: ProjectIdInputSchema,
-    handler: (payload) => ({ closed: deps.project.close(payload.projectId) })
+    handler: (payload) => {
+      assertPlanIdle(deps.plan)
+      return { closed: deps.project.close(payload.projectId) }
+    }
   })
 
   register(IPC.projectRemoveFromList, {
     schema: ProjectIdInputSchema,
-    handler: (payload) => ({ removed: deps.project.removeFromList(payload.projectId) })
+    handler: (payload) => {
+      assertPlanIdle(deps.plan)
+      return { removed: deps.project.removeFromList(payload.projectId) }
+    }
   })
 
   register(IPC.projectRelocate, {
     schema: RelocateProjectInputSchema,
-    handler: (payload) => deps.project.relocate(payload)
+    handler: (payload) => {
+      assertPlanIdle(deps.plan)
+      return deps.project.relocate(payload)
+    }
   })
 
   register(IPC.projectUpdateMeta, {
@@ -202,6 +240,110 @@ export function registerIpc(deps: IpcDeps): void {
       })
       return { path }
     }
+  })
+
+  const plan = deps.plan
+  register(IPC.planState, { schema: PlanStateInputSchema, handler: (payload) => plan.getState(payload) })
+  register(IPC.planSessionCreate, {
+    schema: PlanSessionCreateInputSchema,
+    mutation: true,
+    handler: (payload) => plan.createSession(payload)
+  })
+  register(IPC.planSessionRename, {
+    schema: PlanSessionRenameInputSchema,
+    mutation: true,
+    handler: (payload) => plan.renameSession(payload)
+  })
+  register(IPC.planSessionArchive, {
+    schema: PlanSessionIdInputSchema,
+    mutation: true,
+    handler: (payload) => plan.archiveSession(payload)
+  })
+  register(IPC.planSend, {
+    schema: PlanSendInputSchema,
+    mutation: true,
+    handler: (payload) => plan.send(payload)
+  })
+  register(IPC.planStop, {
+    schema: PlanSessionIdInputSchema,
+    mutation: true,
+    handler: (payload) => plan.stop(payload)
+  })
+  register(IPC.planRetry, {
+    schema: PlanMessageIdInputSchema,
+    mutation: true,
+    handler: (payload) => plan.retry(payload)
+  })
+  register(IPC.planSaveOutline, {
+    schema: PlanSaveOutlineInputSchema,
+    mutation: true,
+    handler: (payload) => plan.saveOutline(payload)
+  })
+  register(IPC.planAddOutline, {
+    schema: PlanAddOutlineInputSchema,
+    mutation: true,
+    handler: (payload) => plan.addOutline(payload)
+  })
+  register(IPC.planRemoveOutline, {
+    schema: PlanRemoveOutlineInputSchema,
+    mutation: true,
+    handler: (payload) => plan.removeOutline(payload)
+  })
+  register(IPC.planSaveCharacter, {
+    schema: PlanCharacterSaveInputSchema,
+    mutation: true,
+    handler: (payload) => plan.saveCharacter(payload)
+  })
+  register(IPC.planAddCharacter, {
+    schema: PlanCharacterAddInputSchema,
+    mutation: true,
+    handler: (payload) => plan.addCharacter(payload)
+  })
+  register(IPC.planRemoveCharacter, {
+    schema: PlanCharacterIdInputSchema,
+    mutation: true,
+    handler: (payload) => plan.removeCharacter(payload)
+  })
+  register(IPC.planSaveFact, {
+    schema: PlanFactSaveInputSchema,
+    mutation: true,
+    handler: (payload) => plan.saveFact(payload)
+  })
+  register(IPC.planAddFact, {
+    schema: PlanFactAddInputSchema,
+    mutation: true,
+    handler: (payload) => plan.addFact(payload)
+  })
+  register(IPC.planRemoveFact, {
+    schema: PlanFactIdInputSchema,
+    mutation: true,
+    handler: (payload) => plan.removeFact(payload)
+  })
+  register(IPC.planApplyProposal, {
+    schema: PlanProposalIdInputSchema,
+    mutation: true,
+    handler: (payload) => plan.applyProposal(payload)
+  })
+  register(IPC.planRejectProposal, {
+    schema: PlanProposalIdInputSchema,
+    mutation: true,
+    handler: (payload) => plan.rejectProposal(payload)
+  })
+  register(IPC.planChoose, {
+    schema: PlanChooseInputSchema,
+    mutation: true,
+    handler: (payload) => plan.choose(payload)
+  })
+  register(IPC.planG1Preview, { schema: PlanEmptyInputSchema, handler: () => plan.g1Preview() })
+  register(IPC.planConfirmG1, {
+    schema: PlanEmptyInputSchema,
+    mutation: true,
+    handler: () => plan.confirmG1()
+  })
+  register(IPC.planRetrySetup, {
+    schema: PlanEmptyInputSchema,
+    mutation: true,
+    handler: () => plan.retrySetup()
   })
 
   const slice = deps.slice

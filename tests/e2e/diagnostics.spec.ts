@@ -24,6 +24,9 @@ test('设置页导出诊断包：文件可读、不含 Key 与正文', async () 
   const { app, page } = await launch(userData)
   try {
     await page.locator('[data-nav="settings"]').click()
+    const info = await page.evaluate(() => window.noryth!.app.info())
+    expect(info.ok).toBe(true)
+    const schemaVersion = info.ok ? info.data.schemaVersion : 0
     await page.getByRole('button', { name: '导出诊断包' }).click()
     const toast = page.locator('.toast').filter({ hasText: '诊断包已导出' })
     await expect(toast).toBeVisible()
@@ -31,7 +34,7 @@ test('设置页导出诊断包：文件可读、不含 Key 与正文', async () 
     const file = detail.trim()
     expect(existsSync(file)).toBe(true)
     const content = readFileSync(file, 'utf8')
-    expect(content).toContain('"schemaVersion": 2')
+    expect(content).toContain(`"schemaVersion": ${schemaVersion}`)
     expect(content).not.toContain('sk-abcdefghijklmnop')
     expect(content).not.toContain('她把茶盏')
   } finally {

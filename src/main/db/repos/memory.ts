@@ -124,6 +124,17 @@ export class MemoryRepo extends BaseRepo {
     return allRows<MemoryRow>(this.runner, query).map(mapMemory)
   }
 
+  /** 隔离自检用：项目全量条目（只返回 ID 级信息，供跨角色探针核对）。 */
+  listByProject(projectId: string, options: { status?: MemoryStatus } = {}): MemoryEntryRecord[] {
+    let query = this.runner.db
+      .selectFrom('memory_entry')
+      .selectAll()
+      .where('project_id', '=', projectId)
+      .orderBy('learned_seq')
+    if (options.status) query = query.where('status', '=', options.status)
+    return allRows<MemoryRow>(this.runner, query).map(mapMemory)
+  }
+
   listBySource(chapterId: string): MemoryEntryRecord[] {
     const rows = allRows<MemoryRow>(
       this.runner,

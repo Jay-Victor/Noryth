@@ -13,7 +13,9 @@ export function StatusBar(): React.JSX.Element {
       ? '只读 · 写入已在主进程拒绝'
       : current.project.setupState === 'complete'
         ? '蓝图已确认'
-        : '蓝图未确认'
+        : current.project.setupState === 'failed'
+          ? '蓝图已确认 · 建库未完成'
+          : '蓝图未确认'
   const right = appInfo
     ? `Noryth ${appInfo.version} · Electron ${appInfo.electron} · 离线可用`
     : 'Noryth'

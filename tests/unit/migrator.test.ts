@@ -23,7 +23,7 @@ describe('migrator', () => {
       const db = newDb(dir.path)
       try {
         const first = migrate(db, MIGRATIONS)
-        expect(first.applied).toEqual([1, 2])
+        expect(first.applied).toEqual([1, 2, 3])
         expect(first.to).toBe(LATEST_SCHEMA_VERSION)
         expect(currentVersion(db)).toBe(LATEST_SCHEMA_VERSION)
         expect(db.pragma('user_version', { simple: true })).toBe(LATEST_SCHEMA_VERSION)

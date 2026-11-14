@@ -9,6 +9,7 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 - 阶段 03 已 `done`：42 manifest / 36 实现 / 6 开关、授权解析、九步流水线、闸门/幂等/审计、36×6 契约 harness；标签 `phase-03-done`。
 - 阶段 04 已 `done`：SSE/OpenAI 兼容适配器与重试、能力探测、L0–L3 装配与预算、信封/grounding 校验、六角色提示词、绑定快照；标签 `phase-04-done` → `cc46c10`。
 - 阶段 05 已 `done`（2026-11-14）：`commitBeat`（唯一正文写入者）、trace 归档、拍状态迁移、启动恢复、开发切片（fixture + 假适配器 + `#/dev/slice`）、`E2E-SLICE-01` 与强杀重启；见 `docs/adr/0005-slice.md`。本地门禁全绿。
+- 阶段 06 本地完成（待提交与 CI）：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表 `agent_proposal`、G1 注册 + 5 私有/1 公共命名空间 + 隔离自检、覆盖检查占位；新增 `0003_planning.sql`（`LATEST_SCHEMA_VERSION = 3`）；`E2E-PLAN-01/02`。真实规划模型需 `NORYTH_PLAN_API_KEY`（设置页 Key 在阶段 10）。
 - S3 按「DeepSeek 一家」收口（`deepseek-flash` 实测），第二家供应商顺延到阶段 04 D1 前补测；见 `docs/adr/0003-providers.md`。
 - `docs/` 已入库，是项目规格的一部分；不要删除、移动或重写。
 - 进度与交接写 `PROGRESS.md`；阶段范围与验收以 `docs/PHASE-0X-*.md` 为准。
@@ -47,7 +48,7 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 
 - 阶段 05 是硬检查点：一拍没有端到端跑通，不进入 06。
 - 每个阶段以「进入下一阶段的条件」为闸门；不满足就不进入下一阶段。
-- 阶段 05 已通过；当前从 `PHASE-06-PLANNING.md` 开工。
+- 阶段 05 已通过；阶段 06 本地完成（待提交与 CI）；下一阶段从 `PHASE-07-WRITING.md` 开工。
 
 ## 不能违反的规则
 

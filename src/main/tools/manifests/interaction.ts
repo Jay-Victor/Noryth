@@ -25,7 +25,7 @@ const authorRequestChoice = defineTool({
       .max(4)
   }),
   output: z.strictObject({ choice: z.strictObject({ id: z.string(), label: z.string() }) }),
-  limits: limitsFor('interaction'),
+  limits: limitsFor('interaction', { timeoutMs: 5 * 60_000 }),
   degrade: degradeFor('interaction'),
   audit: AUDIT,
   milestone: 'M0',

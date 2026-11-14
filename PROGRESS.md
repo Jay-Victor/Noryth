@@ -11,7 +11,7 @@
 | 03 | `docs/PHASE-03-TOOLS.md` | done | C1–C7：42 manifest / 36 实现 / 6 开关、授权解析、九步流水线、闸门/幂等/审计、36×6 契约 harness | 全部通过：本地门禁 + CI run `43591949465`（verify + e2e 均绿） | 工具日志面板未做（可选）；T31/T33/T34 提案暂存 `tool_call.result_json`，阶段 06 接草案表 |
 | 04 | `docs/PHASE-04-RUNTIME.md` | done | D1–D6：SSE/OpenAI 兼容适配器与重试、能力探测→settings、L0–L3 装配与预算裁剪、信封/grounding 校验、六角色提示词 + JSON 回退、绑定快照 + 审计；假 LLM 服务器 + 9 条 runTurn 集成 | 全部通过：本地门禁 + CI run 43595192603（verify 与 e2e 均绿） | 真实第二家供应商未补测（无 Key，见 ADR-0003）；trace 落盘与 commitBeat 留阶段 05；嵌入随包（ADR-0004）不在本阶段范围，推迟阶段 09/10 |
 | 05 | `docs/PHASE-05-SLICE.md` | done | V1–V3：`commitBeat` + trace 归档 + 拍状态迁移 + 启动恢复/outbox 补发；fixture、假适配器、`#/dev/slice` 切片页；`E2E-SLICE-01` 与强杀重启 | 全部通过：本地门禁 + CI run `43597992157`（verify 与 e2e 均绿） | `verify` 的 seq 单调检查会误报「改早期拍」（ADR-0005 §4，阶段 07 修） |
-| 06 | `docs/PHASE-06-PLANNING.md` | todo | — | — | — |
+| 06 | `docs/PHASE-06-PLANNING.md` | in_progress | E1–E5：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表、G1 注册与建库、覆盖检查占位；`E2E-PLAN-01/02` | 本地门禁全绿（详见下方验证记录）；待提交与 CI | 真实供应商 Key 未接（阶段 10）；覆盖检查/影响分析仅占位（P1）；会话重命名/归档只有后端，UI 未接 |
 | 07 | `docs/PHASE-07-WRITING.md` | todo | — | — | — |
 | 08 | `docs/PHASE-08-REVIEW.md` | todo | — | — | — |
 | 09 | `docs/PHASE-09-MEMORY.md` | todo | — | — | — |
@@ -23,7 +23,7 @@
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（462 个：unit+integration 227 + contract 235） / `pnpm test:e2e`（5 个）
+- `pnpm test:unit`（497：unit+contract） / `pnpm vitest run tests/integration`（17） / `pnpm test:e2e`（9）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
 - `python docs/scripts/check_ui_spec.py` / `python docs/scripts/check_tool_spec.py`
 - `pnpm pack`（win-unpacked） / `pnpm dist`（NSIS）
@@ -146,6 +146,28 @@
 | CI | GitHub Actions run `43597992157`（`8ab717b`） | verify + e2e 均绿 |
 | 阶段标签 | `phase-05-done` → `f343668` | 已推送 origin |
 
+## 验证记录（阶段 06，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 174 modules / 735 deps，0 违规 |
+| Lint | `pnpm lint` | 通过 |
+| 单元 + 契约 | `pnpm test:unit` | 497 passed（unit+contract） |
+| 集成 | `pnpm vitest run tests/integration` | 17 passed（含规划链路 1、作者选择 1、原 turn/presets/slice 15） |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→0002→0003；`LATEST_SCHEMA_VERSION = 3` |
+| G1 | `tests/unit/plan/g1.test.ts` | 5 条：结构/voice 阻断顺序；注册角色 + 世界初值 + 锁蓝图 + 2 私有/1 公共；重复确认不写第二条 G1；建库半失败不回滚；重试 complete |
+| 草案 | `tests/unit/plan/draft.test.ts` | 4 条：字段 version +1；G1 后拒绝；层级/ord 唯一；有子节点不能删；card_version +1 |
+| 提案 | `tests/unit/plan/proposals.test.ts` | 5 条：整棵树一次应用；roster 只写草案；锁定后拒绝；改卡受影响章节；未知字段丢弃 |
+| 会话 | `tests/unit/plan/session.test.ts` | 4 条：停止保留文本；重试复用同一条消息（消息数不变）；无 Key → model_auth；G1 半完成修正为 failed |
+| 隔离 | `tests/unit/plan/isolation.test.ts` | 5 私有 + 1 公共；跨角色 0 命中；孤儿条目使自检失败；重复建库幂等 |
+| 规划链路 | `tests/integration/plan.spec.ts` / `plan-choice.spec.ts` | 假模型 + 真实工具管道：2 个提案 → 应用 → 5 角色/8 初值/2 章 → G1 → 6 命名空间；T42 选择请求经 UI 通道解析后继续本轮，审计存在 |
+| 规划 E2E | `tests/e2e/plan.spec.ts` | `E2E-PLAN-01`：对话 → 应用建议 → 改 2 个动机 → voice 缺项禁用 → G1（2 章行）→ 创作台解锁；`E2E-PLAN-02`：建库失败 `setup_incomplete` → 重试 complete |
+| E2E 全量 | `pnpm test:e2e` | 9 passed（原 7 + 规划 2） |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:tools` / `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T31 新增 `parent_ref`/`ref`） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+
 ## 关键决策
 
 | 决策 | 结论 | 记录 |
@@ -161,7 +183,7 @@
 | manifest 真源 | `defineTool` TS 定义 → `docs/tools/*.json` + `generated/*`；Vite `ssrLoadModule` 直接加载 TS，删除 `tool-catalog.json` | `src/main/tools/define.ts`、`scripts/gen-tools.mjs` |
 | 授权收窄 | `selfOnly` 工具在 `character:<id>` 解析期 omit `character_id` 并注入身份 | `src/main/tools/resolve.ts` |
 | 闸门消费 | 校验不消费；job 成功提交后调用 `consumeGate`；G1 长期授权不消费 | `src/main/tools/gates.ts` |
-| 提案持久化 | T31/T33/T34 目前由幂等层把提案结果存 `tool_call.result_json`；专用草案表留阶段 06 | 阶段 06 交接 |
+| 提案持久化 | 阶段 06 起 T31/T32/T33 写 `agent_proposal`（kind = blueprint_patch / character_card / roster），作者「应用建议」才落草案；T34 分镜仍由幂等层暂存 `tool_call.result_json`，阶段 07 接专用表 | `src/main/plan/proposals.ts`、`db/migrations/0003_planning.sql` |
 | memory.apply | 阶段 03 工具 handler 经 repos 直接写记忆/世界状态；阶段 09 换 `MemoryExecutor` 服务 | 阶段 09 交接 |
 | 模型适配 | 统一 OpenAI-compatible；错误归一化 `auth/rate_limit/timeout/context_overflow/server/protocol/content_filter`；429/5xx/超时重试 2 次、协议 1 次、401/400 不重试 | `src/main/model/adapter.ts`、`openai-compat.ts` |
 | 模型输出 | 模型只交 `{body, grounding}`；`turn_id/speaker/trace/meta` 由运行时装配，模型无法伪造工具轨迹 | `src/main/agents/validate.ts` |
@@ -178,28 +200,39 @@
 | 启动恢复 | 打开项目时 `job.running → interrupted`、`beat.generating/regenerating → interrupted`，并补发 outbox；失败只记日志不阻塞打开 | `src/main/doc/recovery.ts`、`doc/publish.ts` |
 | 重试幂等 | job 幂等键增加可选 `attempt`；同一任务重放复用 job，强杀后的重试必须换 attempt | `src/main/agents/job.ts` |
 | 切片入口 | `#/dev/slice` + 未打包构建；切片 IPC 只在 `app.isPackaged === false && NORYTH_SLICE !== '0'` 注册；不进入导航 | `src/main/index.ts`、`src/renderer/app/dev/Slice.tsx` |
+| 规划会话 | 独立于 `runTurn`：无 chapter/beat，自然语言输出；工具仍走同一 `invokeTool` 九步流水线；停止用 AbortSignal，重试复用同一消息行（attempt +1） | `src/main/plan/runtime.ts`、`plan/service.ts` |
+| 规划草案 | `plan_character` / `plan_fact` / `outline_node` 分离；G1 前 `character` / `world_fact` 为空；应用蓝图/清单提案时 `blueprint_version + 1` | `src/main/plan/proposals.ts` |
+| 注册清单 | `plan_character` 是草案；G1 由 `registerRoster` 写成正式 `character`，ID 稳定、`card_version` 继承；G1 前不注册 | `src/main/agents/roster.ts` |
+| G1 锁定 | `project.blueprint_locked_at` 是锁定标记；同一事务把章节点落成 `chapter` 行（阶段 07 分镜锚点）；`setup_state=failed` 时蓝图仍锁定，只补建库；重复确认不写第二条 `gate_record` | `src/main/plan/g1.ts` |
+| 命名空间 | `memory_namespace` 记录 5 私有 + 1 公共；`ensureNamespaces` 幂等；隔离自检按角色/命名空间映射核对，`isolation_verified` 写 `project.metadata_json` | `src/main/memory/namespace.ts` |
+| 规划模型 | 阶段 06 用环境变量提供 Key（`NORYTH_PLAN_API_KEY` / `NORYTH_<PROVIDER>_API_KEY`）；未配置时失败为 `model_auth`；E2E 用 `NORYTH_PLAN_FAKE=1` 假适配器，生产包不认 | `src/main/plan/model.ts`、`plan/fake-adapter.ts` |
+| 作者选择 | T42 经 `plan/choice` 事件与 `plan.choose` IPC 解析；选择挂起 5 分钟，停止/结束会取消全部挂起请求，工具不会悬空；超时 5 分钟（human-in-the-loop 不属于 10s 交互上限） | `src/main/plan/service.ts`、`tools/manifests/interaction.ts`、`renderer/pages/plan/ChatPane.tsx` |
 
 ## 当前阻塞
 
-- 无。阶段 05 已 `done`：本地门禁全绿（typecheck / lint / depcruise / unit 477 / e2e 7 / build / gen:check）+ CI run `43597992157`（verify 与 e2e 均绿），标签 `phase-05-done` → `f343668`。
-- 待补测（不阻塞阶段 06）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
+- 无功能阻塞。阶段 06 本地门禁全绿（typecheck / lint / depcruise / unit 497 / integration 17 / e2e 9 / build / gen:check / 规格脚本）；待提交与 CI，CI 绿后把阶段状态改 `done` 并打 `phase-06-done`。
+- 真实规划模型未配置 Key（不阻塞）：阶段 06 用 `NORYTH_PLAN_API_KEY` 或 `NORYTH_<PROVIDER>_API_KEY`；未配置时规划对话失败为 `model_auth`，不伪造回复。设置页 Key 管理在阶段 10 I1。
+- 待补测（不阻塞阶段 07）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
 - 已知问题：`db/verify.ts` 的 `seq_not_monotonic` 按拍序检查，改早期拍会误报；阶段 07 必须改为按提交序/唯一性检查（ADR-0005 §4）。
+- 已知缺口（不阻塞）：规划台的会话重命名/归档只有 IPC 与后端，UI 未接；覆盖检查/影响分析仅占位（P1）。
 
 ## 下一阶段交接
 
-- 阶段 05 已 `done`，`commitBeat` 接口冻结；阶段 06 可直接开工。
-- 阶段 06 直接复用：
-  - `commitBeat(db, repos, {...})`（`src/main/doc/commit-beat.ts`）：唯一正文写入者；不要另写体写入 SQL，也不要改签名；
+- 阶段 06 本地完成（`in_progress`，待 CI）。新增迁移 `0003_planning.sql`，`LATEST_SCHEMA_VERSION = 3`；`DEV-PLAN §5.13` 已同步表结构。
+- 阶段 07 直接复用：
+  - `commitBeat(db, repos, {...})`（`src/main/doc/commit-beat.ts`）：唯一正文写入者；不要另写正文写入 SQL，也不要改签名；
   - `markGenerating` / `rollbackGenerate` / `rejectBeat` / `confirmBeat` / `editBeat`（`src/main/doc/beats.ts`）：拍状态迁移原语；
-  - `runTurn(deps, {job})` 的第 8 步落盘通过 `deps.commit` 注入；流式事件用 `TurnDeps.hooks`，turn ID 用 `turnIdFor(jobId, beatId)` 生成，避免两处拼串；
+  - `runTurn(deps, {job})` 的第 8 步落盘通过 `deps.commit` 注入；流式事件用 `TurnDeps.hooks`，turn ID 用 `turnIdFor(jobId, beatId)` 生成；
   - `writeTurnTrace`（`src/main/doc/trace.ts`）：trace 只归档 thought/tool_call/grounding/meta，不写正文；
   - `recoverInterrupted` + `publishPendingMirrors` 已挂到 `ProjectService.open`；不要在其他地方重复扫描 running job；
-  - 未打包构建的切片服务（`src/main/slice/*`）是脚手架：阶段 07 的正式创作台直接复用底层 `runTurn`/`commitBeat`，不要依赖 `DevSliceService`。
-- 阶段 06 注意：
-  - T31/T33/T34 提案仍落 `tool_call.result_json`；要持久化草案先加迁移 `0003`，再改 manifest 与 `docs/tools/*.json`；
-  - 切片没有新增表，`LATEST_SCHEMA_VERSION` 仍为 2；
-  - 阶段 06 的规划页需要真实模型绑定；`settings.probeProvider` 后端已就绪，UI 绑定预设在阶段 10 完结。
-- 阶段 07 注意：先修 `verify` 的 seq 检查（ADR-0005 §4 第 1 条），再接调度器/自动模式；`commitBeat` 不要改签名。
+  - `ProjectService.refreshState()`：G1/建库重试后广播 setupState；阶段 07 改章状态后可复用；
+  - `memory_namespace` / `ensureNamespaces`：阶段 09 的检索过滤键直接用命名空间名；
+  - 未打包构建的切片服务（`src/main/slice/*`）是脚手架：阶段 07 创作台直接复用底层 `runTurn`/`commitBeat`，不要依赖 `DevSliceService`。
+- 阶段 07 注意：
+  - 先修 `verify` 的 seq 检查（ADR-0005 §4 第 1 条），再接调度器/自动模式；
+  - T34 `storyboard.propose` 仍只暂存 `tool_call.result_json`；分镜要落库需扩 `agent_proposal.kind`（新增 'storyboard'）或建专用表，先加迁移再改 manifest 与 `docs/tools/*.json`；
+  - 规划台的 `job_id = plan_<sessionId>` 不是 `job` 表记录（无 FK），只用于工具审计；阶段 07 的调度器不要把它当可恢复 job；
+  - 阶段 06 不写正文：规划对话、提案应用、G1 都不产生 beat/revision；阶段 07 才接生成。
 - 真实第二家供应商补测属于阶段 10 I1/I3 之前的遗留项；`settings.probeProvider` 后端已就绪，UI 在阶段 10 接。
 
 ## 更新规则

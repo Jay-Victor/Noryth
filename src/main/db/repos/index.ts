@@ -11,6 +11,14 @@ import { ModelBindingRepo, TurnMetricRepo } from './model'
 import { OutlineRepo } from './outline'
 import { OutboxRepo } from './outbox'
 import { PatchRepo } from './patch'
+import {
+  AgentProposalRepo,
+  MemoryNamespaceRepo,
+  PlanCharacterRepo,
+  PlanFactRepo,
+  PlanMessageRepo,
+  PlanSessionRepo
+} from './plan'
 import { ProjectRepo } from './project'
 import { ReviewRepo, GateRepo } from './review'
 import { RevisionRepo } from './revision'
@@ -40,6 +48,12 @@ export function createRepos(db: Db, options: RepoOptions = {}) {
     patch: new PatchRepo(runner, now),
     memory: new MemoryRepo(runner, now),
     memoryProposal: new MemoryProposalRepo(runner, now),
+    planSession: new PlanSessionRepo(runner, now),
+    planMessage: new PlanMessageRepo(runner, now),
+    planCharacter: new PlanCharacterRepo(runner, now),
+    planFact: new PlanFactRepo(runner, now),
+    proposal: new AgentProposalRepo(runner, now),
+    namespace: new MemoryNamespaceRepo(runner, now),
     world: new WorldFactRepo(runner, now),
     belief: new CharacterBeliefRepo(runner, now),
     relationship: new RelationshipRepo(runner),
@@ -66,6 +80,7 @@ export * from './model'
 export * from './outline'
 export * from './outbox'
 export * from './patch'
+export * from './plan'
 export * from './project'
 export * from './review'
 export * from './revision'

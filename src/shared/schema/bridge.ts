@@ -1,6 +1,26 @@
 import type { IpcResult } from './ipc'
 import type { ProviderProbeInput, ProviderProbeResult } from './model'
 import type {
+  PlanAddOutlineInput,
+  PlanCharacterAddInput,
+  PlanCharacterSaveInput,
+  PlanChoiceRequest,
+  PlanChooseInput,
+  PlanEvent,
+  PlanFactAddInput,
+  PlanFactSaveInput,
+  PlanG1Preview,
+  PlanG1Result,
+  PlanProposalApplyResult,
+  PlanSaveOutlineInput,
+  PlanSaveResult,
+  PlanSendInput,
+  PlanSendResult,
+  PlanSessionCreateInput,
+  PlanSessionView,
+  PlanState
+} from './plan'
+import type {
   SliceBeatEvent,
   SliceEditInput,
   SliceGenerateResult,
@@ -73,9 +93,39 @@ export interface AppApi {
   info(): Promise<IpcResult<AppInfo>>
 }
 
+/** 规划台 API（PHASE-06）。所有写操作在只读项目上由主进程拒绝。 */
+export interface PlanApi {
+  state(sessionId?: string): Promise<IpcResult<PlanState>>
+  createSession(input: PlanSessionCreateInput): Promise<IpcResult<PlanSessionView>>
+  renameSession(input: { sessionId: string; title: string }): Promise<IpcResult<PlanSessionView>>
+  archiveSession(sessionId: string): Promise<IpcResult<{ archived: boolean }>>
+  send(input: PlanSendInput): Promise<IpcResult<PlanSendResult>>
+  stop(sessionId: string): Promise<IpcResult<{ stopped: boolean }>>
+  retry(messageId: string): Promise<IpcResult<PlanSendResult>>
+  saveOutline(input: PlanSaveOutlineInput): Promise<IpcResult<PlanSaveResult>>
+  addOutline(input: PlanAddOutlineInput): Promise<IpcResult<{ id: string; version: number }>>
+  removeOutline(nodeId: string): Promise<IpcResult<{ removed: boolean }>>
+  saveCharacter(
+    input: PlanCharacterSaveInput
+  ): Promise<IpcResult<PlanSaveResult & { cardVersion: number; affectedChapters: string[] }>>
+  addCharacter(input: PlanCharacterAddInput): Promise<IpcResult<{ id: string; cardVersion: number }>>
+  removeCharacter(characterId: string): Promise<IpcResult<{ removed: boolean }>>
+  saveFact(input: PlanFactSaveInput): Promise<IpcResult<PlanSaveResult>>
+  addFact(input: PlanFactAddInput): Promise<IpcResult<{ id: string; ord: number }>>
+  removeFact(factId: string): Promise<IpcResult<{ removed: boolean }>>
+  applyProposal(proposalId: string): Promise<IpcResult<PlanProposalApplyResult>>
+  rejectProposal(proposalId: string): Promise<IpcResult<{ rejected: boolean }>>
+  choose(input: PlanChooseInput): Promise<IpcResult<{ chosen: boolean }>>
+  g1Preview(): Promise<IpcResult<PlanG1Preview>>
+  confirmG1(): Promise<IpcResult<PlanG1Result>>
+  retrySetup(): Promise<IpcResult<PlanG1Result>>
+}
+
 export interface EventApi {
   onProjectState(listener: (event: ProjectStateEvent) => void): () => void
   onSliceBeat(listener: (event: SliceBeatEvent) => void): () => void
+  onPlanMessage(listener: (event: PlanEvent) => void): () => void
+  onPlanChoice(listener: (event: PlanChoiceRequest) => void): () => void
 }
 
 export interface NorythBridge {
@@ -84,6 +134,7 @@ export interface NorythBridge {
   settings: SettingsApi
   diagnostics: DiagnosticsApi
   slice: SliceApi
+  plan: PlanApi
   app: AppApi
   events: EventApi
 }

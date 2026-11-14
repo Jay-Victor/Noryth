@@ -54,6 +54,16 @@
                     }
                   ]
                 },
+                "parent_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
                 "kind": {
                   "type": "string",
                   "enum": [

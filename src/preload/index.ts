@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, IPC_EVENTS } from '../shared/ipc-channels'
 import type { IpcResult } from '../shared/schema/ipc'
 import type { ProjectStateEvent } from '../shared/schema/project'
+import type { PlanChoiceRequest, PlanEvent } from '../shared/schema/plan'
 import type { SliceBeatEvent } from '../shared/schema/slice'
 import type { NorythBridge } from '../shared/schema/bridge'
 
@@ -58,6 +59,30 @@ const bridge: NorythBridge = {
     confirm: (beatId) => invoke(IPC.sliceConfirm, { beatId }),
     edit: (input) => invoke(IPC.sliceEdit, input)
   },
+  plan: {
+    state: (sessionId) => invoke(IPC.planState, sessionId === undefined ? {} : { sessionId }),
+    createSession: (input) => invoke(IPC.planSessionCreate, input),
+    renameSession: (input) => invoke(IPC.planSessionRename, input),
+    archiveSession: (sessionId) => invoke(IPC.planSessionArchive, { sessionId }),
+    send: (input) => invoke(IPC.planSend, input),
+    stop: (sessionId) => invoke(IPC.planStop, { sessionId }),
+    retry: (messageId) => invoke(IPC.planRetry, { messageId }),
+    saveOutline: (input) => invoke(IPC.planSaveOutline, input),
+    addOutline: (input) => invoke(IPC.planAddOutline, input),
+    removeOutline: (nodeId) => invoke(IPC.planRemoveOutline, { nodeId }),
+    saveCharacter: (input) => invoke(IPC.planSaveCharacter, input),
+    addCharacter: (input) => invoke(IPC.planAddCharacter, input),
+    removeCharacter: (characterId) => invoke(IPC.planRemoveCharacter, { characterId }),
+    saveFact: (input) => invoke(IPC.planSaveFact, input),
+    addFact: (input) => invoke(IPC.planAddFact, input),
+    removeFact: (factId) => invoke(IPC.planRemoveFact, { factId }),
+    applyProposal: (proposalId) => invoke(IPC.planApplyProposal, { proposalId }),
+    rejectProposal: (proposalId) => invoke(IPC.planRejectProposal, { proposalId }),
+    choose: (input) => invoke(IPC.planChoose, input),
+    g1Preview: () => invoke(IPC.planG1Preview, {}),
+    confirmG1: () => invoke(IPC.planConfirmG1, {}),
+    retrySetup: () => invoke(IPC.planRetrySetup, {})
+  },
   app: {
     info: () => invoke(IPC.appInfo, {})
   },
@@ -78,6 +103,24 @@ const bridge: NorythBridge = {
       ipcRenderer.on(IPC_EVENTS.sliceBeat, handler)
       return () => {
         ipcRenderer.removeListener(IPC_EVENTS.sliceBeat, handler)
+      }
+    },
+    onPlanMessage: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: PlanEvent): void => {
+        listener(payload)
+      }
+      ipcRenderer.on(IPC_EVENTS.planMessage, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_EVENTS.planMessage, handler)
+      }
+    },
+    onPlanChoice: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: PlanChoiceRequest): void => {
+        listener(payload)
+      }
+      ipcRenderer.on(IPC_EVENTS.planChoice, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_EVENTS.planChoice, handler)
       }
     }
   }
