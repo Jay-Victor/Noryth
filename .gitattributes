@@ -8,5 +8,6 @@
 *.ico binary
 *.onnx binary
 *.node binary
+*.dll binary
 *.db binary
 *.exe binary

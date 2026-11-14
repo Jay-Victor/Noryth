@@ -1,0 +1,34 @@
+{
+  "name": "character.propose_card",
+  "version": "1.0.0",
+  "family": "propose",
+  "summary": "提交角色卡提案或改版，不更换角色 ID，改版需列受影响章节",
+  "actors": [
+    "planner"
+  ],
+  "side_effect": "propose",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "key_required",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 5000,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 1
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "fail"
+  ],
+  "audit": {
+    "log_args": "full",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "T32"
+}

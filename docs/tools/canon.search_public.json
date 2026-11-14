@@ -1,0 +1,40 @@
+{
+  "name": "canon.search_public",
+  "version": "1.0.0",
+  "family": "knowledge",
+  "summary": "检索公共设定，不返回私有记忆 ID 与未揭示事实",
+  "actors": [
+    "planner",
+    "orchestrator",
+    "character",
+    "narrator",
+    "reviewer",
+    "memory"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 800,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 2
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "facts_only",
+    "empty"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "T12"
+}

@@ -34,3 +34,10 @@ logs/
 .DS_Store
 Thumbs.db
 .idea/
+
+# 构建与测试临时产物
+.spikes/
+layout.tmp.json
+test-results/
+playwright-report/
+.eslintcache

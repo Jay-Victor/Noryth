@@ -1,0 +1,38 @@
+{
+  "name": "relationship.get_edges",
+  "version": "1.0.0",
+  "family": "knowledge",
+  "summary": "读取信任、亲密、张力关系边与 since_seq；角色实例只看与本人相关的边",
+  "actors": [
+    "orchestrator",
+    "character",
+    "reviewer",
+    "memory"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 800,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 2
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "facts_only",
+    "empty"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "T18"
+}

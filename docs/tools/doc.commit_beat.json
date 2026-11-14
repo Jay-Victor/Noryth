@@ -1,0 +1,33 @@
+{
+  "name": "doc.commit_beat",
+  "version": "1.0.0",
+  "family": "propose",
+  "summary": "调度器调用文档控制器，单拍落盘并生成 revision",
+  "actors": [],
+  "side_effect": "commit",
+  "agent_callable": false,
+  "requires_gate": null,
+  "idempotency": "key_required",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 5000,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 1
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "fail"
+  ],
+  "audit": {
+    "log_args": "full",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "S01",
+  "system": true
+}

@@ -1,0 +1,33 @@
+{
+  "name": "coverage.check",
+  "version": "1.0.0",
+  "family": "verify",
+  "summary": "检查卷纲关键事件落点、角色出场动机与主线断档，结果只作建议",
+  "actors": [
+    "planner"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 2000,
+    "max_result_tokens": 3000,
+    "max_calls_per_turn": 2
+  },
+  "degrade": [
+    "full",
+    "summary"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "P1",
+  "m0": false,
+  "tool_id": "T26"
+}

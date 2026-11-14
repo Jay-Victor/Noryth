@@ -1,0 +1,33 @@
+{
+  "name": "memory.apply_executor",
+  "version": "1.0.0",
+  "family": "propose",
+  "summary": "memory.apply 的落盘端，真正写向量库与世界状态",
+  "actors": [],
+  "side_effect": "execute",
+  "agent_callable": false,
+  "requires_gate": "G7",
+  "idempotency": "key_required",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 5000,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 1
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "fail"
+  ],
+  "audit": {
+    "log_args": "full",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "S04",
+  "system": true
+}

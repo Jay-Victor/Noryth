@@ -4,10 +4,12 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 
 ## 当前状态
 
-- 仓库目前只有设计文档与工作流文件，**没有代码**。不要假设 `package.json`、构建脚本或依赖已经存在。
+- 代码已初始化：Electron 45.2.3 + electron-vite + React 19 + TypeScript strict；阶段 01 的 A1–A6、B1、B6 已落地，S1/S2 通过，S3 等待真实 API Key。
 - `docs/` 已入库，是项目规格的一部分；不要删除、移动或重写。
 - 进度与交接写 `PROGRESS.md`；阶段范围与验收以 `docs/PHASE-0X-*.md` 为准。
 - 如果 `docs/` 缺失，先向用户确认，不要凭记忆补规格。
+- 常用命令：`pnpm dev`、`pnpm build`、`pnpm typecheck`、`pnpm lint`、`pnpm depcruise`、`pnpm test:unit`、`pnpm test:e2e`、`pnpm gen:check`、`pnpm pack`、`pnpm dist`。
+- 原生依赖：`scripts/prepare-native.mjs` 把 sqlite-vec 的 `vec0.dll` 复制到 `resources/native/`；`pnpm install` 后若该文件缺失，先跑 `node scripts/prepare-native.mjs`。
 
 ## Git 策略
 

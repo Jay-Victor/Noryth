@@ -2619,6 +2619,10 @@ jobs:
 | `context_overflow` | 上下文超预算且无法裁剪 | 调小 top_k / 换模型 |
 | `setup_incomplete` | 角色库未建好，暂不能开演 | 重试建库 |
 | `already_finalized` | 本章已定稿 | 重新打开 |
+| `project_not_found` | 项目不存在或路径不可用 | 重新定位 / 从列表移除 |
+| `project_create_failed` | 无法创建项目 | 换位置 / 导出诊断 |
+| `vector_unavailable` | 向量索引不可用，检索已降级 | 重装 / 查看日志 |
+| `internal_error` | 发生内部错误，请导出诊断包 | 导出诊断 / 重启 |
 
 原则：文案只说「能不能继续」，不解释「为什么被拒」；原因进日志。
 
@@ -2661,6 +2665,7 @@ jobs:
 
 ## 变更记录
 
+- **v0.4（阶段 01 实施）**：S1 确认 sqlite-vec Plan A（ADR-0001），S2 确认 bge-small-zh-v1.5 q8/512 维（ADR-0004）；`_migration` 由迁移器创建，`0001_init.sql` 不再重复建表；新增 4 个错误码（`project_not_found` / `project_create_failed` / `vector_unavailable` / `internal_error`）；`docs/tools/*.json` 首版是契约外壳（`contract_complete:false`），input/output schema 由阶段 03 C5 补齐。
 - **v0.3**：移除全部进度估算，只保留阶段顺序、范围、依赖与验收。
 - **v0.2**：改为单人开发口径：移除人员编制与并行分工，改为阶段顺序。
 - **v0.1**：首版。补 PRD v0.6 未定义的八个工程缺口（seq 分配、revision 清单、manifest 生成、grounding 登记、token 预算、中文 bigram、docs 入库、栅格真源）；给出技术选型、模块边界、DDL、工具层调用流水线、状态机与 DSL、WBS 与阶段顺序、测试与 CI、验收对照。

@@ -6,9 +6,9 @@
 
 | 阶段 | 文档 | 状态 | 已完成 | 验收 | 已知问题 |
 |---:|---|---|---|---|---|
-| 01 | `docs/PHASE-01-SKELETON.md` | todo | — | — | — |
-| 02 | `docs/PHASE-02-DATA.md` | todo | — | — | — |
-| 03 | `docs/PHASE-03-TOOLS.md` | todo | — | — | — |
+| 01 | `docs/PHASE-01-SKELETON.md` | in_progress | A1–A6、B1、B6、S1、S2、S4；42+8 工具清单外壳 | 本地门禁全绿；S3 未执行 | S3 缺两家 API Key；Windows CI 未实跑 |
+| 02 | `docs/PHASE-02-DATA.md` | todo | — | — | 等 01 收口 |
+| 03 | `docs/PHASE-03-TOOLS.md` | todo | — | — | 等 01 收口 |
 | 04 | `docs/PHASE-04-RUNTIME.md` | todo | — | — | — |
 | 05 | `docs/PHASE-05-SLICE.md` | todo | — | — | 硬门：未通过不得进入 06 |
 | 06 | `docs/PHASE-06-PLANNING.md` | todo | — | — | — |
@@ -21,29 +21,53 @@
 
 ## 当前可运行命令
 
-代码尚未初始化，暂无。初始化后填在这里：
+- `pnpm dev` / `pnpm build` / `pnpm start`
+- `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
+- `pnpm test:unit`（44 个） / `pnpm test:e2e`（5 个）
+- `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
+- `python docs/scripts/check_ui_spec.py` / `python docs/scripts/check_tool_spec.py`
+- `pnpm pack`（win-unpacked） / `pnpm dist`（NSIS）
+- `pnpm prepare:native`（sqlite-vec DLL → resources/native，已挂 postinstall）
 
-- `pnpm dev`
-- `pnpm test:unit`
-- `pnpm test:contract`
-- `pnpm test:e2e`
+## 验证记录（阶段 01）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过 |
+| 依赖边界 | `pnpm depcruise` | 58 modules / 142 deps，0 违规 |
+| Lint | `pnpm lint` | 通过 |
+| 单元 | `pnpm test:unit` | 44 passed |
+| E2E | `pnpm test:e2e` | 5 passed（外壳/栅格、向导建项、双开只读、错误码、诊断包） |
+| 栅格 | `python docs/scripts/check_ui_spec.py` | PASS（1280/1440/1600 与生成 token 一致） |
+| 工具清单 | `python docs/scripts/check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 生成物 | `pnpm gen:check` | 通过（51 个工具 JSON + grid.generated.ts） |
+| 构建 | `pnpm build` | 通过 |
+| 打包 | `pnpm dist` | `release/Noryth-0.1.0-setup.exe`（131.9MB） |
+| 安装冒烟 | 静默安装 → 启动 → 建项目 → 卸载 | 通过（安装目录与注册表项均清理） |
+| S1 向量 | Electron dev + 打包产物 | `vec0.dll` 可加载；20k 条 P95 33.64ms |
+| S2 嵌入 | utilityProcess + ONNX q8 | 冷启动 377ms / 单条 2ms / 512 维 |
+| S3 供应商 | 需要两家真实 Key | **未执行**（见 ADR-0003） |
+| S4 NSIS | 安装/启动/卸载 | 通过；自动更新尚未接入，启动不阻塞 |
 
 ## 关键决策
 
 | 决策 | 结论 | 记录 |
 |---|---|---|
-| 向量检索 | 待 S1 决定 sqlite-vec / BLOB | `docs/adr/0001-vector.md` |
-| 编辑器 | 待 S2 决定 CM6 / textarea | `docs/adr/0002-editor.md` |
-| 供应商 | M0 两家预设 | `docs/adr/0003-providers.md` |
+| 向量检索 | sqlite-vec Plan A；扩展随包 `resources/native/vec0.dll` | `docs/adr/0001-vector.md` |
+| 编辑器 | CodeMirror 6；200 字 IME 实测留到阶段 07 | `docs/adr/0002-editor.md` |
+| 供应商 | OpenAI-compatible；默认 `deepseek`；S3 待 Key | `docs/adr/0003-providers.md` |
+| 嵌入模型 | bge-small-zh-v1.5 q8 / 512 维；当前 devDependency，阶段 04 进包 | `docs/adr/0004-embedding.md` |
 
 ## 当前阻塞
 
-- 无。从 `docs/PHASE-01-SKELETON.md` 开始。
+- **S3**：需要至少两家供应商的 API Key（DeepSeek 与 DashScope 网络可达，OpenAI 在本机不可达）；无 Key 不做「已通过」的结论。拿到 Key 后按 ADR-0003 的关闭条件执行，并写回 PROGRESS。
 
 ## 下一阶段交接
 
-- 尚未开工。
-- 开工前确认：`docs/` 已入库、`AGENTS.md` 可读、`PROGRESS.md` 可写。
+- 阶段 02 的依赖已就绪：迁移器（checksum / 事务 / 重入）、`openDatabase`、项目锁、`projects.json` 登记、错误模型、`IpcResult`。
+- 阶段 02 会替换 `src/main/project/service.ts` 里内联的 project 表 SQL 为 `db/repos`，并补齐 outbox/backup/verify；不要改 `0001_init.sql`（改了就 checksum mismatch，必须新增迁移）。
+- `docs/tools/*.json` 目前 `contract_complete=false`；阶段 03 C5 补 schema 并保留工具名与 actors 不变（`check_tool_spec.py` 会拦）。
+- 阶段 01 未做：自动打开上次项目、应用图标、诊断 zip、Windows CI 实跑（见 `docs/BACKLOG.md`）。
 
 ## 更新规则
 

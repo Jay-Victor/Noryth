@@ -1,0 +1,37 @@
+{
+  "name": "timeline.query",
+  "version": "1.0.0",
+  "family": "knowledge",
+  "summary": "查询故事时间三轴（起止、索引、时间线），三轴分开返回",
+  "actors": [
+    "orchestrator",
+    "reviewer",
+    "memory"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 800,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 2
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "facts_only",
+    "empty"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M1",
+  "m0": false,
+  "tool_id": "T23"
+}

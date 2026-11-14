@@ -1,0 +1,33 @@
+{
+  "name": "author.request_choice",
+  "version": "1.0.0",
+  "family": "interaction",
+  "summary": "向作者提出二到四个选项的交互问题，自动模式与批处理中拒绝",
+  "actors": [
+    "planner"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 10000,
+    "max_result_tokens": 1000,
+    "max_calls_per_turn": 1
+  },
+  "degrade": [
+    "full",
+    "fail"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "T42"
+}

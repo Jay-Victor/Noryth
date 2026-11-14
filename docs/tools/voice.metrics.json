@@ -1,0 +1,33 @@
+{
+  "name": "voice.metrics",
+  "version": "1.0.0",
+  "family": "verify",
+  "summary": "计算句长分布、口头禅与问句率、角色两两区分度，只出指标不判失败",
+  "actors": [
+    "reviewer"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 2000,
+    "max_result_tokens": 3000,
+    "max_calls_per_turn": 2
+  },
+  "degrade": [
+    "full",
+    "summary"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M2",
+  "m0": false,
+  "tool_id": "T25"
+}

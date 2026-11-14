@@ -1,0 +1,34 @@
+{
+  "name": "memory.namespace.create",
+  "version": "1.0.0",
+  "family": "propose",
+  "summary": "为角色创建记忆命名空间并做跨角色隔离自检，G1 长期授权",
+  "actors": [
+    "memory"
+  ],
+  "side_effect": "execute",
+  "agent_callable": true,
+  "requires_gate": "G1",
+  "idempotency": "key_required",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 5000,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 1
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "fail"
+  ],
+  "audit": {
+    "log_args": "full",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "T38"
+}

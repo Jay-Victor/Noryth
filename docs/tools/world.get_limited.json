@@ -1,0 +1,35 @@
+{
+  "name": "world.get_limited",
+  "version": "1.0.0",
+  "family": "knowledge",
+  "summary": "读取本人已知与公开可见的世界事实，不返回秘密与未来章节信息",
+  "actors": [
+    "character"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 800,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 2
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "facts_only",
+    "empty"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "T13"
+}

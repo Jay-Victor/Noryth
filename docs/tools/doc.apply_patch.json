@@ -1,0 +1,33 @@
+{
+  "name": "doc.apply_patch",
+  "version": "1.0.0",
+  "family": "propose",
+  "summary": "G5 决策后逐条落盘 patch，生成新 revision",
+  "actors": [],
+  "side_effect": "commit",
+  "agent_callable": false,
+  "requires_gate": "G5",
+  "idempotency": "key_required",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 5000,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 1
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "fail"
+  ],
+  "audit": {
+    "log_args": "full",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "S02",
+  "system": true
+}

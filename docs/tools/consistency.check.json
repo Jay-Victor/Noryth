@@ -1,0 +1,33 @@
+{
+  "name": "consistency.check",
+  "version": "1.0.0",
+  "family": "verify",
+  "summary": "确定性检查引用、时间轴、单值槽、生死身份与出口状态，语义问题只标候选",
+  "actors": [
+    "reviewer"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 2000,
+    "max_result_tokens": 3000,
+    "max_calls_per_turn": 2
+  },
+  "degrade": [
+    "full",
+    "summary"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "T24"
+}

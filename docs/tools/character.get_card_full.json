@@ -1,0 +1,37 @@
+{
+  "name": "character.get_card_full",
+  "version": "1.0.0",
+  "family": "structure",
+  "summary": "按角色 ID 读取完整角色卡，审批仅引最小必要证据",
+  "actors": [
+    "planner",
+    "orchestrator",
+    "reviewer",
+    "memory"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 800,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 2
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "empty"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "T06"
+}

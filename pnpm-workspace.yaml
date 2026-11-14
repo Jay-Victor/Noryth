@@ -1,0 +1,12 @@
+allowBuilds:
+  better-sqlite3: true
+  electron: true
+  electron-winstaller: false
+  onnxruntime-node: true
+  protobufjs: true
+minimumReleaseAgeExclude:
+  - '@eslint/config-array@0.23.6'
+  - '@playwright/test@1.65.1'
+  - eslint@10.15.0
+  - playwright-core@1.65.1
+  - playwright@1.65.1

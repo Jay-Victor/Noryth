@@ -213,12 +213,49 @@ def check_html(path: Path) -> list[str]:
     return errors
 
 
+def emit_json() -> str:
+    """给 scripts/gen-layout.mjs 的单一真源：TS 侧不手抄这些数字。"""
+    import json
+
+    data = {
+        "nav": NAV,
+        "divider": DIV,
+        "titleBar": 40,
+        "statusBar": 24,
+        "chatMin": CHAT_MIN,
+        "previewMin": PREVIEW_MIN,
+        "prose": {
+            "fontSize": PROSE_PX,
+            "pad": PROSE_PAD,
+            "maxColumn": PROSE_MAX,
+            "minChars": 32,
+            "maxChars": 42,
+        },
+        "breakpoints": {name: floor for name, floor, *_ in MODES},
+        "modes": {
+            name: {
+                "sessions": sessions,
+                "tree": tree,
+                "treeMode": tree_mode,
+                "ratio": ratio,
+            }
+            for name, _floor, sessions, tree, tree_mode, ratio in MODES
+        },
+    }
+    return json.dumps(data, ensure_ascii=False, indent=2, sort_keys=False)
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--layout-only", action="store_true")
     parser.add_argument("--emit-table", action="store_true")
+    parser.add_argument("--emit-json", action="store_true")
     parser.add_argument("--html", default=str(Path(__file__).resolve().parents[1] / "assets" / "wireframes.html"))
     args = parser.parse_args(argv[1:])
+
+    if args.emit_json:
+        print(emit_json())
+        return 0
 
     if args.emit_table:
         print(emit_table())

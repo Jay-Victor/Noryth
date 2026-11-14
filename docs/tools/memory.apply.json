@@ -1,0 +1,34 @@
+{
+  "name": "memory.apply",
+  "version": "1.0.0",
+  "family": "propose",
+  "summary": "凭 G7 令牌应用记忆决策，只写记忆与世界状态，不碰正文",
+  "actors": [
+    "memory"
+  ],
+  "side_effect": "execute",
+  "agent_callable": true,
+  "requires_gate": "G7",
+  "idempotency": "key_required",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 5000,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 1
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "fail"
+  ],
+  "audit": {
+    "log_args": "full",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "T39"
+}

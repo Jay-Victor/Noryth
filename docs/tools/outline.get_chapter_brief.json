@@ -1,0 +1,35 @@
+{
+  "name": "outline.get_chapter_brief",
+  "version": "1.0.0",
+  "family": "structure",
+  "summary": "返回本章一句话目标（脱敏），不含章纲全文、卷纲与禁揭清单",
+  "actors": [
+    "character",
+    "narrator"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 800,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 2
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "empty"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "T03"
+}

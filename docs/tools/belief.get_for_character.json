@@ -1,0 +1,37 @@
+{
+  "name": "belief.get_for_character",
+  "version": "1.0.0",
+  "family": "knowledge",
+  "summary": "按角色读取信念，用于排戏与泄漏判定，不得写进正文",
+  "actors": [
+    "orchestrator",
+    "reviewer",
+    "memory"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 800,
+    "max_result_tokens": 2000,
+    "max_calls_per_turn": 2
+  },
+  "degrade": [
+    "full",
+    "summary",
+    "facts_only",
+    "empty"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "M0",
+  "m0": true,
+  "tool_id": "T17"
+}

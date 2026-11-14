@@ -1,0 +1,33 @@
+{
+  "name": "impact.analyze",
+  "version": "1.0.0",
+  "family": "verify",
+  "summary": "分析蓝图变更影响的章节、记忆与关系边，变更前必须执行",
+  "actors": [
+    "planner"
+  ],
+  "side_effect": "none",
+  "agent_callable": true,
+  "requires_gate": null,
+  "idempotency": "natural",
+  "injected": [],
+  "limits": {
+    "timeout_ms": 2000,
+    "max_result_tokens": 3000,
+    "max_calls_per_turn": 2
+  },
+  "degrade": [
+    "full",
+    "summary"
+  ],
+  "audit": {
+    "log_args": "hash",
+    "log_result_ids": true
+  },
+  "input_schema": null,
+  "output_schema": null,
+  "contract_complete": false,
+  "milestone": "P1",
+  "m0": false,
+  "tool_id": "T29"
+}
