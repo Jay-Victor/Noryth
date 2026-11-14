@@ -69,8 +69,8 @@
 |---|---|---|---|
 | S1 | sqlite-vec 在 Electron 与打包产物中加载 | — | dev 与 NSIS 均可查询；20k 条 P95 < 80ms |
 | S2 | ONNX 嵌入 worker 冷启动与吞吐 | — | 冷启动 < 1.5s；单条 < 120ms；512 维 |
-| S3 | 两家预设 SSE + 工具调用增量 | — | 正文、`tool_calls`、`usage` 均能拼装 |
-| S4 | NSIS + 自动更新冒烟 | A1 | 安装、启动、卸载；更新失败不阻塞 |
+| S3 | 供应商 SSE + 工具调用增量（2026-11-14：DeepSeek 一家通过，第二家顺延阶段 04） | — | 正文、`tool_calls`、`usage` 均能拼装 |
+| S4 | NSIS 安装/启动/卸载冒烟（自动更新未接入，阶段 10 补） | A1 | 安装、启动、卸载；更新失败不阻塞 |
 | A1 | 脚手架：electron-vite、TS strict、ESLint、dependency-cruiser、CI 骨架 | — | `pnpm dev`/`build`/`lint`/`typecheck` 可跑 |
 | A2 | 窗口、单实例、项目锁、只读第二窗口 | A1 | 写 IPC 在 main 侧被拒，不靠 UI 禁用 |
 | A3 | IPC 路由 + preload 命名空间 + 统一错误封装 | A1 | 非法参数 `invalid_args`；renderer 无原始异常 |

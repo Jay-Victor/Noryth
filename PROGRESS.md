@@ -48,6 +48,8 @@
 | S2 嵌入 | utilityProcess + ONNX q8 | 冷启动 377ms / 单条 2ms / 512 维 |
 | S3 供应商 | DeepSeek 已实测（`deepseek-flash`） | 非流式/流式/工具调用/401 全通过；作者决定 M0 一家收口，第二家顺延阶段 04 |
 | S4 NSIS | 安装/启动/卸载 | 通过；自动更新尚未接入，启动不阻塞 |
+| CI | GitHub Actions run `43585776532`（`ab778c4`） | verify + e2e 均绿；文档提交 run `43586034694` 也绿 |
+| 阶段标签 | `phase-01-done` → `ab778c4` | 已推送 origin |
 
 ## 关键决策
 

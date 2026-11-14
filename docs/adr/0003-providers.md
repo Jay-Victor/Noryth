@@ -1,4 +1,4 @@
-# ADR-0003 供应商预设：OpenAI 兼容 + DeepSeek，S3 由作者手动验证
+# ADR-0003 供应商预设：OpenAI 兼容 + DeepSeek（S3 已实测）
 
 - 状态：**已决定**（2026-11-14：M0 以 DeepSeek 一家收口，第二家顺延到阶段 04 D1 前补测）
 - 日期：2026-11-14
@@ -18,9 +18,9 @@ M0 要求「至少两家预设可切换；一个 Agent 绑第二家仍能完成�
 | 本地假服务器 | 阶段 04 的 J1 交付；本阶段尚未实现 |
 | S3 结论 | **部分通过**：DeepSeek 已实测；第二家待测 |
 
-在没有实测结论前宣称「两家流式可用」会是伪造证据；因此本 ADR 保持未关闭，S3 作为阶段 01 的开放门列出。
+在没有实测结论前宣称「两家流式可用」会是伪造证据；本 ADR 曾因此保持未关闭，2026-11-14 按作者的「一家收口」决定关闭（见下方决定）。
 
-## 手动验证清单（作者执行，Key 只在本机）
+## 验证清单（2026-11-14 由 Agent 在本机用作者提供的 Key 执行；Key 未落盘）
 
 在 Git Bash 中执行；`DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY` 只作为环境变量，不写进任何文件。
 
@@ -74,7 +74,7 @@ curl -sS -o /dev/null -w "%{http_code}\n" https://api.deepseek.com/v1/chat/compl
 
 通过线：401/403；记录响应体是否可用于区分 `auth` 与 `rate_limit`。
 
-### 结果回填
+### 结果
 
 | 检查 | DeepSeek | DashScope | 备注 |
 |---|---|---|---|
@@ -91,8 +91,6 @@ DeepSeek 实测细节（模型 ID：`deepseek-flash`；`/v1/models` 同时返回
 - `usage` 出现在最后一个仍带 `choices` 的 chunk（`choices` 为空数组），适配器不能假设 usage chunk 没有 `choices` 键。
 - 工具调用：`delta.tool_calls[]` 带 `index` / `id` / `function.name` / `function.arguments` 分片，拼接后 `{"city":"北京"}` 合法；`finish_reason=tool_calls`。
 - 401：响应体 `error.type=authentication_error`，可映射 `model_auth`；错误信息只显示 Key 末四位。
-
-回填后把本 ADR 状态改为「已决定」，并在 `PROGRESS.md` 的 S3 行写日期、模型名与结论。
 
 ## 决定（2026-11-14 作者确认）
 

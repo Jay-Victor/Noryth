@@ -132,9 +132,9 @@
 
 | 约束 | 做法 | 失败表现 |
 |---|---|---|
-| better-sqlite3 ABI 必须匹配 Electron | `electron-rebuild` 作为 postinstall；`electron-builder` 开 `npmRebuild` | `NODE_MODULE_VERSION` 不匹配，启动即崩 |
-| sqlite-vec 是 loadable extension | `asarUnpack: ["**/*.node", "**/sqlite-vec*/**", "resources/models/**"]`；`app.isPackaged` 时从 `process.resourcesPath` 解析 | 打包后 `db.loadExtension` 找不到文件 |
-| ONNX 模型与运行时不能进 asar | 模型放 `resources/models/bge-small-zh-v1.5/`，`extraResources` 复制；`env.localModelPath` 指向该目录 | 首启去 HuggingFace 下载，离线失败 |
+| better-sqlite3 与 Electron 的 ABI | 13.1.1 起随包分发 N-API prebuild（`prebuilds/win32-x64.node`），无需 `electron-rebuild`；`electron-builder` 设 `npmRebuild: false`（S1 打包冒烟已验证） | 若换回非 N-API 版本，启动报 `NODE_MODULE_VERSION` |
+| sqlite-vec 是 loadable extension | `asarUnpack: ["**/*.node", "**/vec0.*", "**/sqlite-vec*/**"]`；DLL 复制到 `resources/native/` 并由 `extraResources` 发布；`app.isPackaged` 时从 `process.resourcesPath` 解析 | 打包后 `db.loadExtension` 找不到文件 |
+| ONNX 模型与运行时不能进 asar | 模型放 `resources/models/bge-small-zh-v1.5/`，`extraResources` 复制；`env.localModelPath` 指向该目录（阶段 04 接入；当前 `@huggingface/transformers` 仍是 devDependency） | 首启去 HuggingFace 下载，离线失败 |
 
 ---
 
@@ -212,22 +212,13 @@ noryth/
 | `review` | §5.3、§6.3 | 报告、patch 提案、复检 | 定稿、改设定 |
 | `agents` | §4.2、§4.6 | 提示词、信封、工具意图 | 直接落盘 |
 
-### 3.4 开工前必须修的仓库问题
+### 3.4 仓库问题的处理（已解决）
 
-`.gitignore` 当前包含 `/docs/`，注释是「设计文档（本地保留，不进仓库）」。这带来两个直接后果：
+**状态（2026-11-14）**：阶段 01 开工时已按方案 A 修复。
 
-1. PRD §4.10 要求「`docs/tools/*.json` 与本节由 CI 比对」，`docs/scripts/check_ui_spec.py` 也要求可执行——干净 clone 上这些文件不存在，CI 硬门形同虚设。
-2. 换机器或重装后拿到仓库，没有任何规格可读。
-
-**处理（三选一，建议 A）**：
-
-| 方案 | 做法 | 评价 |
-|---|---|---|
-| A（建议） | 把 `/docs/` 改为只忽略草稿：`/docs/**/*.local.md`，其余入库；`docs/tools/`、`docs/scripts/`、`docs/PRD.md`、`docs/UI-DESIGN.md` 必须入库 | 契约与规格可追溯，CI 可跑 |
-| B | 把 `tools/*.json` 与校验脚本移到 `spec/`，`docs/` 继续本地 | 契约入库，但文档仍不可追溯 |
-| C | 维持现状，CI 跳过文档比对 | 等于放弃 PRD §4.10 的硬门，不建议 |
-
-同时补 `scripts/gen-check.mjs`：所有生成物（`docs/tools/*.json`、`src/shared/layout/grid.generated.ts`、`src/main/tools/generated/allowlist.ts`）重新生成后必须与仓库一致，不一致即 CI 失败。
+- `.gitignore` 只忽略草稿 `/docs/**/*.local.md`，`docs/` 其余内容全部入库；干净 clone 上 `docs/PRD.md`、`docs/UI-DESIGN.md`、`docs/scripts/`、`docs/tools/` 均存在。
+- `scripts/gen-check.mjs` 已落地：重新生成 `docs/tools/*.json` 与 `src/shared/layout/grid.generated.ts` 到临时目录，与仓库逐字节比对，不一致即 CI 失败。
+- 历史原因（保留作决策记录）：原 `.gitignore` 含 `/docs/`，会导致干净 clone 没有规格与校验脚本，PRD §4.10 与 UI 栅格硬门失效。方案 B（移到 `spec/`）与方案 C（跳过比对）均未采用。
 
 ---
 
@@ -2652,20 +2643,20 @@ jobs:
 
 ### 18.5 开工清单
 
-- [ ] 修 `.gitignore`：`docs/` 入库（或至少 `docs/tools`、`docs/scripts`）。
-- [ ] 跑 S1–S4 四个 spike，写 ADR-0001（向量）与 ADR-0002（编辑器）。
-- [ ] 建 `docs/tools/` 目录与 42 个 manifest 的空壳（只有 name/actors/version）。
-- [ ] 写 `check_tool_spec.py` 的第一版：解析 PRD §4.10 表格，比对名称与 actors。
-- [ ] 给 `check_ui_spec.py` 加 `--emit-json`，生成 `grid.generated.ts`。
-- [ ] 建 `tests/fixtures/m0-a/` 骨架：5 角色、2 章、24 拍的分镜 JSON。
-- [ ] 建 `docs/adr/` 与 `docs/BACKLOG.md`。
-- [ ] 确认 CI 在 windows-latest 上能跑 `pnpm install + build`（先不跑 E2E）。
+- [x] 修 `.gitignore`：`docs/` 入库（只忽略 `/docs/**/*.local.md`）。
+- [x] 跑 S1–S4 四个 spike，写 ADR-0001（向量）、0002（编辑器）、0003（供应商）、0004（嵌入）；S3 按 DeepSeek 一家收口。
+- [x] 建 `docs/tools/` 目录与 42 个 manifest 的空壳（含 8 个系统能力）。
+- [x] 写 `check_tool_spec.py` 的第一版：解析 PRD §4.10 表格，比对名称与 actors。
+- [x] 给 `check_ui_spec.py` 加 `--emit-json`，生成 `grid.generated.ts`。
+- [ ] 建 `tests/fixtures/m0-a/` 骨架：5 角色、2 章、24 拍的分镜 JSON（阶段 05）。
+- [x] 建 `docs/adr/` 与 `docs/BACKLOG.md`。
+- [x] 确认 CI 在 windows-latest 上能跑 `pnpm install + build`：run `43585776532`，verify + e2e 均绿。
 
 ---
 
 ## 变更记录
 
-- **v0.4（阶段 01 实施）**：S1 确认 sqlite-vec Plan A（ADR-0001），S2 确认 bge-small-zh-v1.5 q8/512 维（ADR-0004）；`_migration` 由迁移器创建，`0001_init.sql` 不再重复建表；新增 4 个错误码（`project_not_found` / `project_create_failed` / `vector_unavailable` / `internal_error`）；`docs/tools/*.json` 首版是契约外壳（`contract_complete:false`），input/output schema 由阶段 03 C5 补齐。
+- **v0.4（阶段 01 实施）**：S1 确认 sqlite-vec Plan A（ADR-0001），S2 确认 bge-small-zh-v1.5 q8/512 维（ADR-0004）；S3 按 DeepSeek 一家收口（ADR-0003），第二家顺延阶段 04；阶段 01 已通过本地门禁与 Windows CI（run `43585776532`）并打标签 `phase-01-done`。`_migration` 由迁移器创建，`0001_init.sql` 不再重复建表；新增 4 个错误码（`project_not_found` / `project_create_failed` / `vector_unavailable` / `internal_error`）；`docs/tools/*.json` 首版是契约外壳（`contract_complete:false`），input/output schema 由阶段 03 C5 补齐。
 - **v0.3**：移除全部进度估算，只保留阶段顺序、范围、依赖与验收。
 - **v0.2**：改为单人开发口径：移除人员编制与并行分工，改为阶段顺序。
 - **v0.1**：首版。补 PRD v0.6 未定义的八个工程缺口（seq 分配、revision 清单、manifest 生成、grounding 登记、token 预算、中文 bigram、docs 入库、栅格真源）；给出技术选型、模块边界、DDL、工具层调用流水线、状态机与 DSL、WBS 与阶段顺序、测试与 CI、验收对照。
