@@ -121,6 +121,17 @@ test('E2E-WRITE-01：3 场 24 拍，前 6 拍 4 确认 2 重生成，自动模�
   await seedAndOpen(page)
   await page.locator('[data-testid="write-tab-storyboard"]').click()
   await expect(page.locator('[data-testid="write-storyboard-summary"]')).toContainText('24 拍')
+
+  // 分镜有冲突：G2 禁用并给第一条原因（出口写成自然语言）
+  const exitInput = page.locator('[data-testid="write-scene-exit-1"]')
+  await exitInput.fill('等他们吵完')
+  await page.locator('[data-testid="write-storyboard-save"]').click()
+  await expect(page.locator('[data-testid="write-g2-blocker"]')).toContainText('出口条件')
+  await expect(page.locator('[data-testid="write-g2"]')).toBeDisabled()
+  await exitInput.fill('all(fact("black_box","location"), beats(8))')
+  await page.locator('[data-testid="write-storyboard-save"]').click()
+  await expect(page.locator('[data-testid="write-g2"]')).toBeEnabled({ timeout: 10_000 })
+
   await startG2(page)
 
   // 6 拍：4 确认 + 2 重生成

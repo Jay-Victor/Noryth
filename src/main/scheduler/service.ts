@@ -40,7 +40,7 @@ import { runBeatTurn, type BeatRunOutcome } from './beat'
 import { runOrchestratorTurn } from './orchestrator'
 import { WriteModelFactory } from './model'
 import { resolveBinding } from '../model/bindings'
-import { chapterTransition, sceneTransition } from './transitions'
+import { beatTransition, chapterTransition, sceneTransition } from './transitions'
 
 /**
  * 创作台服务（PHASE-07 F1–F7）。
@@ -465,10 +465,10 @@ export class WriteService {
       return { state: this.state(chapter.id), detail: '已开新分支：旧正文保留，可继续确认新版本' }
     }
     if (input.choice === 'replace') {
-      for (const beat of later) host.repos.beat.setStatus(beat.id, 'confirmed')
+      for (const beat of later) host.repos.beat.setStatus(beat.id, beatTransition('stale', 'IGNORE'))
       return { state: this.state(chapter.id), detail: `已接受替换：${later.length} 拍保持原文` }
     }
-    for (const beat of later) host.repos.beat.setStatus(beat.id, 'interrupted')
+    for (const beat of later) host.repos.beat.setStatus(beat.id, beatTransition('stale', 'REQUEUE'))
     return { state: this.state(chapter.id), detail: `将重跑 ${later.length} 拍` }
   }
 

@@ -61,7 +61,8 @@ export function StoryboardTable({ state }: { state: WriteState }): React.JSX.Ele
     () => (dirty ? state.g2.conflicts.filter((conflict) => conflict.code !== 'no_storyboard' && conflict.code !== 'blueprint_not_locked' && conflict.code !== 'setup_incomplete') : state.g2.conflicts),
     [dirty, state.g2.conflicts]
   )
-  const hardCount = conflicts.filter((conflict) => conflict.severity === 'hard').length
+  const hardConflicts = conflicts.filter((conflict) => conflict.severity === 'hard')
+  const hardCount = hardConflicts.length
   const characters = state.characters
 
   const update = (mutate: (draft: DraftScene[]) => void): void => {
@@ -146,6 +147,15 @@ export function StoryboardTable({ state }: { state: WriteState }): React.JSX.Ele
             </button>
           </div>
         </div>
+
+        {hardConflicts[0] ? (
+          <p className="write-note" data-testid="write-g2-blocker">
+            开演前必须修：{hardConflicts[0].message}
+            {hardConflicts[0].beat_ord !== undefined
+              ? `（场景 ${hardConflicts[0].scene_ord} · 拍 ${hardConflicts[0].beat_ord}）`
+              : `（场景 ${hardConflicts[0].scene_ord}）`}
+          </p>
+        ) : null}
 
         {g2Open ? (
           <div className="write-g2-dialog" data-testid="write-g2-dialog">

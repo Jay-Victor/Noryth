@@ -26,6 +26,7 @@ export type BeatEvent =
   | 'UPSTREAM_CHANGED'
   | 'REPLACE'
   | 'RERUN'
+  | 'REQUEUE'
   | 'IGNORE'
   | 'RETRY'
   | 'DISCARD'
@@ -53,7 +54,8 @@ export const BEAT_TRANSITIONS: Readonly<Record<BeatStatus, Readonly<Partial<Reco
   regenerating: { COMPLETE: 'superseded', FAIL: 'waiting_for_human' },
   author_edited: { UPSTREAM_CHANGED: 'stale' },
   confirmed: { UPSTREAM_CHANGED: 'stale', REPLACE: 'superseded' },
-  stale: { RERUN: 'regenerating', IGNORE: 'confirmed' },
+  // REQUEUE：作者选择「替换并重跑后续」，把 stale 拍排进下一轮发牌（interrupted 可重试）。
+  stale: { RERUN: 'regenerating', REQUEUE: 'interrupted', IGNORE: 'confirmed' },
   interrupted: { RETRY: 'generating', DISCARD: 'rejected' },
   rejected: { RETRY: 'generating' },
   superseded: {}

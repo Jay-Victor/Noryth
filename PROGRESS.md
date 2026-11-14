@@ -12,7 +12,7 @@
 | 04 | `docs/PHASE-04-RUNTIME.md` | done | D1–D6：SSE/OpenAI 兼容适配器与重试、能力探测→settings、L0–L3 装配与预算裁剪、信封/grounding 校验、六角色提示词 + JSON 回退、绑定快照 + 审计；假 LLM 服务器 + 9 条 runTurn 集成 | 全部通过：本地门禁 + CI run 43595192603（verify 与 e2e 均绿） | 真实第二家供应商未补测（无 Key，见 ADR-0003）；trace 落盘与 commitBeat 留阶段 05；嵌入随包（ADR-0004）不在本阶段范围，推迟阶段 09/10 |
 | 05 | `docs/PHASE-05-SLICE.md` | done | V1–V3：`commitBeat` + trace 归档 + 拍状态迁移 + 启动恢复/outbox 补发；fixture、假适配器、`#/dev/slice` 切片页；`E2E-SLICE-01` 与强杀重启 | 全部通过：本地门禁 + CI run `43597992157`（verify 与 e2e 均绿） | `verify` 的 seq 单调检查会误报「改早期拍」（ADR-0005 §4，阶段 07 修） |
 | 06 | `docs/PHASE-06-PLANNING.md` | done | E1–E5：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表、G1 注册与建库、覆盖检查占位；`E2E-PLAN-01/02` | 全部通过：本地门禁 + CI run `43603698391`（verify 与 e2e 均绿） | 真实供应商 Key 未接（阶段 10）；覆盖检查/影响分析仅占位（P1）；会话重命名/归档只有后端，UI 未接 |
-| 07 | `docs/PHASE-07-WRITING.md` | done | F1–F7：分镜草案/G2、11 状态迁移表、出口 DSL AST、调度循环与自动模式、正文/拍卡/确认条/分镜编辑器、拒演/耗尽/预算/模型错误四类暂停；`E2E-WRITE-01/02`；新增 `0004_writing.sql`（`LATEST_SCHEMA_VERSION = 4`） | 全部通过：本地门禁全绿（unit 540 / integration 25 / e2e 11 / build / gen:check / 规格脚本） | 真实模型未接（Key 在阶段 10）；影响分析仅 M1；分支树只有线性 revision；「上下文检查器」按钮占位 |
+| 07 | `docs/PHASE-07-WRITING.md` | done | F1–F7：分镜草案/G2、11 状态迁移表、出口 DSL AST、调度循环与自动模式、正文/拍卡/确认条/分镜编辑器、拒演/耗尽/预算/模型错误四类暂停；`E2E-WRITE-01/02`；新增 `0004_writing.sql`（`LATEST_SCHEMA_VERSION = 4`） | 全部通过：本地门禁全绿（unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本） | 真实模型未接（Key 在阶段 10）；影响分析仅 M1；分支树只有线性 revision；「上下文检查器」按钮占位 |
 | 08 | `docs/PHASE-08-REVIEW.md` | todo | — | — | — |
 | 09 | `docs/PHASE-09-MEMORY.md` | todo | — | — | — |
 | 10 | `docs/PHASE-10-DELIVERY.md` | todo | — | — | — |
@@ -23,7 +23,7 @@
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（540：unit+contract） / `pnpm vitest run tests/integration`（25） / `pnpm test:e2e`（11）
+- `pnpm test:unit`（541：unit+contract） / `pnpm vitest run tests/integration`（25） / `pnpm test:e2e`（11）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
 - `python docs/scripts/check_ui_spec.py` / `python docs/scripts/check_tool_spec.py`
 - `pnpm pack`（win-unpacked） / `pnpm dist`（NSIS）
@@ -178,16 +178,16 @@
 | 类型 | `pnpm typecheck` | 通过（main + web 两套） |
 | 依赖边界 | `pnpm depcruise` | 198 modules / 898 deps，0 违规 |
 | Lint | `pnpm lint` | 通过 |
-| 单元 + 契约 | `pnpm test:unit` | 540 passed（unit 305 / contract 235） |
+| 单元 + 契约 | `pnpm test:unit` | 541 passed（unit 306 / contract 235） |
 | 集成 | `pnpm vitest run tests/integration` | 25 passed（新增 write 8） |
 | E2E | `pnpm test:e2e` | 11 passed（原 9 + `E2E-WRITE-01/02`） |
-| 状态机 | `tests/unit/scheduler/transitions.test.ts` | 13 条：11 个拍状态全可达、每条边可走、superseded 终态、confirmed 不能直接确认、非法迁移带 from/event/allowed；章/场景/任务表同构 |
+| 状态机 | `tests/unit/scheduler/transitions.test.ts` | 14 条：11 个拍状态全可达、每条边可走、stale 三条出口（重跑/排队/忽略）、superseded 终态、confirmed 不能直接确认、非法迁移带 from/event/allowed；章/场景/任务表同构 |
 | 出口 DSL | `tests/unit/scheduler/dsl.test.ts` | 19 条：六种节点、自然语言拒绝、纯 beats 告警、未登记实体/谓词不可判定、4 参数 rel 拒绝、深度/节点/拍数上限、fact/rel/beats 求值与 all/any/not |
 | 循环判定 | `tests/unit/scheduler/loop.test.ts` | 9 条：G2 物化 + verify 全绿、硬冲突拒绝开演、按序发牌、连续重生成 3 次无孤儿/无双活、出口收束、max_beats WARN、storyboard_exhausted 不续写、预算暂停 |
 | verify 修正 | `tests/unit/db/verify.test.ts` | 改为 seq 唯一 + 槽位单调；「改早期拍」不再误报（ADR-0005 §4） |
 | 迁移 | `tests/unit/migrator.test.ts` | 0001→0002→0003→0004；`LATEST_SCHEMA_VERSION = 4` |
 | 创作台集成 | `tests/integration/write.spec.ts` | 8 条：3 场 24 拍（前 6 拍全部确认、其中 2 拍重生成）→ 自动跑完 `draft_complete`；自动在出口处停（6/12 拍）；max_beats 收束留 WARN；编辑已确认拍 → 下游 stale → 三选一（分支/替换/重跑）；分镜耗尽暂停；拒演保留理由且不写正文；预算/无 Key 各自暂停 |
-| 创作台 E2E | `tests/e2e/write.spec.ts` | `E2E-WRITE-01`：devSeed 24 拍 → G2 → 4 确认 2 重生成 → 自动跑完，DB 24 confirmed / 0 双活；`E2E-WRITE-02`：自动在 `beats(3)` 处停，剩 3 拍 proposed |
+| 创作台 E2E | `tests/e2e/write.spec.ts` | `E2E-WRITE-01`：devSeed 24 拍 → 冲突时 G2 禁用并显示第一条原因 → 修好开演 → 4 确认 2 重生成 → 自动跑完，DB 24 confirmed / 0 双活；`E2E-WRITE-02`：自动在 `beats(3)` 处停，剩 3 拍 proposed |
 | IME 守卫 | 同上 E2E | 编辑框填入 200+ 中文字符后按 Enter：不提交确认、字符不丢（只换行） |
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T34 升 1.1.0、T27 分镜 schema 增 `ord/notes/max_beats`） |
@@ -244,7 +244,7 @@
 
 ## 当前阻塞
 
-- 无。阶段 07 已 `done`：本地门禁全绿（typecheck / lint / depcruise / unit 540 / integration 25 / e2e 11 / build / gen:check / 规格脚本）。CI 待推送后跑。
+- 无。阶段 07 已 `done`：本地门禁全绿（typecheck / lint / depcruise / unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本）。CI 待推送后跑。
 - 真实模型未配置 Key（不阻塞）：创作台沿用阶段 06 的环境变量口径（`NORYTH_WRITE_API_KEY` / `NORYTH_<PROVIDER>_API_KEY` / `NORYTH_PLAN_API_KEY`）；未配置时生成失败为 `model_auth`，自动模式暂停为 `model_error`，不伪造正文。E2E 用 `NORYTH_WRITE_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 08）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
 - 已知缺口（不阻塞）：创作台的「上下文检查器」按钮是占位（只显示 traceRef）；M0 分支只有线性 revision，没有分支树 UI；跨章影响分析在 M1。

@@ -70,6 +70,12 @@ describe('拍状态机', () => {
     expect(beatTransition('regenerating', 'COMPLETE')).toBe('superseded')
   })
 
+  it('stale 的三条出口：重跑 / 排队重跑 / 忽略', () => {
+    expect(beatTransition('stale', 'RERUN')).toBe('regenerating')
+    expect(beatTransition('stale', 'REQUEUE')).toBe('interrupted')
+    expect(beatTransition('stale', 'IGNORE')).toBe('confirmed')
+  })
+
   it('重生成失败回 waiting_for_human，不产生新状态', () => {
     expect(beatTransition('regenerating', 'FAIL')).toBe('waiting_for_human')
   })
