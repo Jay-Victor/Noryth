@@ -11,7 +11,7 @@
 | 03 | `docs/PHASE-03-TOOLS.md` | done | C1–C7：42 manifest / 36 实现 / 6 开关、授权解析、九步流水线、闸门/幂等/审计、36×6 契约 harness | 全部通过：本地门禁 + CI run `43591949465`（verify + e2e 均绿） | 工具日志面板未做（可选）；T31/T33/T34 提案暂存 `tool_call.result_json`，阶段 06 接草案表 |
 | 04 | `docs/PHASE-04-RUNTIME.md` | done | D1–D6：SSE/OpenAI 兼容适配器与重试、能力探测→settings、L0–L3 装配与预算裁剪、信封/grounding 校验、六角色提示词 + JSON 回退、绑定快照 + 审计；假 LLM 服务器 + 9 条 runTurn 集成 | 全部通过：本地门禁 + CI run 43595192603（verify 与 e2e 均绿） | 真实第二家供应商未补测（无 Key，见 ADR-0003）；trace 落盘与 commitBeat 留阶段 05；嵌入随包（ADR-0004）不在本阶段范围，推迟阶段 09/10 |
 | 05 | `docs/PHASE-05-SLICE.md` | done | V1–V3：`commitBeat` + trace 归档 + 拍状态迁移 + 启动恢复/outbox 补发；fixture、假适配器、`#/dev/slice` 切片页；`E2E-SLICE-01` 与强杀重启 | 全部通过：本地门禁 + CI run `43597992157`（verify 与 e2e 均绿） | `verify` 的 seq 单调检查会误报「改早期拍」（ADR-0005 §4，阶段 07 修） |
-| 06 | `docs/PHASE-06-PLANNING.md` | in_progress | E1–E5：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表、G1 注册与建库、覆盖检查占位；`E2E-PLAN-01/02` | 本地门禁全绿（详见下方验证记录）；待提交与 CI | 真实供应商 Key 未接（阶段 10）；覆盖检查/影响分析仅占位（P1）；会话重命名/归档只有后端，UI 未接 |
+| 06 | `docs/PHASE-06-PLANNING.md` | done | E1–E5：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表、G1 注册与建库、覆盖检查占位；`E2E-PLAN-01/02` | 全部通过：本地门禁 + CI run `43603698391`（verify 与 e2e 均绿） | 真实供应商 Key 未接（阶段 10）；覆盖检查/影响分析仅占位（P1）；会话重命名/归档只有后端，UI 未接 |
 | 07 | `docs/PHASE-07-WRITING.md` | todo | — | — | — |
 | 08 | `docs/PHASE-08-REVIEW.md` | todo | — | — | — |
 | 09 | `docs/PHASE-09-MEMORY.md` | todo | — | — | — |
@@ -165,8 +165,11 @@
 | 规划 E2E | `tests/e2e/plan.spec.ts` | `E2E-PLAN-01`：对话 → 应用建议 → 改 2 个动机 → voice 缺项禁用 → G1（2 章行）→ 创作台解锁；`E2E-PLAN-02`：建库失败 `setup_incomplete` → 重试 complete |
 | E2E 全量 | `pnpm test:e2e` | 9 passed（原 7 + 规划 2） |
 | 构建 | `pnpm build` | 通过 |
-| 生成物 | `pnpm gen:tools` / `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T31 新增 `parent_ref`/`ref`） |
+| 生成物 | `pnpm gen:tools` / `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T31 新增 `parent_ref`/`ref`；T42 交互超时改 5 分钟） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 提交 | `bbea9df` | 已推送 origin/dev |
+| CI | GitHub Actions run `43603698391`（`bbea9df`） | verify 1m40 / e2e 1m11，均绿 |
+| 阶段标签 | `phase-06-done` → `bbea9df` | 已推送 origin |
 
 ## 关键决策
 
@@ -210,7 +213,7 @@
 
 ## 当前阻塞
 
-- 无功能阻塞。阶段 06 本地门禁全绿（typecheck / lint / depcruise / unit 497 / integration 17 / e2e 9 / build / gen:check / 规格脚本）；待提交与 CI，CI 绿后把阶段状态改 `done` 并打 `phase-06-done`。
+- 无。阶段 06 已 `done`：本地门禁全绿（typecheck / lint / depcruise / unit 497 / integration 17 / e2e 9 / build / gen:check / 规格脚本）+ CI run `43603698391`（verify 与 e2e 均绿），标签 `phase-06-done` → `bbea9df`。
 - 真实规划模型未配置 Key（不阻塞）：阶段 06 用 `NORYTH_PLAN_API_KEY` 或 `NORYTH_<PROVIDER>_API_KEY`；未配置时规划对话失败为 `model_auth`，不伪造回复。设置页 Key 管理在阶段 10 I1。
 - 待补测（不阻塞阶段 07）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
 - 已知问题：`db/verify.ts` 的 `seq_not_monotonic` 按拍序检查，改早期拍会误报；阶段 07 必须改为按提交序/唯一性检查（ADR-0005 §4）。
@@ -218,7 +221,7 @@
 
 ## 下一阶段交接
 
-- 阶段 06 本地完成（`in_progress`，待 CI）。新增迁移 `0003_planning.sql`，`LATEST_SCHEMA_VERSION = 3`；`DEV-PLAN §5.13` 已同步表结构。
+- 阶段 06 已 `done`（2026-11-14）。新增迁移 `0003_planning.sql`，`LATEST_SCHEMA_VERSION = 3`；`DEV-PLAN §5.13` 已同步表结构；标签 `phase-06-done` → `bbea9df`。
 - 阶段 07 直接复用：
   - `commitBeat(db, repos, {...})`（`src/main/doc/commit-beat.ts`）：唯一正文写入者；不要另写正文写入 SQL，也不要改签名；
   - `markGenerating` / `rollbackGenerate` / `rejectBeat` / `confirmBeat` / `editBeat`（`src/main/doc/beats.ts`）：拍状态迁移原语；
