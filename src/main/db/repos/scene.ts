@@ -17,6 +17,7 @@ export interface SceneRecord {
   entry: string
   exitJson: string
   status: SceneStatus
+  maxBeats: number
   createdAt: string
   updatedAt: string
 }
@@ -31,6 +32,7 @@ export interface NewSceneInput {
   entry?: string
   exitJson: string
   status?: SceneStatus
+  maxBeats?: number
   createdAt?: string
   updatedAt?: string
 }
@@ -42,6 +44,8 @@ export interface ScenePatch {
   entry?: string
   exitJson?: string
   status?: SceneStatus
+  maxBeats?: number
+  ord?: number
 }
 
 export interface SceneInChapter {
@@ -63,6 +67,7 @@ function mapScene(row: SceneRow): SceneRecord {
     entry: row.entry,
     exitJson: row.exit_json,
     status: row.status as SceneStatus,
+    maxBeats: row.max_beats,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }
@@ -86,6 +91,7 @@ export class SceneRepo extends BaseRepo {
       entry: input.entry ?? '',
       exit_json: input.exitJson,
       status: input.status ?? 'planned',
+      ...(input.maxBeats === undefined ? {} : { max_beats: input.maxBeats }),
       created_at: at,
       updated_at: input.updatedAt ?? at
     }
@@ -149,6 +155,8 @@ export class SceneRepo extends BaseRepo {
     if (patch.entry !== undefined) update.entry = patch.entry
     if (patch.exitJson !== undefined) update.exit_json = patch.exitJson
     if (patch.status !== undefined) update.status = patch.status
+    if (patch.maxBeats !== undefined) update.max_beats = patch.maxBeats
+    if (patch.ord !== undefined) update.ord = patch.ord
     if (Object.keys(update).length > 0) {
       update.updated_at = this.now()
       runStatement(this.runner, this.runner.db.updateTable('scene').set(update).where('id', '=', id))

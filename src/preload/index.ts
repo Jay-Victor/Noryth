@@ -4,6 +4,7 @@ import type { IpcResult } from '../shared/schema/ipc'
 import type { ProjectStateEvent } from '../shared/schema/project'
 import type { PlanChoiceRequest, PlanEvent } from '../shared/schema/plan'
 import type { SliceBeatEvent } from '../shared/schema/slice'
+import type { WriteEvent } from '../shared/schema/write'
 import type { NorythBridge } from '../shared/schema/bridge'
 
 let requestSeq = 0
@@ -83,6 +84,25 @@ const bridge: NorythBridge = {
     confirmG1: () => invoke(IPC.planConfirmG1, {}),
     retrySetup: () => invoke(IPC.planRetrySetup, {})
   },
+  write: {
+    state: (chapterId) => invoke(IPC.writeState, chapterId === undefined ? {} : { chapterId }),
+    saveStoryboard: (input) => invoke(IPC.writeSaveStoryboard, input),
+    validateStoryboard: (input) => invoke(IPC.writeValidateStoryboard, input),
+    g2Preview: (chapterId) => invoke(IPC.writeG2Preview, { chapterId }),
+    confirmG2: (chapterId) => invoke(IPC.writeG2Confirm, { chapterId }),
+    generate: (beatId) => invoke(IPC.writeGenerate, { beatId }),
+    regenerate: (beatId) => invoke(IPC.writeRegenerate, { beatId }),
+    confirm: (beatId) => invoke(IPC.writeConfirm, { beatId }),
+    edit: (input) => invoke(IPC.writeEdit, input),
+    resolveStale: (input) => invoke(IPC.writeStaleResolve, input),
+    preflight: (chapterId) => invoke(IPC.writePreflight, { chapterId }),
+    autoStart: (chapterId) => invoke(IPC.writeAutoStart, { chapterId }),
+    pause: (chapterId) => invoke(IPC.writePause, { chapterId }),
+    resume: (chapterId) => invoke(IPC.writeResume, { chapterId }),
+    cancel: (chapterId) => invoke(IPC.writeCancel, { chapterId }),
+    send: (input) => invoke(IPC.writeSend, input),
+    devSeed: (input) => invoke(IPC.writeDevSeed, input ?? {})
+  },
   app: {
     info: () => invoke(IPC.appInfo, {})
   },
@@ -121,6 +141,15 @@ const bridge: NorythBridge = {
       ipcRenderer.on(IPC_EVENTS.planChoice, handler)
       return () => {
         ipcRenderer.removeListener(IPC_EVENTS.planChoice, handler)
+      }
+    },
+    onWriteEvent: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: WriteEvent): void => {
+        listener(payload)
+      }
+      ipcRenderer.on(IPC_EVENTS.writeEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_EVENTS.writeEvent, handler)
       }
     }
   }

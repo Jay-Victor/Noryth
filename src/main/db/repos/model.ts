@@ -302,4 +302,30 @@ export class TurnMetricRepo extends BaseRepo {
     )
     return rows.map(mapMetric)
   }
+
+  /**
+   * 章预算口径（DEV-PLAN §8.5）：本章所有 turn 的 token 合计。
+   * 重跑同一 turn 会覆盖指标，所以这里等于「最近一次真实消耗」。
+   */
+  sumByChapter(chapterId: string): { tokensIn: number; tokensOut: number; costCny: number; turns: number } {
+    const row = firstRow<{ tokens_in: number | null; tokens_out: number | null; cost_cny: number | null; turns: number }>(
+      this.runner,
+      this.runner.db
+        .selectFrom('turn_metric')
+        .innerJoin('beat', 'beat.id', 'turn_metric.beat_id')
+        .select([
+          (eb) => eb.fn.sum<number>('turn_metric.tokens_in').as('tokens_in'),
+          (eb) => eb.fn.sum<number>('turn_metric.tokens_out').as('tokens_out'),
+          (eb) => eb.fn.sum<number>('turn_metric.cost_cny').as('cost_cny'),
+          (eb) => eb.fn.countAll<number>().as('turns')
+        ])
+        .where('beat.chapter_id', '=', chapterId)
+    )
+    return {
+      tokensIn: row?.tokens_in ?? 0,
+      tokensOut: row?.tokens_out ?? 0,
+      costCny: row?.cost_cny ?? 0,
+      turns: row?.turns ?? 0
+    }
+  }
 }

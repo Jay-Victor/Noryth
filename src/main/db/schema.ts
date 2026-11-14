@@ -63,6 +63,7 @@ export interface ChapterTable {
   final_revision_id: string | null
   opened_at: string | null
   finalized_at: string | null
+  budget_tokens: number | null
 }
 
 export interface SceneTable {
@@ -75,6 +76,7 @@ export interface SceneTable {
   entry: Generated<string>
   exit_json: string
   status: string
+  max_beats: Generated<number>
   created_at: string
   updated_at: string
 }
@@ -420,6 +422,37 @@ export interface MemoryNamespaceTable {
   created_at: string
 }
 
+export interface StoryboardDraftTable {
+  chapter_id: string
+  project_id: string
+  rev: Generated<number>
+  scenes_json: string
+  updated_by: string
+  updated_at: string
+}
+
+export interface WriteMessageTable {
+  id: string
+  project_id: string
+  chapter_id: string
+  role: string
+  kind: Generated<string>
+  body: Generated<string>
+  meta_json: Generated<string>
+  created_at: string
+}
+
+export interface SchedulerEventTable {
+  id: string
+  project_id: string
+  chapter_id: string
+  job_id: string | null
+  kind: string
+  reason: string | null
+  payload_json: Generated<string>
+  created_at: string
+}
+
 export interface Database {
   project: ProjectTable
   outline_node: OutlineNodeTable
@@ -450,4 +483,7 @@ export interface Database {
   plan_fact: PlanFactTable
   agent_proposal: AgentProposalTable
   memory_namespace: MemoryNamespaceTable
+  storyboard_draft: StoryboardDraftTable
+  write_message: WriteMessageTable
+  scheduler_event: SchedulerEventTable
 }

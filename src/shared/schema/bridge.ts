@@ -27,6 +27,14 @@ import type {
   SliceSeedResult,
   SliceState
 } from './slice'
+import type { StoryboardConflict, StoryboardDraft } from './storyboard'
+import type {
+  WriteActionResult,
+  WriteEvent,
+  WritePreflightState,
+  WriteSendResult,
+  WriteState
+} from './write'
 import type {
   AppInfo,
   CreateProjectInput,
@@ -126,6 +134,51 @@ export interface EventApi {
   onSliceBeat(listener: (event: SliceBeatEvent) => void): () => void
   onPlanMessage(listener: (event: PlanEvent) => void): () => void
   onPlanChoice(listener: (event: PlanChoiceRequest) => void): () => void
+  onWriteEvent(listener: (event: WriteEvent) => void): () => void
+}
+
+/** 创作台 G2 预览（PHASE-07 F1）。 */
+export interface WriteG2Preview {
+  chapterId: string
+  ready: boolean
+  blocker: string | null
+  conflicts: StoryboardConflict[]
+  sceneCount: number
+  beatCount: number
+  storyboardRev: number | null
+  maxBeats: number
+}
+
+/** 创作台 API（PHASE-07）。所有写操作在只读项目上由主进程拒绝。 */
+export interface WriteApi {
+  state(chapterId?: string): Promise<IpcResult<WriteState>>
+  saveStoryboard(input: {
+    chapterId: string
+    scenes: StoryboardDraft['scenes']
+  }): Promise<IpcResult<{ state: WriteState; conflicts: StoryboardConflict[] }>>
+  validateStoryboard(input: {
+    chapterId: string
+    scenes: StoryboardDraft['scenes']
+  }): Promise<IpcResult<StoryboardConflict[]>>
+  g2Preview(chapterId: string): Promise<IpcResult<WriteG2Preview>>
+  confirmG2(chapterId: string): Promise<IpcResult<WriteActionResult>>
+  generate(beatId: string): Promise<IpcResult<WriteActionResult>>
+  regenerate(beatId: string): Promise<IpcResult<WriteActionResult>>
+  confirm(beatId: string): Promise<IpcResult<WriteActionResult>>
+  edit(input: { beatId: string; body: string; expectedRevision: string | null }): Promise<IpcResult<WriteActionResult>>
+  resolveStale(input: {
+    chapterId: string
+    beatId: string
+    choice: 'replace' | 'rerun' | 'branch'
+  }): Promise<IpcResult<WriteActionResult>>
+  preflight(chapterId: string): Promise<IpcResult<WritePreflightState>>
+  autoStart(chapterId: string): Promise<IpcResult<WriteActionResult>>
+  pause(chapterId: string): Promise<IpcResult<WriteActionResult>>
+  resume(chapterId: string): Promise<IpcResult<WriteActionResult>>
+  cancel(chapterId: string): Promise<IpcResult<WriteActionResult>>
+  send(input: { chapterId: string; text: string }): Promise<IpcResult<WriteSendResult>>
+  /** 仅未打包构建：E2E 脚手架，生产包调用返回 invalid_args。 */
+  devSeed(input?: { scenes?: number; beatsPerScene?: number; exit?: string }): Promise<IpcResult<WriteState>>
 }
 
 export interface NorythBridge {
@@ -135,6 +188,7 @@ export interface NorythBridge {
   diagnostics: DiagnosticsApi
   slice: SliceApi
   plan: PlanApi
+  write: WriteApi
   app: AppApi
   events: EventApi
 }

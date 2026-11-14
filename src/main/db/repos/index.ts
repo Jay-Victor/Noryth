@@ -25,6 +25,7 @@ import { RevisionRepo } from './revision'
 import { SceneRepo } from './scene'
 import { ToolCallRepo } from './tool-call'
 import { CharacterBeliefRepo, RelationshipRepo, WorldFactRepo } from './world'
+import { SchedulerEventRepo, StoryboardDraftRepo, WriteMessageRepo } from './write'
 
 export interface RepoOptions {
   now?: Clock
@@ -63,7 +64,10 @@ export function createRepos(db: Db, options: RepoOptions = {}) {
     toolCall: new ToolCallRepo(runner, now),
     outbox: new OutboxRepo(runner, now),
     modelBinding: new ModelBindingRepo(runner, now),
-    turnMetric: new TurnMetricRepo(runner, now)
+    turnMetric: new TurnMetricRepo(runner, now),
+    storyboard: new StoryboardDraftRepo(runner, now),
+    writeMessage: new WriteMessageRepo(runner, now),
+    schedulerEvent: new SchedulerEventRepo(runner, now)
   }
 }
 
@@ -87,3 +91,4 @@ export * from './revision'
 export * from './scene'
 export * from './tool-call'
 export * from './world'
+export * from './write'

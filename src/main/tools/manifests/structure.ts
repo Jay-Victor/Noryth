@@ -365,6 +365,42 @@ const storyboardGetChapter = defineTool({
   handler: (args, ctx, services) => {
     const chapter = chapterOf(services.repos, ctx.runtime.project_id, args.chapter_id)
     const scenes = services.repos.scene.listByChapter(chapter.id)
+    // G2 之前没有 scene 行：读分镜草案，避免编排 Agent 看不到自己刚提的分镜。
+    if (scenes.length === 0) {
+      const draft = services.repos.storyboard.get(chapter.id)
+      if (draft) {
+        const parsed = parseJson<{ scenes?: unknown }>(draft.scenesJson, {})
+        const items = Array.isArray(parsed.scenes) ? (parsed.scenes as Array<Record<string, unknown>>) : []
+        return {
+          data: {
+            chapter_id: chapter.id,
+            status: chapter.status,
+            scenes: items.map((scene, index) => ({
+              scene_id: typeof scene['scene_id'] === 'string' ? (scene['scene_id'] as string) : `draft_s${index + 1}`,
+              ord: index + 1,
+              location: typeof scene['location'] === 'string' ? (scene['location'] as string) : '',
+              participants: Array.isArray(scene['participants']) ? (scene['participants'] as string[]) : [],
+              goal: typeof scene['goal'] === 'string' ? (scene['goal'] as string) : '',
+              entry: typeof scene['entry'] === 'string' ? (scene['entry'] as string) : '',
+              exit: scene['exit'] ?? null,
+              status: 'draft',
+              beats: Array.isArray(scene['beats'])
+                ? (scene['beats'] as Array<Record<string, unknown>>).map((beat, beatIndex) => ({
+                    beat_id: `draft_s${index + 1}_b${beatIndex + 1}`,
+                    ord: beatIndex + 1,
+                    speaker_type: beat['speaker_type'] === 'narrator' ? 'narrator' : 'character',
+                    speaker_id: typeof beat['speaker_id'] === 'string' ? (beat['speaker_id'] as string) : '',
+                    intent: typeof beat['intent'] === 'string' ? (beat['intent'] as string) : '',
+                    status: 'draft',
+                    max_words: typeof beat['max_words'] === 'number' ? (beat['max_words'] as number) : null
+                  }))
+                : []
+            }))
+          },
+          degraded: 'none' as const
+        }
+      }
+    }
     return {
       data: {
         chapter_id: chapter.id,

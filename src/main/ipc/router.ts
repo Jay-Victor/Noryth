@@ -40,6 +40,18 @@ import {
   SliceEditInputSchema,
   SliceEmptyInputSchema
 } from '../../shared/schema/slice'
+import {
+  WriteBeatInputSchema,
+  WriteChapterInputSchema,
+  WriteConfirmInputSchema,
+  WriteEditInputSchema,
+  WriteG2InputSchema,
+  WriteSendInputSchema,
+  WriteStaleChoiceInputSchema,
+  WriteDevSeedInputSchema,
+  WriteStoryboardSaveInputSchema,
+  WriteStoryboardValidateInputSchema
+} from '../../shared/schema/write'
 import { probeProvider } from '../model/probe'
 import type { Logger } from '../observability/logger'
 import { exportDiagnostics } from '../observability/diagnostics'
@@ -47,6 +59,7 @@ import type { PlanService } from '../plan/service'
 import type { ProjectService } from '../project/service'
 import type { SettingsStore } from '../settings/store'
 import type { SliceService } from '../slice/service'
+import type { WriteService } from '../scheduler/service'
 
 const EnvelopeSchema = z.strictObject({ requestId: z.string().min(1), payload: z.unknown() })
 const EmptySchema = z.strictObject({})
@@ -61,6 +74,9 @@ export interface IpcDeps {
   plan: PlanService
   /** 仅未打包构建注入；生产包不注册切片通道。 */
   slice?: SliceService
+  /** 仅未打包构建：注册 E2E 脚手架通道。 */
+  devTools?: boolean
+  write: WriteService
 }
 
 interface HandlerDefinition<S extends z.ZodTypeAny, R> {
@@ -345,6 +361,95 @@ export function registerIpc(deps: IpcDeps): void {
     mutation: true,
     handler: () => plan.retrySetup()
   })
+
+  const write = deps.write
+  register(IPC.writeState, {
+    schema: WriteChapterInputSchema.partial(),
+    handler: (payload) => write.state(payload.chapterId)
+  })
+  register(IPC.writeSaveStoryboard, {
+    schema: WriteStoryboardSaveInputSchema,
+    mutation: true,
+    handler: (payload) => write.saveStoryboard(payload)
+  })
+  register(IPC.writeValidateStoryboard, {
+    schema: WriteStoryboardValidateInputSchema,
+    handler: (payload) => write.validateStoryboard(payload)
+  })
+  register(IPC.writeG2Preview, {
+    schema: WriteG2InputSchema,
+    handler: (payload) => write.g2Preview(payload.chapterId)
+  })
+  register(IPC.writeG2Confirm, {
+    schema: WriteG2InputSchema,
+    mutation: true,
+    handler: (payload) => write.confirmG2(payload.chapterId)
+  })
+  register(IPC.writeGenerate, {
+    schema: WriteBeatInputSchema,
+    mutation: true,
+    handler: (payload) => write.generate(payload.beatId)
+  })
+  register(IPC.writeRegenerate, {
+    schema: WriteBeatInputSchema,
+    mutation: true,
+    handler: (payload) => write.regenerate(payload.beatId)
+  })
+  register(IPC.writeConfirm, {
+    schema: WriteConfirmInputSchema,
+    mutation: true,
+    handler: (payload) => write.confirm(payload.beatId)
+  })
+  register(IPC.writeEdit, {
+    schema: WriteEditInputSchema,
+    mutation: true,
+    handler: (payload) => write.edit(payload)
+  })
+  register(IPC.writeStaleResolve, {
+    schema: WriteStaleChoiceInputSchema,
+    mutation: true,
+    handler: (payload) => write.resolveStale(payload)
+  })
+  register(IPC.writePreflight, {
+    schema: WriteChapterInputSchema,
+    handler: (payload) => write.preflight(payload.chapterId)
+  })
+  register(IPC.writeAutoStart, {
+    schema: WriteChapterInputSchema,
+    mutation: true,
+    handler: (payload) => write.autoStart(payload.chapterId)
+  })
+  register(IPC.writePause, {
+    schema: WriteChapterInputSchema,
+    mutation: true,
+    handler: (payload) => write.pauseChapter(payload.chapterId)
+  })
+  register(IPC.writeResume, {
+    schema: WriteChapterInputSchema,
+    mutation: true,
+    handler: (payload) => write.resume(payload.chapterId)
+  })
+  register(IPC.writeCancel, {
+    schema: WriteChapterInputSchema,
+    mutation: true,
+    handler: (payload) => write.cancel(payload.chapterId)
+  })
+  register(IPC.writeSend, {
+    schema: WriteSendInputSchema,
+    mutation: true,
+    handler: (payload) => write.send(payload)
+  })
+  if (deps.devTools) {
+    register(IPC.writeDevSeed, {
+      schema: WriteDevSeedInputSchema,
+      mutation: true,
+      handler: (payload) => {
+        const state = write.devSeed(payload)
+        deps.project.refreshState()
+        return state
+      }
+    })
+  }
 
   const slice = deps.slice
   if (slice) {

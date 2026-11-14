@@ -51,7 +51,26 @@ export const IPC = {
   planChoose: 'plan.choose',
   planG1Preview: 'plan.g1.preview',
   planConfirmG1: 'plan.g1.confirm',
-  planRetrySetup: 'plan.g1.retry'
+  planRetrySetup: 'plan.g1.retry',
+  // 创作台（PHASE-07）
+  writeState: 'write.state',
+  writeSaveStoryboard: 'write.storyboard.save',
+  writeValidateStoryboard: 'write.storyboard.validate',
+  writeG2Preview: 'write.g2.preview',
+  writeG2Confirm: 'write.g2.confirm',
+  writeGenerate: 'write.beat.generate',
+  writeRegenerate: 'write.beat.regenerate',
+  writeConfirm: 'write.beat.confirm',
+  writeEdit: 'write.beat.edit',
+  writeStaleResolve: 'write.beat.stale',
+  writePreflight: 'write.auto.preflight',
+  writeAutoStart: 'write.auto.start',
+  writePause: 'write.pause',
+  writeResume: 'write.resume',
+  writeCancel: 'write.cancel',
+  writeSend: 'write.send',
+  // 未打包构建的 E2E 脚手架（生产包不注册）
+  writeDevSeed: 'write.devSeed'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -61,7 +80,8 @@ export const IPC_EVENTS = {
   projectState: 'event:project.state',
   sliceBeat: 'event:slice.beat',
   planMessage: 'event:plan.message',
-  planChoice: 'event:plan.choice'
+  planChoice: 'event:plan.choice',
+  writeEvent: 'event:write'
 } as const
 
 export type IpcEventChannel = (typeof IPC_EVENTS)[keyof typeof IPC_EVENTS]

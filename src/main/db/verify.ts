@@ -50,9 +50,12 @@ interface ChapterRevisionRow {
  * `db.verify()`（DEV-PLAN §5.11 / PHASE-02 §5.4）：
  * 1. integrity_check + foreign_key_check
  * 2. 孤儿：beat.created_revision_id / revision_beat / chapter.current_revision_id
- * 3. 单调：章内 beat.seq 随 (scene_ord, beat_ord) 不减；seq_head >= max(seq)
+ * 3. seq：章内唯一 + seq_head >= max(seq) + 同一槽位单调（新版本 seq 必须大于被替换版本）
  * 4. 双活：同 (scene_id, ord) 多条非 superseded
  * 5. 镜像：outbox 最新行与 manuscript 文件 hash（只告警，不改 DB）
+ *
+ * 第 3 条按 ADR-0005 §4 修正：不再要求「阅读顺序 seq 递增」——重生成/编辑较早的拍
+ * 会分配更大的 seq，阅读顺序单调会把合法操作报成错误（DEV-PLAN §5.3 只要求 as_of 单调）。
  *
  * `ok` 只由 error 决定；镜像/外部改动是 warn，不阻塞打开。
  */
@@ -168,30 +171,35 @@ export function verifyDatabase(db: Db, options: VerifyOptions = {}): VerifyRepor
     error('confirmed_without_seq', `${nullSeqConfirmed.count} confirmed beat(s) have no seq`)
   }
 
-  const seqRows = db
+  // seq 唯一：同章两个活拍不能共享同一叙事序。
+  const duplicateSeq = db
     .prepare(
-      `SELECT b.chapter_id AS chapter_id, b.seq AS seq, cs.ord AS scene_ord, b.ord AS beat_ord
-       FROM beat b
-       JOIN chapter_scene cs ON cs.chapter_id = b.chapter_id AND cs.scene_id = b.scene_id
-       WHERE b.status <> 'superseded' AND b.seq IS NOT NULL
-       ORDER BY b.chapter_id, cs.ord, b.ord`
+      `SELECT chapter_id, seq, COUNT(*) AS count
+       FROM beat WHERE status <> 'superseded' AND seq IS NOT NULL
+       GROUP BY chapter_id, seq HAVING COUNT(*) > 1 LIMIT 20`
     )
-    .all() as Array<{ chapter_id: string; seq: number; scene_ord: number; beat_ord: number }>
-  let previousChapter = ''
-  let previousSeq = 0
-  for (const row of seqRows) {
-    if (row.chapter_id !== previousChapter) {
-      previousChapter = row.chapter_id
-      previousSeq = 0
-    }
-    if (row.seq < previousSeq) {
-      error('seq_not_monotonic', `chapter ${row.chapter_id}: seq ${row.seq} after ${previousSeq}`, {
-        sceneOrd: row.scene_ord,
-        beatOrd: row.beat_ord
-      })
-      break
-    }
-    previousSeq = row.seq
+    .all() as Array<{ chapter_id: string; seq: number; count: number }>
+  if (duplicateSeq.length > 0) {
+    error('seq_duplicate', `${duplicateSeq.length} chapter/seq pair(s) are used by more than one live beat`, duplicateSeq)
+  }
+
+  // 同一槽位单调：新版本的 seq 必须大于该槽位历史上任何被替换版本的 seq。
+  const slotSeq = db
+    .prepare(
+      `SELECT live.id AS id, live.seq AS seq, previous.max_seq AS previous_max_seq
+       FROM beat live
+       JOIN (
+         SELECT scene_id, ord, MAX(seq) AS max_seq
+         FROM beat WHERE status = 'superseded'
+         GROUP BY scene_id, ord
+       ) previous ON previous.scene_id = live.scene_id AND previous.ord = live.ord
+       WHERE live.status <> 'superseded' AND live.seq IS NOT NULL
+         AND live.seq <= previous.max_seq
+       LIMIT 20`
+    )
+    .all() as Array<{ id: string; seq: number; previous_max_seq: number }>
+  if (slotSeq.length > 0) {
+    error('seq_not_monotonic', `${slotSeq.length} slot(s) reuse an older seq than the version they replaced`, slotSeq)
   }
 
   const revisionRows = db

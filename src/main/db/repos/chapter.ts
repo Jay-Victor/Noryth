@@ -28,6 +28,7 @@ export interface ChapterRecord {
   finalRevisionId: string | null
   openedAt: string | null
   finalizedAt: string | null
+  budgetTokens: number | null
 }
 
 export interface NewChapterInput {
@@ -56,7 +57,8 @@ function mapChapter(row: ChapterRow): ChapterRecord {
     currentRevisionId: row.current_revision_id,
     finalRevisionId: row.final_revision_id,
     openedAt: row.opened_at,
-    finalizedAt: row.finalized_at
+    finalizedAt: row.finalized_at,
+    budgetTokens: row.budget_tokens
   }
 }
 
@@ -121,6 +123,14 @@ export class ChapterRepo extends BaseRepo {
     runStatement(
       this.runner,
       this.runner.db.updateTable('chapter').set({ covered_until_seq: seq }).where('id', '=', id)
+    )
+  }
+
+  /** 章预算（DEV-PLAN §8.5）：null = 用创作台默认值。 */
+  setBudgetTokens(id: string, budgetTokens: number | null): void {
+    runStatement(
+      this.runner,
+      this.runner.db.updateTable('chapter').set({ budget_tokens: budgetTokens }).where('id', '=', id)
     )
   }
 

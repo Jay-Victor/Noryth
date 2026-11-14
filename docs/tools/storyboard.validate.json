@@ -73,6 +73,11 @@
                   "maxLength": 1000
                 },
                 "exit": {},
+                "max_beats": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 200
+                },
                 "beats": {
                   "minItems": 1,
                   "maxItems": 40,
@@ -80,6 +85,11 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "ord": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200
+                      },
                       "speaker_type": {
                         "type": "string",
                         "enum": [
@@ -101,6 +111,10 @@
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 2000
+                      },
+                      "notes": {
+                        "type": "string",
+                        "maxLength": 1000
                       }
                     },
                     "required": [

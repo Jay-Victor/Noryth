@@ -1,8 +1,8 @@
 {
   "name": "storyboard.propose",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "family": "propose",
-  "summary": "提交分镜提案；提交前自动跑 T27，硬冲突不落盘，软冲突告警",
+  "summary": "提交分镜提案；提交前自动跑 T27，硬冲突不落盘，软冲突告警；通过则写入本章分镜草案",
   "actors": [
     "orchestrator"
   ],
@@ -71,6 +71,11 @@
               "maxLength": 1000
             },
             "exit": {},
+            "max_beats": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
             "beats": {
               "minItems": 1,
               "maxItems": 40,
@@ -78,6 +83,11 @@
               "items": {
                 "type": "object",
                 "properties": {
+                  "ord": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
+                  },
                   "speaker_type": {
                     "type": "string",
                     "enum": [
@@ -99,6 +109,10 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 2000
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 1000
                   }
                 },
                 "required": [

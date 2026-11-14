@@ -971,6 +971,55 @@ CREATE UNIQUE INDEX memory_namespace_public ON memory_namespace(project_id) WHER
 - G1 在单个事务里写 `gate_record(G1)`、把 `outline_node.status` 置 `locked`、把章节点落成 `chapter` 行、由 `agents/roster.registerRoster` 把 `plan_character` 注册成 `character`、由 `memory/setup.applyInitialFacts` 把 `plan_fact` 写进 `world_fact`，并置 `blueprint_locked_at`。建库失败只把 `setup_state` 置 `failed`，不回滚上述事务。
 - `memory_namespace` 承载「5 私有 + 1 公共」；M0 的隔离自检按 `character_id` 与命名空间映射核对，阶段 09 接入向量检索后同一命名空间名作为过滤键。
 
+### 5.14 创作台表（迁移 0004）
+
+```sql
+CREATE TABLE storyboard_draft (
+  chapter_id   TEXT PRIMARY KEY REFERENCES chapter(id) ON DELETE CASCADE,
+  project_id   TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  rev          INTEGER NOT NULL DEFAULT 1,
+  scenes_json  TEXT NOT NULL,
+  updated_by   TEXT NOT NULL CHECK (updated_by IN ('author','orchestrator')),
+  updated_at   TEXT NOT NULL
+);
+CREATE INDEX storyboard_draft_by_project ON storyboard_draft(project_id);
+
+ALTER TABLE scene ADD COLUMN max_beats INTEGER NOT NULL DEFAULT 40;
+ALTER TABLE chapter ADD COLUMN budget_tokens INTEGER;
+
+CREATE TABLE write_message (
+  id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  chapter_id  TEXT NOT NULL REFERENCES chapter(id) ON DELETE CASCADE,
+  role        TEXT NOT NULL CHECK (role IN ('author','orchestrator','system')),
+  kind        TEXT NOT NULL DEFAULT 'text' CHECK (kind IN ('text','storyboard','pause','refusal')),
+  body        TEXT NOT NULL DEFAULT '',
+  meta_json   TEXT NOT NULL DEFAULT '{}',
+  created_at  TEXT NOT NULL
+);
+
+CREATE TABLE scheduler_event (
+  id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  chapter_id  TEXT NOT NULL REFERENCES chapter(id) ON DELETE CASCADE,
+  job_id      TEXT,
+  kind        TEXT NOT NULL CHECK (kind IN (
+                'started','beat_committed','beat_confirmed','paused','resumed',
+                'scene_closed','chapter_complete','stopped')),
+  reason      TEXT,
+  payload_json TEXT NOT NULL DEFAULT '{}',
+  created_at  TEXT NOT NULL
+);
+```
+
+规则：
+
+- **开演前分镜只有草案**：`storyboard_draft.scenes_json` 是唯一真相；G2 通过时 `scheduler/storyboard.materializeStoryboard` 才写 `scene` / `chapter_scene` / `beat`（`status='proposed'`、`body=''`），并生成一个基线 revision（清单 = 现行拍）。改分镜不制造 revision，删拍只在空正文时 `supersede`。
+- **T34 落草案**：`storyboard.propose` 校验通过后写 `storyboard_draft`（`updated_by='orchestrator'`），硬冲突不落盘；T07 在没有 scene 行时回退读草案，保证编排看得见自己刚提的分镜。
+- **章预算**：`chapter.budget_tokens` 为空时用默认 120k；自动模式每拍边界检查 `turn_metric` 合计，超预算立即暂停。
+- **暂停可恢复**：`scheduler_event` 记录 `paused` 的 `reason` 与 payload，重启后横幅仍可显示；`write_message` 承担编排对话、拒演卡片与暂停提示。
+- **状态机**：拍/章/场景/任务的迁移表在 `scheduler/transitions.ts`，非法迁移抛 `invalid_args`。
+
 ---
 
 ## 6 工具层

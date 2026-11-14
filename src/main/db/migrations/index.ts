@@ -1,6 +1,7 @@
 import initSql from './0001_init.sql?raw'
 import outboxMetaSql from './0002_outbox_meta.sql?raw'
 import planningSql from './0003_planning.sql?raw'
+import writingSql from './0004_writing.sql?raw'
 import type { Migration } from '../migrator'
 
 /**
@@ -10,7 +11,8 @@ import type { Migration } from '../migrator'
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'init', sql: initSql },
   { version: 2, name: 'outbox_meta', sql: outboxMetaSql },
-  { version: 3, name: 'planning', sql: planningSql }
+  { version: 3, name: 'planning', sql: planningSql },
+  { version: 4, name: 'writing', sql: writingSql }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.version), 0)

@@ -63,12 +63,48 @@ describe('db.verify()', () => {
     expect(report.ok).toBe(false)
   })
 
-  it('seq 减小时报 seq_not_monotonic', () => {
+  it('seq 重复时报 seq_duplicate（ADR-0005 §4：不再按阅读顺序判单调）', () => {
     const { handle, seed, dir } = setup()
     const later = handle.repos.beat.listLiveByChapter(seed.chapterIds[0]!)[5]!
     handle.db.prepare('UPDATE beat SET seq = 1 WHERE id = ?').run(later.id)
     const report = verifyDatabase(handle.db, { projectDir: dir })
+    expect(codes(report)).toContain('seq_duplicate')
+  })
+
+  it('改早期拍（seq 变大）不再误报，阅读顺序不参与判定', () => {
+    const { handle, seed, dir } = setup()
+    const live = handle.repos.beat.listLiveByChapter(seed.chapterIds[0]!)
+    const first = live[0]!
+    const maxSeq = live.reduce((max, beat) => Math.max(max, beat.seq ?? 0), 0)
+    handle.db.prepare('UPDATE beat SET seq = ? WHERE id = ?').run(maxSeq + 1, first.id)
+    handle.db.prepare('UPDATE project SET seq_head = ?').run(maxSeq + 1)
+    const report = verifyDatabase(handle.db, { projectDir: dir })
+    expect(codes(report)).not.toContain('seq_not_monotonic')
+    expect(codes(report)).not.toContain('seq_duplicate')
+  })
+
+  it('槽位复用旧 seq 时报 seq_not_monotonic', () => {
+    const { handle, seed, dir } = setup()
+    const [live, older] = handle.repos.beat.listLiveByChapter(seed.chapterIds[0]!)
+    // 伪造一次替换：同一槽位留下 superseded 版本，活拍 seq 反而更小。
+    handle.db
+      .prepare("UPDATE beat SET status = 'superseded', seq = ? WHERE id = ?")
+      .run((live!.seq ?? 0) + 5, live!.id)
+    handle.repos.beat.insert({
+      chapterId: seed.chapterIds[0]!,
+      sceneId: live!.sceneId,
+      ord: live!.ord,
+      seq: live!.seq,
+      speakerType: 'narrator',
+      speakerId: 'narrator',
+      body: '复用旧 seq',
+      status: 'confirmed',
+      supersedesId: live!.id,
+      createdRevisionId: seed.chapters[0]!.revisionId
+    })
+    const report = verifyDatabase(handle.db, { projectDir: dir })
     expect(codes(report)).toContain('seq_not_monotonic')
+    void older
   })
 
   it('revision.content_hash 漂移时报 revision_hash_mismatch', () => {

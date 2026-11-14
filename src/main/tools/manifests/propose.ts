@@ -313,9 +313,9 @@ const rosterPropose = defineTool({
 const storyboardPropose = defineTool({
   toolId: 'T34',
   name: 'storyboard.propose',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'propose',
-  summary: '提交分镜提案；提交前自动跑 T27，硬冲突不落盘，软冲突告警',
+  summary: '提交分镜提案；提交前自动跑 T27，硬冲突不落盘，软冲突告警；通过则写入本章分镜草案',
   actors: ['orchestrator'],
   sideEffect: 'propose',
   agentCallable: true,
@@ -339,8 +339,31 @@ const storyboardPropose = defineTool({
     if (!chapter || chapter.projectId !== ctx.runtime.project_id) {
       throw new AppError('invalid_args', 'chapter not in project')
     }
-    const conflicts = validateStoryboard({ chapter_id: args.chapter_id, scenes: args.scenes })
+    const projectId = ctx.runtime.project_id
+    const entities = new Set<string>()
+    const predicates = new Set<string>()
+    for (const character of services.repos.character.list(projectId)) {
+      entities.add(character.id)
+      entities.add(character.name)
+    }
+    for (const scene of services.repos.scene.listByProject(projectId)) entities.add(scene.location)
+    for (const fact of services.repos.world.listByProject(projectId)) {
+      entities.add(fact.subject)
+      predicates.add(fact.predicate)
+    }
+    const conflicts = validateStoryboard(
+      { chapter_id: args.chapter_id, scenes: args.scenes },
+      { registry: { entities, predicates } }
+    )
     const valid = !conflicts.some((conflict) => conflict.severity === 'hard')
+    if (valid) {
+      services.repos.storyboard.save({
+        chapterId: chapter.id,
+        projectId,
+        scenesJson: JSON.stringify({ chapter_id: chapter.id, scenes: args.scenes }),
+        updatedBy: 'orchestrator'
+      })
+    }
     return {
       data: {
         storyboard_rev: sha256Hex(canonicalJson(args.scenes)).slice(0, 16),

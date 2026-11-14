@@ -37,7 +37,7 @@ export function markGenerating(repos: Repos, beatId: string): GenerateMark {
   if (beat.status === 'generating' || beat.status === 'regenerating') {
     throw new AppError('invalid_args', '本拍正在生成', { beatId, status: beat.status })
   }
-  if (beat.status === 'confirmed' || beat.status === 'superseded' || beat.status === 'stale') {
+  if (beat.status === 'confirmed' || beat.status === 'superseded') {
     throw new AppError('invalid_args', '当前状态的拍不能重新生成', { beatId, status: beat.status })
   }
   if (beat.body.trim().length > 0 && !REGENERATABLE.includes(beat.status) && beat.status !== 'proposed') {

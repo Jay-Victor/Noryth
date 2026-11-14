@@ -15,8 +15,10 @@ import { HomePage } from '../pages/HomePage'
 import { PlanPage } from '../pages/plan/PlanPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { WorkbenchPage } from '../pages/WorkbenchPage'
+import { WritePage } from '../pages/write/WritePage'
 import { usePlan } from '../stores/plan'
 import { useSlice } from '../stores/slice'
+import { useWrite } from '../stores/write'
 
 export function App(): React.JSX.Element {
   const ready = useApp((state) => state.ready)
@@ -45,11 +47,15 @@ export function App(): React.JSX.Element {
     const offChoice = bridge.events.onPlanChoice((event) => {
       usePlan.getState().applyChoice(event)
     })
+    const offWrite = bridge.events.onWriteEvent((event) => {
+      useWrite.getState().applyEvent(event)
+    })
     return () => {
       offProject()
       offSlice()
       offPlan()
       offChoice()
+      offWrite()
     }
   }, [])
 
@@ -142,7 +148,13 @@ export function App(): React.JSX.Element {
             style={{ gridTemplateColumns: gridTemplateColumns(mode) }}
           >
             <NavRail />
-            {page === 'plan' ? <PlanPage mode={mode} /> : <WorkbenchPage page={page} mode={mode} />}
+            {page === 'plan' ? (
+              <PlanPage mode={mode} />
+            ) : page === 'write' ? (
+              <WritePage mode={mode} />
+            ) : (
+              <WorkbenchPage page={page} mode={mode} />
+            )}
           </div>
         ) : (
           <div className="shell-grid" style={{ gridTemplateColumns: `${SHELL.nav}px minmax(0, 1fr)` }}>

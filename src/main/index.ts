@@ -11,6 +11,8 @@ import { registerAppProtocol } from './protocol'
 import { devCsp, PROD_CSP } from './security'
 import { SettingsStore } from './settings/store'
 import { DevSliceService } from './slice/service'
+import { WriteService } from './scheduler/service'
+import { sha256Hex } from './crypto'
 import { ALL_MANIFESTS } from './tools/manifests'
 import { buildRegistry } from './tools/registry'
 import { createMainWindow, preloadPathFor } from './window'
@@ -164,15 +166,30 @@ async function bootstrap(): Promise<void> {
       })
     : null
 
+  const writeService = new WriteService({
+    host: () => projectServiceInstance.currentHandle(),
+    registry: toolRegistry,
+    settings: () => settings.read(),
+    allowFakeModel: !app.isPackaged,
+    gateSecret: sha256Hex(`write-gate-${Date.now()}-${Math.random()}`),
+    send: (event) => {
+      if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.writeEvent, event)
+    },
+    fakeChunkDelayMs: Number(process.env.NORYTH_WRITE_STREAM_DELAY_MS ?? '4'),
+    log: (message, details) => logger?.info({ event: message, ...details }, message)
+  })
+
   registerIpc({
     project: projectServiceInstance,
     plan: planService,
+    write: writeService,
     settings,
     logger,
     logPath: logFilePath(logDir),
     userDataDir,
     appInfo: buildAppInfo,
-    ...(slice ? { slice } : {})
+    ...(slice ? { slice } : {}),
+    devTools: !app.isPackaged
   })
 
   window.on('closed', () => {
