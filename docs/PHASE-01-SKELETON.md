@@ -143,4 +143,4 @@
 2. `0001_init.sql` 在三个空目录上重复迁移成功，checksum 校验生效。
 3. 新建/打开项目可重复执行；G0 记录可查。
 4. 双开只读、IPC 白名单、依赖边界三条安全断言通过。
-5. Windows CI 上 `install + lint + typecheck + build` 绿。
+5. **已满足（2026-11-14）**：Windows CI `install + lint + typecheck + build` 绿，run `43585776532`（commit `ab778c4`）；同一 run 的 `e2e` job 也通过。

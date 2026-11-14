@@ -6,7 +6,7 @@
 
 | 阶段 | 文档 | 状态 | 已完成 | 验收 | 已知问题 |
 |---:|---|---|---|---|---|
-| 01 | `docs/PHASE-01-SKELETON.md` | in_progress | A1–A6、B1、B6、S1、S2、S3（一家）、S4；42+8 工具清单外壳 | 本地门禁全绿；S3 按一家收口；CI 待 push 实跑 | 第二家供应商顺延阶段 04；Windows CI 未实跑 |
+| 01 | `docs/PHASE-01-SKELETON.md` | done | A1–A6、B1、B6、S1–S4、42+8 工具清单外壳、CI 实跑 | 全部通过：本地门禁 + CI run `43585776532` | 第二家供应商顺延阶段 04；Win10 干净机未测 |
 | 02 | `docs/PHASE-02-DATA.md` | todo | — | — | 等 01 收口 |
 | 03 | `docs/PHASE-03-TOOLS.md` | todo | — | — | 等 01 收口 |
 | 04 | `docs/PHASE-04-RUNTIME.md` | todo | — | — | — |
@@ -60,10 +60,11 @@
 
 ## 当前阻塞
 
-- 无。S3 已按「DeepSeek 一家」收口（第二家顺延到阶段 04 D1 前补测）；阶段 01 仅剩 Windows CI 实跑（需要 push 到 origin/dev 触发）。
+- 无。阶段 01 已 `done`：本地门禁全绿 + Windows CI run `43585776532`（verify 与 e2e 均通过），标签 `phase-01-done` 打在 `ab778c4`。
 
 ## 下一阶段交接
 
+- 阶段 01 已 `done`，标签 `phase-01-done` = `ab778c4`；阶段 02 可直接开工。
 - 阶段 02 的依赖已就绪：迁移器（checksum / 事务 / 重入）、`openDatabase`、项目锁、`projects.json` 登记、错误模型、`IpcResult`。
 - 阶段 02 会替换 `src/main/project/service.ts` 里内联的 project 表 SQL 为 `db/repos`，并补齐 outbox/backup/verify；不要改 `0001_init.sql`（改了就 checksum mismatch，必须新增迁移）。
 - `docs/tools/*.json` 目前 `contract_complete=false`；阶段 03 C5 补 schema 并保留工具名与 actors 不变（`check_tool_spec.py` 会拦）。
