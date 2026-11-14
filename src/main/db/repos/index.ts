@@ -7,6 +7,7 @@ import { systemClock, type Clock } from './common'
 import { JobRepo } from './job'
 import { MemoryRepo } from './memory'
 import { MemoryProposalRepo } from './memory-proposal'
+import { ModelBindingRepo, TurnMetricRepo } from './model'
 import { OutlineRepo } from './outline'
 import { OutboxRepo } from './outbox'
 import { PatchRepo } from './patch'
@@ -46,7 +47,9 @@ export function createRepos(db: Db, options: RepoOptions = {}) {
     gate: new GateRepo(runner, now),
     job: new JobRepo(runner, now),
     toolCall: new ToolCallRepo(runner, now),
-    outbox: new OutboxRepo(runner, now)
+    outbox: new OutboxRepo(runner, now),
+    modelBinding: new ModelBindingRepo(runner, now),
+    turnMetric: new TurnMetricRepo(runner, now)
   }
 }
 
@@ -59,6 +62,7 @@ export * from './common'
 export * from './job'
 export * from './memory'
 export * from './memory-proposal'
+export * from './model'
 export * from './outline'
 export * from './outbox'
 export * from './patch'

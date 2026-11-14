@@ -1,13 +1,14 @@
 import { z } from 'zod'
+import { ProviderSettingsSchema, PresetSchema } from './model'
+
+export { PresetSchema }
+export type { Preset } from './model'
 
 export const PovSchema = z.enum(['first', 'third_limited', 'third_omniscient'])
 export type Pov = z.infer<typeof PovSchema>
 
 export const SetupStateSchema = z.enum(['pending', 'complete', 'failed'])
 export type SetupState = z.infer<typeof SetupStateSchema>
-
-export const PresetSchema = z.enum(['openai', 'deepseek', 'tongyi'])
-export type Preset = z.infer<typeof PresetSchema>
 
 /** 项目列表项：首页只需要摘要，不暴露 Key、费用明细（PRD §4.10 T01）。 */
 export const ProjectSummarySchema = z.strictObject({
@@ -103,7 +104,11 @@ export type ProjectIdInput = z.infer<typeof ProjectIdInputSchema>
 
 export const SettingsSchema = z.strictObject({
   theme: z.enum(['light', 'dark', 'system']).default('system'),
-  lastOpenedProjectId: z.string().nullable().default(null)
+  lastOpenedProjectId: z.string().nullable().default(null),
+  /** 能力探测快照（PHASE-04 D2）：按预设保存，Key 不在其中。 */
+  providers: z.record(z.string(), ProviderSettingsSchema).default({}),
+  /** token 估算校准系数（DEV-PLAN §7.4）：按 provider 取中位数，clamp [0.7, 1.6]。 */
+  tokenCalibration: z.record(z.string(), z.number()).default({})
 })
 export type Settings = z.infer<typeof SettingsSchema>
 

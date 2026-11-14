@@ -1,4 +1,5 @@
 import type { IpcResult } from './ipc'
+import type { ProviderProbeInput, ProviderProbeResult } from './model'
 import type {
   AppInfo,
   CreateProjectInput,
@@ -40,6 +41,8 @@ export interface DialogApi {
 export interface SettingsApi {
   get(): Promise<IpcResult<Settings>>
   set(patch: SettingsPatch): Promise<IpcResult<Settings>>
+  /** 测试连接（PHASE-04 D2）：Key 只用于本次探测，不写盘。 */
+  probeProvider(input: ProviderProbeInput): Promise<IpcResult<ProviderProbeResult>>
 }
 
 export interface DiagnosticsApi {

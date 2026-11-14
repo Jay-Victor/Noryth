@@ -2621,6 +2621,9 @@ jobs:
 | `invalid_args` | 参数不合法 | 重试 |
 | `timeout` | 查询超时，已返回部分结果 | 重试 |
 | `invalid_grounding` | 依据校验失败，本拍未保存 | 重生成 |
+| `grounding_not_returned` | 引用了本轮未返回的依据，本拍未保存 | 重生成 / 查看取材 |
+| `grounding_quote_mismatch` | 依据原文与检索结果不一致，本拍未保存 | 重生成 |
+| `schema_invalid` | 输出格式不合法，本拍未保存 | 重生成 |
 | `patch_conflict` | 原文已变，patch 未套用 | 重新生成 patch |
 | `project_locked` | 项目已在另一窗口打开 | 只读打开 |
 | `migration_checksum_mismatch` | 迁移文件被修改，无法启动 | 恢复备份 |

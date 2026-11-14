@@ -104,3 +104,10 @@ DeepSeek 实测细节（模型 ID：`deepseek-flash`；`/v1/models` 同时返回
 1. DeepSeek 已完成：流式正文 + 至少一次工具调用 + `usage` 记录 + 401 归一化（2026-11-14）。
 2. 第二家预设（DashScope 或 Moonshot）在阶段 04 D1 完成前补测，覆盖同一组四项。
 3. 两家结果都写入本文件后，状态从「已决定（一家收口）」改为「已决定（两家验证）」。
+
+## 阶段 04 记录（2026-11-14）
+
+- 适配器已落地：`src/main/model/adapter.ts`、`sse.ts`、`openai-compat.ts`，统一 OpenAI-compatible 的流式、工具增量、`usage`、错误归一化与重试（429/5xx/超时 2 次；401/400 不重试）。
+- 两家预设的**协议层**已用同一套假 LLM 服务器验证（`tests/integration/presets.spec.ts`）：DeepSeek 与 OpenAI 预设都能流式返回正文并拼装 `tool_calls`。
+- **真实第二家仍未补测**：仓库与 CI 不持有 Key，作者需在设置页填入 DashScope/Moonshot Key 后按本文件「验证清单」跑一次，并把结果填进上表。补测前本 ADR 状态保持不变（「一家收口」），不得宣称两家真机验证完成。
+- 预设能力默认值见 `src/main/model/presets.ts`；`pricing` 未核实写 0，成本显示「未知」。

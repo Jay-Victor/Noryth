@@ -20,6 +20,7 @@ export const IPC = {
   dialogPickProject: 'dialog.pickProject',
   settingsGet: 'settings.get',
   settingsSet: 'settings.set',
+  settingsProbeProvider: 'settings.probeProvider',
   diagnosticsExport: 'diagnostics.export'
 } as const
 

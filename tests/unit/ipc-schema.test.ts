@@ -56,7 +56,12 @@ describe('IPC schema', () => {
   })
 
   it('项目摘要与设置都有默认值', () => {
-    expect(SettingsSchema.parse({})).toEqual({ theme: 'system', lastOpenedProjectId: null })
+    expect(SettingsSchema.parse({})).toEqual({
+      theme: 'system',
+      lastOpenedProjectId: null,
+      providers: {},
+      tokenCalibration: {}
+    })
     const summary = ProjectSummarySchema.safeParse({
       id: 'prj_1',
       title: 'x',

@@ -14,6 +14,8 @@ import {
   ValidatePathInputSchema,
   type AppInfo
 } from '../../shared/schema/project'
+import { ProviderProbeInputSchema } from '../../shared/schema/model'
+import { probeProvider } from '../model/probe'
 import type { Logger } from '../observability/logger'
 import { exportDiagnostics } from '../observability/diagnostics'
 import type { ProjectService } from '../project/service'
@@ -167,6 +169,17 @@ export function registerIpc(deps: IpcDeps): void {
   register(IPC.settingsSet, {
     schema: SettingsPatchSchema,
     handler: (payload) => deps.settings.write(payload)
+  })
+
+  register(IPC.settingsProbeProvider, {
+    schema: ProviderProbeInputSchema,
+    handler: (payload) =>
+      probeProvider(payload, {
+        save: (preset, snapshot) => {
+          const current = deps.settings.read()
+          deps.settings.write({ providers: { ...current.providers, [preset]: snapshot } })
+        }
+      })
   })
 
   register(IPC.diagnosticsExport, {

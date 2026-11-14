@@ -43,7 +43,8 @@ const bridge: NorythBridge = {
   },
   settings: {
     get: () => invoke(IPC.settingsGet, {}),
-    set: (patch) => invoke(IPC.settingsSet, patch)
+    set: (patch) => invoke(IPC.settingsSet, patch),
+    probeProvider: (input) => invoke(IPC.settingsProbeProvider, input)
   },
   diagnostics: {
     export: () => invoke(IPC.diagnosticsExport, {})

@@ -37,6 +37,9 @@ Spike 用 `utilityProcess.fork` 启动 worker，`env.allowRemoteModels=false`，
 - 阶段 04 实现 embed worker 时把它们移入 `dependencies`，并把模型放进 `extraResources`；
 - 安装包体积上限 250MB 的风险在阶段 04 重新测量，必要时换更小模型（D7 回退）。
 
+> 2026-11-14 范围复核：`PHASE-04-RUNTIME.md` 的 D1–D6 不含嵌入 worker，阶段 04 实际未做随包；
+> 该工作随记忆检索（阶段 09 H3）与打包（阶段 10 I/J）一起完成，届时按本 ADR 重新测量体积与冷启动。
+
 ## 回退
 
 如果阶段 04 打包后冷启动 > 1.5s 或安装包 > 250MB：改用 q4 或更小模型，`embedding_dim` 变化必须全量重建索引，并更新本 ADR。
