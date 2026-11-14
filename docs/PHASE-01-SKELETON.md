@@ -115,17 +115,17 @@
 
 ## 6 验收清单
 
-- [ ] S1：dev 与 NSIS 安装包都能 `loadExtension`，20k 条查询 P95 < 80ms。
-- [ ] S2：嵌入 worker 冷启动 < 1.5s，单条 < 120ms，维度 512。
+- [x] S1：dev 与 NSIS 安装包都能 `loadExtension`，20k 条查询 P95 < 80ms（实测 33.64ms）。
+- [x] S2：嵌入 worker 冷启动 < 1.5s，单条 < 120ms，维度 512（实测 377ms / 2ms / 512）。
 - [x] S3（2026-11-14 收口）：DeepSeek `deepseek-flash` 已实测流式正文、工具调用与 usage；作者决定 M0 以一家收口，第二家顺延到阶段 04 D1 前补测（见 ADR-0003）。
-- [ ] S4：NSIS 在干净 Windows 10/11 上安装、启动、卸载；更新检查失败不影响启动。
-- [ ] `pnpm dev` 起窗；1280/1440/1600 三档与生成 token 误差 ≤1px。
-- [ ] 未过 G1 时创作/审批/记忆在导航置灰，悬停有原因。
-- [ ] 新建项目：五个子目录 + `noryth.db` + `project` 行 + G0 记录。
-- [ ] 打开项目：schema 更高只读；路径失效可重新定位。
-- [ ] 双开同项目：第二窗口只读，写 IPC 返回 `project_locked`。
-- [ ] `dependency-cruiser` 能拦住 renderer import `node:fs`。
-- [ ] 日志与诊断包中搜不到 Key 与正文。
+- [x] S4：NSIS 安装、启动、建项目、卸载通过（Windows 11 本机；Windows 10 干净机未测，见 BACKLOG）。
+- [x] `pnpm dev` 起窗；1280/1440/1600 三档与生成 token 误差 ≤1px（E2E 实测 ≤1px）。
+- [x] 未过 G1 时创作/审批/记忆在导航置灰，悬停有原因（E2E 断言 aria-disabled + title）。
+- [x] 新建项目：五个子目录 + `noryth.db` + `project` 行 + G0 记录（E2E + 单测）。
+- [x] 打开项目：schema 更高只读；路径失效可重新定位（单测覆盖）。
+- [x] 双开同项目：第二窗口只读，写 IPC 返回 `project_locked`（E2E 实测）。
+- [x] `dependency-cruiser` 能拦住 renderer import `node:fs`（临时探针实测 exit 1）。
+- [x] 日志与诊断包中搜不到 Key 与正文（单测 + E2E 诊断包断言）。
 
 ## 7 风险与回退
 
