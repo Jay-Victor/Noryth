@@ -115,7 +115,7 @@
 
 ## 当前阻塞
 
-- 无代码阻塞。阶段 03 本地验收全绿；待提交并推送后跑 Windows CI，CI 全绿才能标 `done` 并打 `phase-03-done`。
+- 无代码阻塞。阶段 03 代码提交 `e23eca7`；推送后跑 Windows CI，CI 全绿才能标 `done` 并打 `phase-03-done`。
 
 ## 下一阶段交接
 
