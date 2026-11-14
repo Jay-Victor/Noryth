@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
 import { AppError } from '../../src/shared/domain/app-error'
 import { LOCK_FILE } from '../../src/main/lock'
+import { LATEST_SCHEMA_VERSION } from '../../src/main/db/migrations'
 import { validateNewProjectPath } from '../../src/main/project/paths'
 import { makeService, tempDir } from './helpers'
 
@@ -37,7 +38,7 @@ describe('project service', () => {
     try {
       const result = service.create(input(parent, '黑漆匣子'))
       const dir = join(parent, '黑漆匣子')
-      expect(result.schemaVersion).toBe(1)
+      expect(result.schemaVersion).toBe(LATEST_SCHEMA_VERSION)
       for (const sub of ['manuscript', 'assets', 'exports', 'backups', 'logs']) {
         expect(existsSync(join(dir, sub))).toBe(true)
       }
@@ -48,7 +49,7 @@ describe('project service', () => {
         const project = db.prepare('SELECT * FROM project LIMIT 1').get() as Record<string, unknown>
         expect(project.title).toBe('黑漆匣子')
         expect(project.setup_state).toBe('pending')
-        expect(project.schema_version).toBe(1)
+        expect(project.schema_version).toBe(LATEST_SCHEMA_VERSION)
         expect(project.embedding_model).toBe('bge-small-zh-v1.5')
         const gate = db.prepare("SELECT * FROM gate_record WHERE gate_id = 'G0'").get() as Record<string, unknown>
         expect(gate.entity_id).toBe(result.projectId)
@@ -137,7 +138,7 @@ describe('project service', () => {
       const opened = service.open({ path: join(parent, '未来项目') })
       expect(opened.readOnly).toBe(true)
       expect(opened.readOnlyReason).toBe('schema_newer')
-      expect(opened.project.schemaVersion).toBe(1)
+      expect(opened.project.schemaVersion).toBe(LATEST_SCHEMA_VERSION)
     } finally {
       service.dispose()
     }

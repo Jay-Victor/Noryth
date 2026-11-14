@@ -1,4 +1,5 @@
 import initSql from './0001_init.sql?raw'
+import outboxMetaSql from './0002_outbox_meta.sql?raw'
 import type { Migration } from '../migrator'
 
 /**
@@ -6,7 +7,8 @@ import type { Migration } from '../migrator'
  * 每个文件首行 `-- name:` 与本表 name 保持一致。
  */
 export const MIGRATIONS: readonly Migration[] = [
-  { version: 1, name: 'init', sql: initSql }
+  { version: 1, name: 'init', sql: initSql },
+  { version: 2, name: 'outbox_meta', sql: outboxMetaSql }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.version), 0)

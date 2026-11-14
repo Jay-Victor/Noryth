@@ -23,14 +23,14 @@ describe('migrator', () => {
       const db = newDb(dir.path)
       try {
         const first = migrate(db, MIGRATIONS)
-        expect(first.applied).toEqual([1])
+        expect(first.applied).toEqual([1, 2])
         expect(first.to).toBe(LATEST_SCHEMA_VERSION)
-        expect(currentVersion(db)).toBe(1)
-        expect(db.pragma('user_version', { simple: true })).toBe(1)
+        expect(currentVersion(db)).toBe(LATEST_SCHEMA_VERSION)
+        expect(db.pragma('user_version', { simple: true })).toBe(LATEST_SCHEMA_VERSION)
 
         const second = migrate(db, MIGRATIONS)
         expect(second.applied).toEqual([])
-        expect(second.to).toBe(1)
+        expect(second.to).toBe(LATEST_SCHEMA_VERSION)
 
         const tables = db
           .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -59,7 +59,7 @@ describe('migrator', () => {
       migrate(db, MIGRATIONS)
       const tampered = [{ ...MIGRATIONS[0]!, sql: MIGRATIONS[0]!.sql.replace('CREATE TABLE project', 'CREATE TABLE project_x') }]
       expect(() => migrate(db, tampered)).toThrowError(/checksum mismatch/)
-      expect(currentVersion(db)).toBe(1)
+      expect(currentVersion(db)).toBe(LATEST_SCHEMA_VERSION)
     } finally {
       db.close()
     }

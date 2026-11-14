@@ -350,6 +350,7 @@ db.pragma('wal_autocheckpoint = 1000');
 ```
 
 - 单连接、单写队列；读也走同一连接（同步 API，微秒级），不做连接池。
+- Kysely 只负责查询构造与表类型；执行走 better-sqlite3 同步 API（`compile()`），保持 `BEGIN IMMEDIATE` 与同步事务边界。
 - 长任务（导出、重建索引）分批提交，避免长事务阻塞 WAL checkpoint。
 - 备份用 `VACUUM INTO`（一致性快照），不用文件复制（WAL 未 checkpoint 时复制会拿到半状态）。
 
@@ -722,12 +723,18 @@ CREATE TABLE outbox (
   project_id    TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
   kind          TEXT NOT NULL CHECK (kind IN ('manuscript_md')),
   path          TEXT NOT NULL,
-  expected_hash TEXT NOT NULL,
+  expected_hash TEXT NOT NULL,      -- 渲染后 Markdown 文件的 sha256（不是 revision.content_hash）
   attempts      INTEGER NOT NULL DEFAULT 0,
   last_error    TEXT,
   published_at  TEXT,
-  created_at    TEXT NOT NULL
+  created_at    TEXT NOT NULL,
+  -- 0002_outbox_meta.sql 追加：按行重渲染，支持崩溃恢复与退避
+  chapter_id    TEXT REFERENCES chapter(id) ON DELETE CASCADE,
+  revision_id   TEXT REFERENCES revision(id),
+  next_attempt_at TEXT
 );
+CREATE INDEX outbox_pending ON outbox(project_id, created_at) WHERE published_at IS NULL;
+CREATE INDEX outbox_by_chapter ON outbox(chapter_id, created_at);
 
 CREATE TABLE turn_metric (
   turn_id        TEXT PRIMARY KEY,
@@ -811,7 +818,7 @@ Plan B（spike 失败时）：`embedding BLOB` 存在 `memory_entry` 扩展表�
 
 1. `doc.commit_beat` 在同一事务里写 `beat`、`revision`、`revision_beat`、`outbox`。
 2. 事务提交后，`OutboxPublisher` 读未发布行，渲染 Markdown，写临时文件 `ch-001.md.tmp` → `fsync` → `rename`。
-3. 期望 hash 写进 `outbox.expected_hash`；发布后校验磁盘 hash，不一致标 `publish_pending` 并重试（最多 5 次，指数退避）。
+3. 期望 hash 写进 `outbox.expected_hash`；它是**渲染后 Markdown 文件**的 sha256（`revision.content_hash` 是清单 hash，两者不同）。发布后校验磁盘 hash，不一致标 `publish_pending` 并重试（最多 5 次，指数退避）。
 4. 外部编辑检测：打开项目、切章、保存前各比对一次 `mtime + size + hash`；不一致 → `file_conflict`，冻结该章写入，要求作者选「以 DB 为准」或「导入外部正文镜像」。
 5. Markdown 格式固定（frontmatter 不含 hash，避免自指）：
 
@@ -1595,7 +1602,9 @@ export function commitBeat(input: CommitBeatInput): CommitResult {
     });
     repo.revisionBeat.insertMany(revision.id, manifest);
     repo.chapter.setCurrentRevision(chapter.id, revision.id, seq);
-    repo.outbox.enqueue({ kind: 'manuscript_md', chapterId: chapter.id, expectedHash: hash });
+    // expected_hash 是渲染后 Markdown 文件的 sha256，不是 manifest 的 content_hash
+    const mirrorHash = hashText(renderChapterMarkdown(chapter.id, revision.id));
+    repo.outbox.enqueue({ kind: 'manuscript_md', chapterId: chapter.id, revisionId: revision.id, expectedHash: mirrorHash });
     return { revisionId: revision.id, beatId: beat.id, seq, hash };
   });
 }

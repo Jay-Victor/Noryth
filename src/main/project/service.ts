@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { AppError } from '../../shared/domain/app-error'
@@ -17,30 +16,24 @@ import type { Logger } from '../observability/logger'
 import { openDatabase, openDatabaseForMigrate, type Db } from '../db/project-db'
 import { LATEST_SCHEMA_VERSION, MIGRATIONS } from '../db/migrations'
 import { currentVersion, migrate } from '../db/migrator'
+import { createRepos, type Repos } from '../db/repos'
+import { vacuumInto } from '../db/backup'
+import { withTransaction } from '../db/tx'
+import { verifyDatabase, writeVerifyReport, type VerifyReport } from '../db/verify'
 import { isLockStale, readLock, startLock, type LockHandle, type LockInfo } from '../lock'
 import { projectDbFile, PROJECT_SUBDIRS, resolveProjectDir, validateNewProjectPath } from './paths'
 import type { ProjectRegistry, RegistryEntry } from './registry'
 
-interface ProjectRow {
-  id: string
-  title: string
-  genre: string
-  pov: 'first' | 'third_limited' | 'third_omniscient'
-  target_words: number | null
-  setup_state: 'pending' | 'complete' | 'failed'
-  schema_version: number
-  created_at: string
-  updated_at: string
-}
-
 interface CurrentProject {
   dir: string
   db: Db
+  repos: Repos
   summary: ProjectSummary
   readOnly: boolean
   readOnlyReason: 'locked' | 'schema_newer' | 'requested' | null
   lock: LockHandle | null
   holder: LockInfo | null
+  verify: VerifyReport | null
 }
 
 export interface ProjectServiceDeps {
@@ -120,56 +113,53 @@ export class ProjectService {
       db = openDatabaseForMigrate(file, this.deps.vecExtension)
       migrate(db, MIGRATIONS)
 
+      const repos = createRepos(db)
       const now = new Date().toISOString()
-      const projectId = `prj_${randomUUID().replace(/-/g, '').slice(0, 16)}`
-      db.prepare(
-        `INSERT INTO project (
-           id, title, genre, pov, target_words, status, setup_state,
-           embedding_model, embedding_dim, default_preset, seq_head, write_epoch,
-           schema_version, created_at, updated_at
-         ) VALUES (?, ?, ?, ?, ?, 'active', 'pending', ?, ?, ?, 0, 0, ?, ?, ?)`
-      ).run(
-        projectId,
-        input.title,
-        input.genre,
-        input.pov,
-        input.targetWords,
-        'bge-small-zh-v1.5',
-        512,
-        'deepseek',
-        LATEST_SCHEMA_VERSION,
-        now,
-        now
-      )
-      db.prepare(
-        `INSERT INTO gate_record (id, project_id, gate_id, entity_type, entity_id, decision, actor, payload_json, created_at)
-         VALUES (?, ?, 'G0', 'project', ?, 'approve', 'author', ?, ?)`
-      ).run(
-        `gate_${randomUUID().replace(/-/g, '').slice(0, 16)}`,
-        projectId,
-        projectId,
-        JSON.stringify({
+      const project = withTransaction(db, () => {
+        const created = repos.project.create({
           title: input.title,
           genre: input.genre,
           pov: input.pov,
           targetWords: input.targetWords,
-          boundaries: input.boundaries,
-          path: dir
-        }),
-        now
-      )
+          setupState: 'pending',
+          embeddingModel: 'bge-small-zh-v1.5',
+          embeddingDim: 512,
+          defaultPreset: 'deepseek',
+          schemaVersion: LATEST_SCHEMA_VERSION,
+          createdAt: now,
+          updatedAt: now
+        })
+        repos.gate.insert({
+          projectId: created.id,
+          gateId: 'G0',
+          entityType: 'project',
+          entityId: created.id,
+          decision: 'approve',
+          actor: 'author',
+          payloadJson: JSON.stringify({
+            title: input.title,
+            genre: input.genre,
+            pov: input.pov,
+            targetWords: input.targetWords,
+            boundaries: input.boundaries,
+            path: dir
+          }),
+          createdAt: now
+        })
+        return created
+      })
       db.close()
       db = null
       created = true
 
       this.deps.registry.add({
-        id: projectId,
-        title: input.title,
+        id: project.id,
+        title: project.title,
         path: dir,
         createdAt: now,
         lastOpenedAt: now
       })
-      this.deps.logger.info({ event: 'project_created', projectId, path: dir }, 'project created')
+      this.deps.logger.info({ event: 'project_created', projectId: project.id, path: dir }, 'project created')
     } catch (error) {
       if (db) {
         try {
@@ -235,6 +225,7 @@ export class ProjectService {
 
     let db: Db | null = null
     try {
+      let migratedFrom: number | null = null
       if (readOnly) {
         db = openDatabase(file, { readonly: true })
       } else {
@@ -250,52 +241,82 @@ export class ProjectService {
         } else if (version < LATEST_SCHEMA_VERSION) {
           this.backupBeforeMigrate(db, dir, version)
           migrate(db, MIGRATIONS)
-          db.prepare('UPDATE project SET schema_version = ?, updated_at = ?').run(
-            LATEST_SCHEMA_VERSION,
-            new Date().toISOString()
-          )
+          migratedFrom = version
         }
       }
 
-      const row = db.prepare('SELECT * FROM project LIMIT 1').get() as ProjectRow | undefined
-      if (!row) {
+      const repos = createRepos(db)
+      const project = repos.project.get()
+      if (!project) {
         throw new AppError('project_not_found', `project row missing in ${file}`)
+      }
+      if (migratedFrom !== null) {
+        repos.project.setSchemaVersion(project.id, LATEST_SCHEMA_VERSION)
       }
 
       const now = new Date().toISOString()
-      const entry = this.deps.registry.find(row.id)
+      const entry = this.deps.registry.find(project.id)
       if (entry) {
-        this.deps.registry.update(row.id, { path: dir, title: row.title, lastOpenedAt: now })
+        this.deps.registry.update(project.id, { path: dir, title: project.title, lastOpenedAt: now })
       } else {
         this.deps.registry.add({
-          id: row.id,
-          title: row.title,
+          id: project.id,
+          title: project.title,
           path: dir,
-          createdAt: row.created_at,
+          createdAt: project.createdAt,
           lastOpenedAt: now
         })
       }
 
-      const summary = this.summaryFromDb(db, row, {
-        id: row.id,
-        title: row.title,
+      const summary = this.summaryFromDb(repos, {
+        id: project.id,
+        title: project.title,
         path: dir,
-        createdAt: row.created_at,
+        createdAt: project.createdAt,
         lastOpenedAt: now
       })
+
+      const verifyReport = verifyDatabase(db, { projectDir: dir })
+      if (!verifyReport.ok) {
+        this.deps.logger.error(
+          {
+            event: 'project_verify_failed',
+            projectId: project.id,
+            issues: verifyReport.issues.filter((issue) => issue.severity === 'error')
+          },
+          'project verification failed'
+        )
+      } else if (verifyReport.issues.length > 0) {
+        this.deps.logger.warn(
+          { event: 'project_verify_warnings', projectId: project.id, issues: verifyReport.issues },
+          'project verification warnings'
+        )
+      }
+      if (verifyReport.issues.length > 0) {
+        try {
+          writeVerifyReport(dir, verifyReport)
+        } catch (error) {
+          this.deps.logger.warn(
+            { event: 'verify_report_write_failed', error: error instanceof Error ? error.message : String(error) },
+            'failed to write verify report'
+          )
+        }
+      }
 
       this.current = {
         dir,
         db,
+        repos,
         summary,
         readOnly,
         readOnlyReason,
         lock,
-        holder: readOnly && readOnlyReason === 'locked' ? holder : null
+        holder: readOnly && readOnlyReason === 'locked' ? holder : null,
+        verify: verifyReport
       }
 
       this.deps.logger.info(
-        { event: 'project_opened', projectId: row.id, readOnly, readOnlyReason },
+        { event: 'project_opened', projectId: project.id, readOnly, readOnlyReason },
         'project opened'
       )
       this.emitState()
@@ -338,9 +359,9 @@ export class ProjectService {
       throw new AppError('project_not_found', `noryth.db not found under ${dir}`)
     }
     const db = openDatabase(file, { readonly: true })
-    const row = db.prepare('SELECT id FROM project LIMIT 1').get() as { id?: string } | undefined
+    const project = createRepos(db).project.get()
     db.close()
-    const projectId = row?.id ?? ''
+    const projectId = project?.id ?? ''
     if (projectId !== input.projectId) {
       throw new AppError('invalid_args', 'relocated path points to a different project', {
         expected: input.projectId,
@@ -363,37 +384,39 @@ export class ProjectService {
     if (current.readOnly) {
       throw new AppError('project_locked', 'project is read-only')
     }
-    const fields: string[] = []
-    const values: Array<string | number | null> = []
-    if (input.title !== undefined) {
-      fields.push('title = ?')
-      values.push(input.title)
-    }
-    if (input.genre !== undefined) {
-      fields.push('genre = ?')
-      values.push(input.genre)
-    }
-    if (input.targetWords !== undefined) {
-      fields.push('target_words = ?')
-      values.push(input.targetWords)
-    }
-    if (fields.length === 0) return current.summary
-    fields.push('updated_at = ?')
-    values.push(new Date().toISOString())
-    current.db.prepare(`UPDATE project SET ${fields.join(', ')}`).run(...values)
-
-    const row = current.db.prepare('SELECT * FROM project LIMIT 1').get() as ProjectRow
-    const entry = this.deps.registry.find(input.projectId)
-    current.summary = this.summaryFromDb(current.db, row, entry ?? {
-      id: row.id,
-      title: row.title,
-      path: current.dir,
-      createdAt: row.created_at,
-      lastOpenedAt: null
+    current.repos.project.updateMeta(input.projectId, {
+      title: input.title,
+      genre: input.genre,
+      targetWords: input.targetWords
     })
-    if (entry) this.deps.registry.update(input.projectId, { title: row.title })
+
+    const entry = this.deps.registry.find(input.projectId)
+    const project = current.repos.project.get()
+    if (!project) {
+      throw new AppError('project_not_found', 'project row missing after update')
+    }
+    current.summary = this.summaryFromDb(
+      current.repos,
+      entry ?? {
+        id: project.id,
+        title: project.title,
+        path: current.dir,
+        createdAt: project.createdAt,
+        lastOpenedAt: null
+      }
+    )
+    if (entry) this.deps.registry.update(input.projectId, { title: project.title })
     this.emitState()
     return current.summary
+  }
+
+  /** 只读的 DB 校验入口；打开项目时已自动跑过一次。 */
+  verifyCurrent(): VerifyReport | null {
+    const current = this.current
+    if (!current) return null
+    const report = verifyDatabase(current.db, { projectDir: current.dir })
+    current.verify = report
+    return report
   }
 
   dispose(): void {
@@ -413,11 +436,9 @@ export class ProjectService {
   }
 
   private backupBeforeMigrate(db: Db, dir: string, fromVersion: number): void {
-    const backupsDir = join(dir, 'backups')
-    mkdirSync(backupsDir, { recursive: true })
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const target = join(backupsDir, `pre-migrate-v${fromVersion}-${stamp}.db`).replace(/'/g, "''")
-    db.exec(`VACUUM INTO '${target}'`)
+    const target = join(dir, 'backups', `pre-migrate-v${fromVersion}-${stamp}.db`)
+    vacuumInto(db, target)
     this.deps.logger.info({ event: 'pre_migrate_backup', path: target, fromVersion }, 'backup created')
   }
 
@@ -445,9 +466,10 @@ export class ProjectService {
     try {
       const db = openDatabase(file, { readonly: true })
       try {
-        const row = db.prepare('SELECT * FROM project LIMIT 1').get() as ProjectRow | undefined
-        if (!row) throw new Error('project row missing')
-        return this.summaryFromDb(db, row, entry)
+        const repos = createRepos(db)
+        const project = repos.project.get()
+        if (!project) throw new Error('project row missing')
+        return this.summaryFromDb(repos, entry)
       } finally {
         db.close()
       }
@@ -471,30 +493,24 @@ export class ProjectService {
     }
   }
 
-  private summaryFromDb(db: Db, row: ProjectRow, entry: RegistryEntry): ProjectSummary {
-    const chapterRow = db
-      .prepare("SELECT COUNT(*) AS count FROM chapter WHERE status = 'finalized'")
-      .get() as { count: number }
-    const wordRow = db
-      .prepare(
-        `SELECT COALESCE(SUM(b.word_count), 0) AS words
-         FROM beat b JOIN chapter c ON c.id = b.chapter_id
-         WHERE c.status = 'finalized'`
-      )
-      .get() as { words: number }
+  private summaryFromDb(repos: Repos, entry: RegistryEntry): ProjectSummary {
+    const project = repos.project.get()
+    if (!project) {
+      throw new AppError('project_not_found', 'project row missing')
+    }
     return {
-      id: row.id,
-      title: row.title,
+      id: project.id,
+      title: project.title,
       path: entry.path,
-      genre: row.genre,
-      pov: row.pov,
-      targetWords: row.target_words,
-      setupState: row.setup_state,
-      schemaVersion: row.schema_version,
-      chapterCount: chapterRow.count,
-      wordCount: wordRow.words,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      genre: project.genre,
+      pov: project.pov,
+      targetWords: project.targetWords,
+      setupState: project.setupState,
+      schemaVersion: project.schemaVersion,
+      chapterCount: repos.project.finalizedChapterCount(),
+      wordCount: repos.project.finalizedWordCount(),
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
       lastOpenedAt: entry.lastOpenedAt,
       available: true
     }

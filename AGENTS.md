@@ -4,7 +4,8 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 
 ## 当前状态
 
-- 阶段 01 已 `done`（2026-11-14）：A1–A6、B1、B6、S1–S4、42+8 工具清单外壳完成；本地门禁与 Windows CI 全绿；标签 `phase-01-done` → `ab778c4`。阶段 02 未开工。
+- 阶段 01 已 `done`（2026-11-14）：A1–A6、B1、B6、S1–S4、42+8 工具清单外壳完成；本地门禁与 Windows CI 全绿；标签 `phase-01-done` → `ab778c4`。
+- 阶段 02 代码完成（`in_progress`，待提交/CI）：B2–B5、13 类 repos（Kysely + better-sqlite3 同步执行）、seq/hash/revision、outbox/mirror、backup、verify、fixture；新增 `0002_outbox_meta.sql`（`LATEST_SCHEMA_VERSION = 2`）。本地门禁全绿，详见 `PROGRESS.md`。
 - S3 按「DeepSeek 一家」收口（`deepseek-flash` 实测），第二家供应商顺延到阶段 04 D1 前补测；见 `docs/adr/0003-providers.md`。
 - `docs/` 已入库，是项目规格的一部分；不要删除、移动或重写。
 - 进度与交接写 `PROGRESS.md`；阶段范围与验收以 `docs/PHASE-0X-*.md` 为准。

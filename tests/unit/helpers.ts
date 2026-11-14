@@ -31,7 +31,7 @@ export function appInfo(): AppInfo {
     node: process.versions.node,
     platform: process.platform,
     arch: process.arch,
-    schemaVersion: 1,
+    schemaVersion: 2,
     packaged: false
   }
 }

@@ -31,7 +31,7 @@ test('设置页导出诊断包：文件可读、不含 Key 与正文', async () 
     const file = detail.trim()
     expect(existsSync(file)).toBe(true)
     const content = readFileSync(file, 'utf8')
-    expect(content).toContain('"schemaVersion": 1')
+    expect(content).toContain('"schemaVersion": 2')
     expect(content).not.toContain('sk-abcdefghijklmnop')
     expect(content).not.toContain('她把茶盏')
   } finally {

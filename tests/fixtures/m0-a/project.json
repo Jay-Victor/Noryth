@@ -1,0 +1,429 @@
+{
+  "$comment": "PHASE-02 合成 fixture：5 角色 / 2 章 / 每章 3 场 24 拍。只用于测试，不含真实作品内容。",
+  "project": {
+    "title": "黑漆匣子",
+    "genre": "悬疑",
+    "pov": "third_limited",
+    "targetWords": 120000,
+    "embeddingModel": "bge-small-zh-v1.5",
+    "embeddingDim": 512,
+    "defaultPreset": "deepseek"
+  },
+  "characters": [
+    {
+      "id": "chr_lin",
+      "name": "林砚",
+      "card": {
+        "role": "主角",
+        "age": 28,
+        "want": "查清父亲失踪的真相",
+        "fear": "发现自己也是共犯",
+        "voice": "短句，少用形容词"
+      }
+    },
+    {
+      "id": "chr_shen",
+      "name": "沈青梧",
+      "card": {
+        "role": "女主",
+        "age": 26,
+        "want": "守住沈家的祠堂",
+        "fear": "被逐出族谱",
+        "voice": "客气但留三分"
+      }
+    },
+    {
+      "id": "chr_mu",
+      "name": "穆掌柜",
+      "card": {
+        "role": "线人",
+        "age": 51,
+        "want": "把旧账翻篇",
+        "fear": "黑漆匣子重见天日",
+        "voice": "爱用生意经打比方"
+      }
+    },
+    {
+      "id": "chr_servant",
+      "name": "阿棠",
+      "card": {
+        "role": "仆人",
+        "age": 17,
+        "want": "攒钱赎身",
+        "fear": "被卖去北边",
+        "voice": "声音很轻"
+      }
+    },
+    {
+      "id": "chr_elder",
+      "name": "沈老太爷",
+      "card": {
+        "role": "族长",
+        "age": 73,
+        "want": "把秘密带进棺材",
+        "fear": "死后无人续香火",
+        "voice": "一句话说一半"
+      }
+    }
+  ],
+  "chapters": [
+    {
+      "id": "ch_001",
+      "ord": 1,
+      "title": "祠堂夜谈",
+      "scenes": [
+        {
+          "id": "scn_001_01",
+          "ord": 1,
+          "location": "沈家祠堂",
+          "participants": [
+            "chr_lin",
+            "chr_shen"
+          ],
+          "goal": "确认黑漆匣子的下落",
+          "entry": "雨夜，祠堂只剩一盏灯",
+          "exit": {
+            "resolved": false,
+            "hook": "匣子底部刻着林家的记号"
+          },
+          "beats": [
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "她把茶盏往他那边推了推，窗外的雨还没有停。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_shen",
+              "body": "「你在我爹书房里，见过一只黑漆匣子吗？」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "他想起七年前那个同样潮湿的夜里，父亲把钥匙塞进他手心。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_lin",
+              "body": "「见过。匣子不在书房，在祠堂的供桌下面。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "阿棠端着灯过来，灯芯爆了一下，墙上的人影跟着晃。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_shen",
+              "body": "「老太爷吩咐过，供桌下面的东西谁也不能动。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "穆掌柜拨着算盘，珠子撞得很轻，像怕惊动谁。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_lin",
+              "body": "「旧账翻篇容易，翻篇之后欠的人情，谁来还？」"
+            }
+          ]
+        },
+        {
+          "id": "scn_001_02",
+          "ord": 2,
+          "location": "后巷茶摊",
+          "participants": [
+            "chr_lin",
+            "chr_mu"
+          ],
+          "goal": "从穆掌柜嘴里撬出旧账",
+          "entry": "茶摊收摊前最后一壶",
+          "exit": {
+            "resolved": false,
+            "hook": "旧账最后一页被撕走"
+          },
+          "beats": [
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "雨声忽然大了，像有人在外头抖开一整匹布。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_mu",
+              "body": "「我不欠沈家的人情，我欠的是我爹一个交代。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "她低头看见自己袖口沾了香灰，怎么掸也掸不掉。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_lin",
+              "body": "「早夭的那个名字，族谱上没有，棺材里也没有。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "他把匣子翻过来，底部有一个被磨平的「林」字。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_mu",
+              "body": "「这件事，明天天亮之前不要告诉第三个人。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "灯灭了。黑暗里只剩两个人的呼吸，一长一短。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_lin",
+              "body": "「如果我不说，你能保证她活着走出这座宅子吗？」"
+            }
+          ]
+        },
+        {
+          "id": "scn_001_03",
+          "ord": 3,
+          "location": "沈宅西厢",
+          "participants": [
+            "chr_shen",
+            "chr_servant",
+            "chr_elder"
+          ],
+          "goal": "拖延老太爷立嗣的决定",
+          "entry": "西厢点着安神香",
+          "exit": {
+            "resolved": true,
+            "hook": "老太爷提到一个早夭的名字"
+          },
+          "beats": [
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "她把茶盏往他那边推了推，窗外的雨还没有停。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_servant",
+              "body": "「你在我爹书房里，见过一只黑漆匣子吗？」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "他想起七年前那个同样潮湿的夜里，父亲把钥匙塞进他手心。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_elder",
+              "body": "「见过。匣子不在书房，在祠堂的供桌下面。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "阿棠端着灯过来，灯芯爆了一下，墙上的人影跟着晃。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_shen",
+              "body": "「老太爷吩咐过，供桌下面的东西谁也不能动。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "穆掌柜拨着算盘，珠子撞得很轻，像怕惊动谁。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_servant",
+              "body": "「旧账翻篇容易，翻篇之后欠的人情，谁来还？」"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ch_002",
+      "ord": 2,
+      "title": "旧账最后一页",
+      "scenes": [
+        {
+          "id": "scn_002_01",
+          "ord": 1,
+          "location": "沈家祠堂",
+          "participants": [
+            "chr_lin",
+            "chr_shen"
+          ],
+          "goal": "确认黑漆匣子的下落",
+          "entry": "雨夜，祠堂只剩一盏灯",
+          "exit": {
+            "resolved": false,
+            "hook": "匣子底部刻着林家的记号"
+          },
+          "beats": [
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "雨声忽然大了，像有人在外头抖开一整匹布。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_shen",
+              "body": "「我不欠沈家的人情，我欠的是我爹一个交代。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "她低头看见自己袖口沾了香灰，怎么掸也掸不掉。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_lin",
+              "body": "「早夭的那个名字，族谱上没有，棺材里也没有。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "他把匣子翻过来，底部有一个被磨平的「林」字。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_shen",
+              "body": "「这件事，明天天亮之前不要告诉第三个人。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "灯灭了。黑暗里只剩两个人的呼吸，一长一短。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_lin",
+              "body": "「如果我不说，你能保证她活着走出这座宅子吗？」"
+            }
+          ]
+        },
+        {
+          "id": "scn_002_02",
+          "ord": 2,
+          "location": "后巷茶摊",
+          "participants": [
+            "chr_lin",
+            "chr_mu"
+          ],
+          "goal": "从穆掌柜嘴里撬出旧账",
+          "entry": "茶摊收摊前最后一壶",
+          "exit": {
+            "resolved": false,
+            "hook": "旧账最后一页被撕走"
+          },
+          "beats": [
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "她把茶盏往他那边推了推，窗外的雨还没有停。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_mu",
+              "body": "「你在我爹书房里，见过一只黑漆匣子吗？」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "他想起七年前那个同样潮湿的夜里，父亲把钥匙塞进他手心。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_lin",
+              "body": "「见过。匣子不在书房，在祠堂的供桌下面。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "阿棠端着灯过来，灯芯爆了一下，墙上的人影跟着晃。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_mu",
+              "body": "「老太爷吩咐过，供桌下面的东西谁也不能动。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "穆掌柜拨着算盘，珠子撞得很轻，像怕惊动谁。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_lin",
+              "body": "「旧账翻篇容易，翻篇之后欠的人情，谁来还？」"
+            }
+          ]
+        },
+        {
+          "id": "scn_002_03",
+          "ord": 3,
+          "location": "沈宅西厢",
+          "participants": [
+            "chr_shen",
+            "chr_servant",
+            "chr_elder"
+          ],
+          "goal": "拖延老太爷立嗣的决定",
+          "entry": "西厢点着安神香",
+          "exit": {
+            "resolved": true,
+            "hook": "老太爷提到一个早夭的名字"
+          },
+          "beats": [
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "雨声忽然大了，像有人在外头抖开一整匹布。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_servant",
+              "body": "「我不欠沈家的人情，我欠的是我爹一个交代。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "她低头看见自己袖口沾了香灰，怎么掸也掸不掉。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_elder",
+              "body": "「早夭的那个名字，族谱上没有，棺材里也没有。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "他把匣子翻过来，底部有一个被磨平的「林」字。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_shen",
+              "body": "「这件事，明天天亮之前不要告诉第三个人。」"
+            },
+            {
+              "speakerType": "narrator",
+              "speakerId": "narrator",
+              "body": "灯灭了。黑暗里只剩两个人的呼吸，一长一短。"
+            },
+            {
+              "speakerType": "character",
+              "speakerId": "chr_servant",
+              "body": "「如果我不说，你能保证她活着走出这座宅子吗？」"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
