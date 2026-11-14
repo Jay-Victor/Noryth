@@ -12,7 +12,7 @@
 | 04 | `docs/PHASE-04-RUNTIME.md` | done | D1–D6：SSE/OpenAI 兼容适配器与重试、能力探测→settings、L0–L3 装配与预算裁剪、信封/grounding 校验、六角色提示词 + JSON 回退、绑定快照 + 审计；假 LLM 服务器 + 9 条 runTurn 集成 | 全部通过：本地门禁 + CI run 43595192603（verify 与 e2e 均绿） | 真实第二家供应商未补测（无 Key，见 ADR-0003）；trace 落盘与 commitBeat 留阶段 05；嵌入随包（ADR-0004）不在本阶段范围，推迟阶段 09/10 |
 | 05 | `docs/PHASE-05-SLICE.md` | done | V1–V3：`commitBeat` + trace 归档 + 拍状态迁移 + 启动恢复/outbox 补发；fixture、假适配器、`#/dev/slice` 切片页；`E2E-SLICE-01` 与强杀重启 | 全部通过：本地门禁 + CI run `43597992157`（verify 与 e2e 均绿） | `verify` 的 seq 单调检查会误报「改早期拍」（ADR-0005 §4，阶段 07 修） |
 | 06 | `docs/PHASE-06-PLANNING.md` | done | E1–E5：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表、G1 注册与建库、覆盖检查占位；`E2E-PLAN-01/02` | 全部通过：本地门禁 + CI run `43603698391`（verify 与 e2e 均绿） | 真实供应商 Key 未接（阶段 10）；覆盖检查/影响分析仅占位（P1）；会话重命名/归档只有后端，UI 未接 |
-| 07 | `docs/PHASE-07-WRITING.md` | done | F1–F7：分镜草案/G2、11 状态迁移表、出口 DSL AST、调度循环与自动模式、正文/拍卡/确认条/分镜编辑器、拒演/耗尽/预算/模型错误四类暂停；`E2E-WRITE-01/02`；新增 `0004_writing.sql`（`LATEST_SCHEMA_VERSION = 4`） | 全部通过：本地门禁全绿（unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本） | 真实模型未接（Key 在阶段 10）；影响分析仅 M1；分支树只有线性 revision；「上下文检查器」按钮占位 |
+| 07 | `docs/PHASE-07-WRITING.md` | done | F1–F7：分镜草案/G2、11 状态迁移表、出口 DSL AST、调度循环与自动模式、正文/拍卡/确认条/分镜编辑器、拒演/耗尽/预算/模型错误四类暂停；`E2E-WRITE-01/02`；新增 `0004_writing.sql`（`LATEST_SCHEMA_VERSION = 4`） | 全部通过：本地门禁全绿（unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本）+ CI run `43609438344`（verify 与 e2e 均绿） | 真实模型未接（Key 在阶段 10）；影响分析仅 M1；分支树只有线性 revision；「上下文检查器」按钮占位 |
 | 08 | `docs/PHASE-08-REVIEW.md` | todo | — | — | — |
 | 09 | `docs/PHASE-09-MEMORY.md` | todo | — | — | — |
 | 10 | `docs/PHASE-10-DELIVERY.md` | todo | — | — | — |
@@ -192,6 +192,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T34 升 1.1.0、T27 分镜 schema 增 `ord/notes/max_beats`） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 提交 | `5897d51`（feat）、`11575c8`（fix） | 已推送 origin/dev |
+| CI | GitHub Actions run `43609438344`（`11575c8`） | verify 1m20 / e2e 1m45，均绿；package 按规则跳过 |
+| 阶段标签 | `phase-07-done` → `11575c8` | 已推送 origin |
 
 ## 关键决策
 
@@ -244,14 +247,14 @@
 
 ## 当前阻塞
 
-- 无。阶段 07 已 `done`：本地门禁全绿（typecheck / lint / depcruise / unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本）。CI 待推送后跑。
+- 无。阶段 07 已 `done`（2026-11-14）：本地门禁全绿（typecheck / lint / depcruise / unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本）+ CI run `43609438344`（verify 与 e2e 均绿），标签 `phase-07-done` → `11575c8`。
 - 真实模型未配置 Key（不阻塞）：创作台沿用阶段 06 的环境变量口径（`NORYTH_WRITE_API_KEY` / `NORYTH_<PROVIDER>_API_KEY` / `NORYTH_PLAN_API_KEY`）；未配置时生成失败为 `model_auth`，自动模式暂停为 `model_error`，不伪造正文。E2E 用 `NORYTH_WRITE_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 08）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
 - 已知缺口（不阻塞）：创作台的「上下文检查器」按钮是占位（只显示 traceRef）；M0 分支只有线性 revision，没有分支树 UI；跨章影响分析在 M1。
 
 ## 下一阶段交接
 
-- 阶段 07 已 `done`（2026-11-14）。新增迁移 `0004_writing.sql`，`LATEST_SCHEMA_VERSION = 4`；`DEV-PLAN §5.14` 已同步表结构（storyboard_draft / write_message / scheduler_event / scene.max_beats / chapter.budget_tokens）。
+- 阶段 07 已 `done`（2026-11-14）。提交 `5897d51` + `11575c8`；CI run `43609438344` 全绿；标签 `phase-07-done` → `11575c8`。新增迁移 `0004_writing.sql`，`LATEST_SCHEMA_VERSION = 4`；`DEV-PLAN §5.14` 已同步表结构（storyboard_draft / write_message / scheduler_event / scene.max_beats / chapter.budget_tokens）。
 - 阶段 08 直接复用：
   - `commitBeat`（`src/main/doc/commit-beat.ts`）仍是唯一正文写入者；patch 应用必须走它，不要另写 UPDATE beat.body。
   - 章节现在会停在 `draft_complete`（`scheduler/loop.markChapterComplete`），并已写 `scheduler_event(chapter_complete)`；G4 从这里开始。
