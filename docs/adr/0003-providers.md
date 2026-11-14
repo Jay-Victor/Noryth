@@ -1,6 +1,6 @@
-# ADR-0003 供应商预设：OpenAI 兼容 + DeepSeek，S3 仍待验证
+# ADR-0003 供应商预设：OpenAI 兼容 + DeepSeek，S3 由作者手动验证
 
-- 状态：**未关闭**（等待真实 API Key）
+- 状态：**未关闭**（作者手动验证中）
 - 日期：2026-11-14
 - 对应：PHASE-01 S3、DEV-PLAN §7.5–§7.6、§12.3.1
 
@@ -14,11 +14,77 @@ M0 要求「至少两家预设可切换；一个 Agent 绑第二家仍能完成�
 |---|---|
 | 供应商清单 | `openai` / `deepseek` / `tongyi`，默认 `deepseek`（PRD 允许的三家） |
 | 协议形态 | OpenAI-compatible：`/chat/completions` + SSE `data:` 行 + `tool_calls` 增量 |
-| 真实 Key | **未提供**，无法发起真实请求 |
+| 真实 Key | 由作者在本机手动测试；Key 不进入仓库、不进入应用、不由 Agent 读取 |
 | 本地假服务器 | 阶段 04 的 J1 交付；本阶段尚未实现 |
-| S3 结论 | **未通过（未执行）** |
+| S3 结论 | **待回填**（作者手动验证） |
 
-在没有 Key 的前提下宣称「两家流式可用」会是伪造证据；因此本 ADR 保持未关闭，S3 作为阶段 01 的开放门列出。
+在没有实测结论前宣称「两家流式可用」会是伪造证据；因此本 ADR 保持未关闭，S3 作为阶段 01 的开放门列出。
+
+## 手动验证清单（作者执行，Key 只在本机）
+
+在 Git Bash 中执行；`DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY` 只作为环境变量，不写进任何文件。
+
+### 1. 非流式连通（两家各一次）
+
+```bash
+curl -sS https://api.deepseek.com/v1/chat/completions \
+  -H "Authorization: Bearer $DEEPSEEK_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"deepseek-chat","messages":[{"role":"user","content":"只回复 ok"}],"max_tokens":16}'
+
+curl -sS https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions \
+  -H "Authorization: Bearer $DASHSCOPE_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"qwen-plus","messages":[{"role":"user","content":"只回复 ok"}],"max_tokens":16}'
+```
+
+通过线：HTTP 200；响应含 `choices[0].message.content` 与 `usage.prompt_tokens/completion_tokens`。
+
+### 2. 流式正文（两家各一次）
+
+```bash
+curl -sS -N https://api.deepseek.com/v1/chat/completions \
+  -H "Authorization: Bearer $DEEPSEEK_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"deepseek-chat","messages":[{"role":"user","content":"用一句话描述雨声"}],"stream":true,"stream_options":{"include_usage":true}}'
+
+curl -sS -N https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions \
+  -H "Authorization: Bearer $DASHSCOPE_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"qwen-plus","messages":[{"role":"user","content":"用一句话描述雨声"}],"stream":true,"stream_options":{"include_usage":true}}'
+```
+
+通过线：多行 `data: {...}`，每行 `choices[0].delta.content` 有增量；最后出现 `data: [DONE]`；若供应商返回 usage，记录它在哪一块（最后一个 delta 还是独立 chunk）。
+
+### 3. 工具调用增量（两家各一次）
+
+```bash
+curl -sS -N https://api.deepseek.com/v1/chat/completions \
+  -H "Authorization: Bearer $DEEPSEEK_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"deepseek-chat","messages":[{"role":"user","content":"北京现在天气如何？必须调用工具"}],"stream":true,"tools":[{"type":"function","function":{"name":"get_weather","description":"查询天气","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"],"additionalProperties":false}}}],"tool_choice":"auto"}'
+```
+
+DashScope 把 URL 与 model 换成 `qwen-plus`、Key 换成 `DASHSCOPE_API_KEY` 再跑一次。
+
+通过线：`choices[0].delta.tool_calls[]` 出现 `index`、`id`、`function.name` 与分片的 `function.arguments`；拼接后是合法 JSON（如 `{"city":"北京"}`）。
+
+### 4. 错误归一化（至少 401）
+
+```bash
+curl -sS -o /dev/null -w "%{http_code}\n" https://api.deepseek.com/v1/chat/completions \
+  -H "Authorization: Bearer invalid-key" -H "Content-Type: application/json" \
+  -d '{"model":"deepseek-chat","messages":[{"role":"user","content":"x"}]}'
+```
+
+通过线：401/403；记录响应体是否可用于区分 `auth` 与 `rate_limit`。
+
+### 结果回填
+
+| 检查 | DeepSeek | DashScope | 备注 |
+|---|---|---|---|
+| 非流式 200 + usage | 待填 | 待填 | |
+| 流式增量 + `[DONE]` | 待填 | 待填 | |
+| `tool_calls` 分片可拼接 | 待填 | 待填 | |
+| 401 可识别 | 待填 | 待填 | |
+| 其他差异（reasoning、finish_reason、限流） | 待填 | 待填 | |
+
+回填后把本 ADR 状态改为「已决定」，并在 `PROGRESS.md` 的 S3 行写日期、模型名与结论。
 
 ## 临时决定
 
