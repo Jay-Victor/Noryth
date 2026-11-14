@@ -8,7 +8,7 @@
 |---:|---|---|---|---|---|
 | 01 | `docs/PHASE-01-SKELETON.md` | done | A1–A6、B1、B6、S1–S4、42+8 工具清单外壳、CI 实跑 | 全部通过：本地门禁 + CI run `43585776532` | 第二家供应商顺延阶段 04；Win10 干净机未测 |
 | 02 | `docs/PHASE-02-DATA.md` | done | B2–B5、0002 迁移、13 类 repos（Kysely）、seq/hash/revision、outbox/mirror、backup、verify、fixture、57 个 DB 单测、CI 实跑 | 全部通过：本地门禁 + CI run `43589148557`（verify + e2e 均绿） | 备份与镜像调用点留阶段 07/10 |
-| 03 | `docs/PHASE-03-TOOLS.md` | in_progress | C1–C7：42 manifest / 36 实现 / 6 开关、授权解析、九步流水线、闸门/幂等/审计、36×6 契约 harness | 本地门禁全绿：391 单测 + 5 E2E + build + gen:check + 两个规格脚本；**CI 待推送** | 工具日志面板未做（可选）；T31/T33/T34 提案暂存 `tool_call.result_json`，阶段 06 接草案表 |
+| 03 | `docs/PHASE-03-TOOLS.md` | done | C1–C7：42 manifest / 36 实现 / 6 开关、授权解析、九步流水线、闸门/幂等/审计、36×6 契约 harness | 全部通过：本地门禁 + CI run `43591949465`（verify + e2e 均绿） | 工具日志面板未做（可选）；T31/T33/T34 提案暂存 `tool_call.result_json`，阶段 06 接草案表 |
 | 04 | `docs/PHASE-04-RUNTIME.md` | todo | — | — | — |
 | 05 | `docs/PHASE-05-SLICE.md` | todo | — | — | 硬门：未通过不得进入 06 |
 | 06 | `docs/PHASE-06-PLANNING.md` | todo | — | — | — |
@@ -93,7 +93,8 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| CI | 待推送 | — |
+| CI | GitHub Actions run `43591949465`（`4a2ff11`） | verify + e2e 均绿 |
+| 阶段标签 | `phase-03-done` → `e23eca7` | 已推送 origin |
 
 ## 关键决策
 
@@ -115,11 +116,11 @@
 
 ## 当前阻塞
 
-- 无代码阻塞。阶段 03 代码提交 `e23eca7`；推送后跑 Windows CI，CI 全绿才能标 `done` 并打 `phase-03-done`。
+- 无。阶段 03 已 `done`：本地门禁全绿 + CI run `43591949465`（verify 与 e2e 均通过），标签 `phase-03-done` 打在 `e23eca7`。
 
 ## 下一阶段交接
 
-- 阶段 03 已交付：`tools/define|registry|resolve|invoke|gates|idempotency|budget|audit` + 42 manifest + 36 实现 + 8 系统能力契约；契约测试在 `tests/contract/**`（`test:unit` 会跑）。
+- 阶段 03 已 `done`（`phase-03-done` = `e23eca7`）；阶段 04 可直接开工。
 - 阶段 04 直接复用：`buildRegistry(ALL_MANIFESTS)` 取快照；`resolveToolset(agentKey, policy, snapshot)` 生成有效工具集；`invokeTool(intent, TurnContext, deps, services)` 执行九步流水线。
 - `TurnContext` 需要 phase 04 从 job 构造：`chapterId` / `beatId` 来自 `job.payload_json`，`mode` 来自运行模式，`asOf` 来自 `project.seq_head` 或章 `covered_until_seq`；`toolset_version` 写入 job / `turn_metric`。
 - 一次性令牌只在 job **成功提交后**调用 `consumeGate(repos, token)`；G5/G6/G7 的令牌签发 UI 在阶段 06–09 接。
