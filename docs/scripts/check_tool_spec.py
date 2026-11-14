@@ -21,6 +21,14 @@ import re
 import sys
 from pathlib import Path
 
+# Windows 控制台默认不是 UTF-8（CI 上是 cp1252），中文输出会直接抛 UnicodeEncodeError
+_stdout_reconfigure = getattr(sys.stdout, "reconfigure", None)
+if callable(_stdout_reconfigure):
+    _stdout_reconfigure(encoding="utf-8", errors="replace")
+_stderr_reconfigure = getattr(sys.stderr, "reconfigure", None)
+if callable(_stderr_reconfigure):
+    _stderr_reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = Path(__file__).resolve().parents[2]
 
 AGENT_NAMES = {
