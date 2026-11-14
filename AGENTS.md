@@ -64,7 +64,7 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 - 契约：Zod 是唯一真源；工具 manifest 生成 `docs/tools/*.json`，CI 与 PRD §4.10 比对。
 - 测试：Vitest + Playwright（`_electron`）+ 假 LLM 服务器；CI 不调用真实 API。
 - 目录：`src/main`、`src/preload`、`src/renderer`、`src/shared`、`tests`、`scripts`；依赖边界由 `dependency-cruiser` 强制。
-- 命令以 `package.json` scripts 为准（尚未创建）；不要凭空写不存在的命令。
+- 命令以 `package.json` scripts 为准；不要凭空写不存在的命令。
 
 ## 修改文档的规则
 
