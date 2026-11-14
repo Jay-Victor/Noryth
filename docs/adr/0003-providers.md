@@ -1,6 +1,6 @@
 # ADR-0003 供应商预设：OpenAI 兼容 + DeepSeek，S3 由作者手动验证
 
-- 状态：**未关闭**（作者手动验证中）
+- 状态：**未关闭**（DeepSeek 通过，第二家待测）
 - 日期：2026-11-14
 - 对应：PHASE-01 S3、DEV-PLAN §7.5–§7.6、§12.3.1
 
@@ -16,7 +16,7 @@ M0 要求「至少两家预设可切换；一个 Agent 绑第二家仍能完成�
 | 协议形态 | OpenAI-compatible：`/chat/completions` + SSE `data:` 行 + `tool_calls` 增量 |
 | 真实 Key | 由作者在本机手动测试；Key 不进入仓库、不进入应用、不由 Agent 读取 |
 | 本地假服务器 | 阶段 04 的 J1 交付；本阶段尚未实现 |
-| S3 结论 | **待回填**（作者手动验证） |
+| S3 结论 | **部分通过**：DeepSeek 已实测；第二家待测 |
 
 在没有实测结论前宣称「两家流式可用」会是伪造证据；因此本 ADR 保持未关闭，S3 作为阶段 01 的开放门列出。
 
@@ -78,11 +78,19 @@ curl -sS -o /dev/null -w "%{http_code}\n" https://api.deepseek.com/v1/chat/compl
 
 | 检查 | DeepSeek | DashScope | 备注 |
 |---|---|---|---|
-| 非流式 200 + usage | 待填 | 待填 | |
-| 流式增量 + `[DONE]` | 待填 | 待填 | |
-| `tool_calls` 分片可拼接 | 待填 | 待填 | |
-| 401 可识别 | 待填 | 待填 | |
-| 其他差异（reasoning、finish_reason、限流） | 待填 | 待填 | |
+| 非流式 200 + usage | ✅ 2026-11-14 | 待填 | `deepseek-flash`，0.74s |
+| 流式增量 + `[DONE]` | ✅ 98 个事件 | 待填 | 正文 34 字；另有 `reasoning_content` 104 字 |
+| `tool_calls` 分片可拼接 | ✅ `{"city":"北京"}` | 待填 | 11 个事件，`finish_reason=tool_calls` |
+| 401 可识别 | ✅ `authentication_error` | 待填 | 响应体含 `type`，可映射 `model_auth` |
+| 其他差异（reasoning、finish_reason、限流） | ✅ 见下 | 待填 |  |
+
+DeepSeek 实测细节（模型 ID：`deepseek-flash`；`/v1/models` 同时返回 `deepseek-v4-pro`）：
+
+- 非流式：`usage` 含 `prompt_tokens/completion_tokens/total_tokens`，另有 `completion_tokens_details.reasoning_tokens` 与 `prompt_cache_hit_tokens`。
+- 流式：正文在 `delta.content`；`delta.reasoning_content` 是独立字段（104 字），**不能拼进 body**，最多进 trace 的 `thought`。
+- `usage` 出现在最后一个仍带 `choices` 的 chunk（`choices` 为空数组），适配器不能假设 usage chunk 没有 `choices` 键。
+- 工具调用：`delta.tool_calls[]` 带 `index` / `id` / `function.name` / `function.arguments` 分片，拼接后 `{"city":"北京"}` 合法；`finish_reason=tool_calls`。
+- 401：响应体 `error.type=authentication_error`，可映射 `model_auth`；错误信息只显示 Key 末四位。
 
 回填后把本 ADR 状态改为「已决定」，并在 `PROGRESS.md` 的 S3 行写日期、模型名与结论。
 

@@ -46,7 +46,7 @@
 | 安装冒烟 | 静默安装 → 启动 → 建项目 → 卸载 | 通过（安装目录与注册表项均清理） |
 | S1 向量 | Electron dev + 打包产物 | `vec0.dll` 可加载；20k 条 P95 33.64ms |
 | S2 嵌入 | utilityProcess + ONNX q8 | 冷启动 377ms / 单条 2ms / 512 维 |
-| S3 供应商 | 由作者手动验证（清单见 ADR-0003） | **待回填结论** |
+| S3 供应商 | DeepSeek 已实测（`deepseek-flash`） | 非流式/流式/工具调用/401 全通过；第二家待测 |
 | S4 NSIS | 安装/启动/卸载 | 通过；自动更新尚未接入，启动不阻塞 |
 
 ## 关键决策
@@ -60,7 +60,7 @@
 
 ## 当前阻塞
 
-- **S3**：由作者在本机手动验证（清单见 `docs/adr/0003-providers.md`）。Key 不进仓库、不进应用。回填「通过 / 不通过 + 差异」后关闭；在此之前阶段 01 不标记 `done`。
+- **S3**：DeepSeek 已通过（`deepseek-flash`，2026-11-14）；还缺第二家（DashScope `qwen-plus` 或 Moonshot）。清单见 `docs/adr/0003-providers.md`；Key 不进仓库、不进应用。回填第二家后关闭。
 
 ## 下一阶段交接
 
