@@ -9,7 +9,7 @@
 | 01 | `docs/PHASE-01-SKELETON.md` | done | A1–A6、B1、B6、S1–S4、42+8 工具清单外壳、CI 实跑 | 全部通过：本地门禁 + CI run `43585776532` | 第二家供应商顺延阶段 04；Win10 干净机未测 |
 | 02 | `docs/PHASE-02-DATA.md` | done | B2–B5、0002 迁移、13 类 repos（Kysely）、seq/hash/revision、outbox/mirror、backup、verify、fixture、57 个 DB 单测、CI 实跑 | 全部通过：本地门禁 + CI run `43589148557`（verify + e2e 均绿） | 备份与镜像调用点留阶段 07/10 |
 | 03 | `docs/PHASE-03-TOOLS.md` | done | C1–C7：42 manifest / 36 实现 / 6 开关、授权解析、九步流水线、闸门/幂等/审计、36×6 契约 harness | 全部通过：本地门禁 + CI run `43591949465`（verify + e2e 均绿） | 工具日志面板未做（可选）；T31/T33/T34 提案暂存 `tool_call.result_json`，阶段 06 接草案表 |
-| 04 | `docs/PHASE-04-RUNTIME.md` | todo | — | — | — |
+| 04 | `docs/PHASE-04-RUNTIME.md` | done | D1–D6：SSE/OpenAI 兼容适配器与重试、能力探测→settings、L0–L3 装配与预算裁剪、信封/grounding 校验、六角色提示词 + JSON 回退、绑定快照 + 审计；假 LLM 服务器 + 9 条 runTurn 集成 | 全部通过：本地门禁 + CI run 43595192603（verify 与 e2e 均绿） | 真实第二家供应商未补测（无 Key，见 ADR-0003）；trace 落盘与 commitBeat 留阶段 05；嵌入随包（ADR-0004）不在本阶段范围，推迟阶段 09/10 |
 | 05 | `docs/PHASE-05-SLICE.md` | todo | — | — | 硬门：未通过不得进入 06 |
 | 06 | `docs/PHASE-06-PLANNING.md` | todo | — | — | — |
 | 07 | `docs/PHASE-07-WRITING.md` | todo | — | — | — |
@@ -23,7 +23,7 @@
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（391 个：unit 156 + contract 235） / `pnpm test:e2e`（5 个）
+- `pnpm test:unit`（462 个：unit+integration 227 + contract 235） / `pnpm test:e2e`（5 个）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
 - `python docs/scripts/check_ui_spec.py` / `python docs/scripts/check_tool_spec.py`
 - `pnpm pack`（win-unpacked） / `pnpm dist`（NSIS）
@@ -96,6 +96,34 @@
 | CI | GitHub Actions run `43591949465`（`4a2ff11`） | verify + e2e 均绿 |
 | 阶段标签 | `phase-03-done` → `e23eca7` | 已推送 origin |
 
+## 验证记录（阶段 04）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 140 modules / 535 deps，0 违规 |
+| Lint | `pnpm lint` | 通过 |
+| 单元 + 契约 | `pnpm test:unit` | 462 passed（unit+integration 227 / contract 235） |
+| SSE | `tests/unit/model/sse.test.ts` | 逐字符分片、CRLF、多行 data、无结尾空行 |
+| 适配器 | `tests/unit/model/openai-compat.test.ts` | 12 条：正文/reasoning/工具增量/usage、401 不重试、429 与 5xx 重试 2 次、超时重试 2 次、400 上下文/内容过滤、协议错误 1 次、abort、非流式、探测 |
+| 探测 | `tests/unit/model/probe.test.ts`、`settings-probe.test.ts` | 探测结果写 `settings.providers`；401→`model_auth`；Key 不落盘 |
+| token/预算 | `tests/unit/context/tokens.test.ts`、`budget.test.ts` | 公式与校准；裁剪顺序；角色卡/意图不裁；溢出抛 `context_overflow` |
+| 装配 | `tests/unit/context/assemble.test.ts` | 同 fixture 两次 blocks/totalTokens 完全一致；L0 脱敏；pinned/refs/recent 顺序 |
+| 取材可见性 | `tests/unit/context/sources.test.ts` | 角色只拿自己的记忆；旁白只拿读者已知；as_of 受章水位约束；发言者不一致拒绝 |
+| 信封 | `tests/unit/agents/validate.test.ts` | 伪造 ID→`grounding_not_returned`；quote 改写→`grounding_quote_mismatch`；字数/ speaker / degraded |
+| 提示词 | `tests/unit/agents/prompts.test.ts` | 六角色各一份；system 只放 L0/L1；动态内容不改前缀 hash；回退替换契约 |
+| JSON 回退 | `tests/unit/model/json-fallback.test.ts` | 解析失败重问 1 次；连续 2 次→`tool_protocol_error` |
+| 绑定 | `tests/unit/model/bindings.test.ts` | 实例→角色→项目→预设；快照不漂移；审计旧/新 |
+| 一拍集成 | `tests/integration/turn.spec.ts` | 9 条：工具取材→合法信封、旁白拍、探测能力冻结、伪造/改写拒绝、JSON 回退、回退 2 次失败、500 暂停、绑定不漂移 |
+| 两家预设 | `tests/integration/presets.spec.ts` | DeepSeek/OpenAI 预设都能流式 + 工具调用（假服务器；真实第二家待 Key） |
+| E2E | `pnpm test:e2e` | 5 passed |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| CI | GitHub Actions run `43595192603`（`cc46c10`） | verify + e2e 均绿 |
+| 提交 | `cc46c10` | 已推送 origin/dev |
+| 阶段标签 | `phase-04-done` → `cc46c10` | 已推送 origin |
+
 ## 关键决策
 
 | 决策 | 结论 | 记录 |
@@ -113,19 +141,33 @@
 | 闸门消费 | 校验不消费；job 成功提交后调用 `consumeGate`；G1 长期授权不消费 | `src/main/tools/gates.ts` |
 | 提案持久化 | T31/T33/T34 目前由幂等层把提案结果存 `tool_call.result_json`；专用草案表留阶段 06 | 阶段 06 交接 |
 | memory.apply | 阶段 03 工具 handler 经 repos 直接写记忆/世界状态；阶段 09 换 `MemoryExecutor` 服务 | 阶段 09 交接 |
+| 模型适配 | 统一 OpenAI-compatible；错误归一化 `auth/rate_limit/timeout/context_overflow/server/protocol/content_filter`；429/5xx/超时重试 2 次、协议 1 次、401/400 不重试 | `src/main/model/adapter.ts`、`openai-compat.ts` |
+| 模型输出 | 模型只交 `{body, grounding}`；`turn_id/speaker/trace/meta` 由运行时装配，模型无法伪造工具轨迹 | `src/main/agents/validate.ts` |
+| grounding 范围 | 运行时装配的检索 refs 与工具返回 refs 都可引用；被裁掉的块不可引用（模型没看见） | `src/main/context/assemble.ts`、`tools/turn-refs.ts` |
+| 预算默认 | hardCap = min(ctx×0.5, 12000)；固定层 L0 900/L1 600/卡 700/意图 160/L3 150×8；裁剪按 §7.3 顺序 | `src/main/context/budget.ts` |
+| token 估算 | 唯一实现在 `context/tokens.ts`；工具截断复用，避免两套口径 | `src/main/tools/tokens.ts` |
+| 绑定冻结 | job 创建时解析并写 `payload_json.bindings`（含探测能力）；`runTurn` 只查快照、不回数据库 | `src/main/agents/job.ts`、`model/bindings.ts` |
+| 能力探测 | `/models` + 流式 + `tool_choice=required`（400 回退 auto）+ JSON mode 实测；contextWindow/pricing 取预设表（/models 无统一字段）；结果按预设写 `settings.providers`，Key 不落盘 | `src/main/model/probe.ts` |
+| 假 LLM | Node http 服务器，按请求序列脚本化，支持流式/工具分片/错误注入；CI 不调真实 API | `tests/integration/support/fake-llm.ts` |
 
 ## 当前阻塞
 
-- 无。阶段 03 已 `done`：本地门禁全绿 + CI run `43591949465`（verify 与 e2e 均通过），标签 `phase-03-done` 打在 `e23eca7`。
+- 无。阶段 04 已 `done`：本地门禁全绿 + CI run `43595192603`（verify 与 e2e 均通过），标签 `phase-04-done` 打在 `cc46c10`。
+- 待补测（不阻塞阶段 05）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
 
 ## 下一阶段交接
 
-- 阶段 03 已 `done`（`phase-03-done` = `e23eca7`）；阶段 04 可直接开工。
-- 阶段 04 直接复用：`buildRegistry(ALL_MANIFESTS)` 取快照；`resolveToolset(agentKey, policy, snapshot)` 生成有效工具集；`invokeTool(intent, TurnContext, deps, services)` 执行九步流水线。
-- `TurnContext` 需要 phase 04 从 job 构造：`chapterId` / `beatId` 来自 `job.payload_json`，`mode` 来自运行模式，`asOf` 来自 `project.seq_head` 或章 `covered_until_seq`；`toolset_version` 写入 job / `turn_metric`。
-- 一次性令牌只在 job **成功提交后**调用 `consumeGate(repos, token)`；G5/G6/G7 的令牌签发 UI 在阶段 06–09 接。
-- 待决：T31/T33/T34 的提案目前没有专用表，结果落在 `tool_call.result_json`；阶段 06 规划台需要草案持久化时先加迁移（0003）再改 manifest。
-- `memory.apply` 阶段 03 直接经 repos 写 `memory_entry` / `world_fact` / `character_belief`；阶段 09 换成 `MemoryExecutor` 后工具 handler 只做参数适配。
+- 阶段 04 已 `done`；阶段 05 可直接开工。
+- 阶段 05 直接复用：
+  - `createTurnJob(repos, registry, {chapterId, beatId, actor, mode, at}, {capabilitiesLookup})` 冻结绑定、能力与工具集；主进程把 `settings.read().providers[preset]?.capabilities` 作为 lookup 传入，探测不到 tool calling 的模型就会在 job 内走 JSON 回退；
+  - `runTurn(deps, {job})` 跑「装配 → 生成 → 校验」，返回 `TurnResult.envelope`（合法信封）或 `status:'rejected'`；
+  - `TurnDeps.hooks` 提供 `onPhase/onText/onThought/onToolCall/onReset`，阶段 05 用它把流式 delta 送到 renderer；
+  - 假模型可用 `tests/integration/support/fake-llm.ts` 或自定义 `ChatAdapter`。
+- 阶段 05 要补的：`doc.commitBeat(chapterId, envelope, expectedRevision, epoch)`（唯一正文写入者）；trace 写 `logs/trace/<jobId>/<turnId>.json` 并把路径存 `beat.trace_ref`；job 状态与 beat 状态迁移。
+- 运行中改绑定只影响下一个 job：`bindingFor(snapshot, actor)` 只查快照；这正是验收 #7 的实现点，不要改成实时查库。
+- 校验失败重试 1 次后返回 `rejected`；阶段 05 把 `rejection.code` 映射到 beat `rejected` 并保留原因，不落正文。
+- 真实第二家供应商补测属于阶段 10 I1/I3 之前的遗留项；`settings.probeProvider` 后端已就绪，UI 在阶段 10 接。
+- T31/T33/T34 提案仍落 `tool_call.result_json`；阶段 06 需要草案持久化时先加迁移（0003）再改 manifest。
 
 ## 更新规则
 
