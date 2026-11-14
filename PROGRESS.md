@@ -10,7 +10,7 @@
 | 02 | `docs/PHASE-02-DATA.md` | done | B2–B5、0002 迁移、13 类 repos（Kysely）、seq/hash/revision、outbox/mirror、backup、verify、fixture、57 个 DB 单测、CI 实跑 | 全部通过：本地门禁 + CI run `43589148557`（verify + e2e 均绿） | 备份与镜像调用点留阶段 07/10 |
 | 03 | `docs/PHASE-03-TOOLS.md` | done | C1–C7：42 manifest / 36 实现 / 6 开关、授权解析、九步流水线、闸门/幂等/审计、36×6 契约 harness | 全部通过：本地门禁 + CI run `43591949465`（verify + e2e 均绿） | 工具日志面板未做（可选）；T31/T33/T34 提案暂存 `tool_call.result_json`，阶段 06 接草案表 |
 | 04 | `docs/PHASE-04-RUNTIME.md` | done | D1–D6：SSE/OpenAI 兼容适配器与重试、能力探测→settings、L0–L3 装配与预算裁剪、信封/grounding 校验、六角色提示词 + JSON 回退、绑定快照 + 审计；假 LLM 服务器 + 9 条 runTurn 集成 | 全部通过：本地门禁 + CI run 43595192603（verify 与 e2e 均绿） | 真实第二家供应商未补测（无 Key，见 ADR-0003）；trace 落盘与 commitBeat 留阶段 05；嵌入随包（ADR-0004）不在本阶段范围，推迟阶段 09/10 |
-| 05 | `docs/PHASE-05-SLICE.md` | todo | — | — | 硬门：未通过不得进入 06 |
+| 05 | `docs/PHASE-05-SLICE.md` | done | V1–V3：`commitBeat` + trace 归档 + 拍状态迁移 + 启动恢复/outbox 补发；fixture、假适配器、`#/dev/slice` 切片页；`E2E-SLICE-01` 与强杀重启 | 全部通过：本地门禁；unit 477 / E2E 7 | `verify` 的 seq 单调检查会误报「改早期拍」（ADR-0005 §4，阶段 07 修） |
 | 06 | `docs/PHASE-06-PLANNING.md` | todo | — | — | — |
 | 07 | `docs/PHASE-07-WRITING.md` | todo | — | — | — |
 | 08 | `docs/PHASE-08-REVIEW.md` | todo | — | — | — |
@@ -124,6 +124,27 @@
 | 提交 | `cc46c10` | 已推送 origin/dev |
 | 阶段标签 | `phase-04-done` → `cc46c10` | 已推送 origin |
 
+## 验证记录（阶段 05）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 152 modules / 614 deps，0 违规 |
+| Lint | `pnpm lint` | 通过 |
+| 单元 + 契约 | `pnpm test:unit` | 477 passed（unit+integration 242 / contract 235） |
+| commitBeat | `tests/unit/doc/commit-beat.test.ts` | 7 条：一次提交清单 2 行 + hash 可复算 + outbox；stale revision/epoch 拒绝且零写入；空正文/跨槽位拒绝；确认推进 covered；编辑 author_edited + 后续拍 stale |
+| 启动恢复 | `tests/unit/doc/recovery.test.ts` | running job + generating 拍 → interrupted；已确认拍不动；空操作 |
+| fixture | `tests/unit/slice/seed.test.ts` + `status-matrix.test.ts` | 1/1/1/2/5；`db.verify` 绿；重复 seed 幂等；基线镜像 hash 一致；11 个状态全有文案 |
+| 一拍集成 | `tests/integration/slice.spec.ts` | 3 条：两拍各一 revision、grounding 来自工具、trace 不含 body；伪造 grounding 两次失败→rejected 零落盘；重生成 supersede + revision +1 |
+| 切片 E2E | `tests/e2e/slice.spec.ts` | `E2E-SLICE-01`：seed→2 拍→确认→重生成→编辑→重启（DB：5 revision 全复算；live=confirmed+author_edited）；强杀：`taskkill /F /T` → 重开 confirmed 保留、第二拍 interrupted、重试成功、无孤儿清单、outbox 全发布 |
+| 入口隔离 | 同上 E2E + `src/main/index.ts` | `[data-nav="slice"]` 为 0；切片通道只在未打包构建注册 |
+| E2E 全量 | `pnpm test:e2e` | 7 passed（原 5 + 切片 2） |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 提交 | `f343668` | 随本次 docs 提交推送 origin/dev |
+| CI | 推送后触发 | verify + e2e 待跑 |
+
 ## 关键决策
 
 | 决策 | 结论 | 记录 |
@@ -149,25 +170,36 @@
 | 绑定冻结 | job 创建时解析并写 `payload_json.bindings`（含探测能力）；`runTurn` 只查快照、不回数据库 | `src/main/agents/job.ts`、`model/bindings.ts` |
 | 能力探测 | `/models` + 流式 + `tool_choice=required`（400 回退 auto）+ JSON mode 实测；contextWindow/pricing 取预设表（/models 无统一字段）；结果按预设写 `settings.providers`，Key 不落盘 | `src/main/model/probe.ts` |
 | 假 LLM | Node http 服务器，按请求序列脚本化，支持流式/工具分片/错误注入；CI 不调真实 API | `tests/integration/support/fake-llm.ts` |
+| commitBeat | `(chapterId, beat, expectedRevision, epoch)` 事务内写 beat/revision/清单/outbox；epoch 或 revision 不匹配即 `stale_revision`，不合并 | `src/main/doc/commit-beat.ts` |
+| 生成落盘 | `runTurn` 增加可选 `commit` 回调；不注入时保持阶段 04 纯校验行为；commit 失败 job failed 且事务回滚 | `src/main/agents/turn.ts` |
+| 槽位替换 | 生成/重生成都 supersede 槽位现行拍（含 proposed 占位）；正文 append-only，唯一索引靠 supersede 释放 | `src/main/doc/beats.ts` |
+| trace 归档 | `logs/trace/<jobId>/<turnId>.json`，只存 thought/tool_call/grounding/meta/装配摘要，不复制 body；路径进 `beat.trace_ref` | `src/main/doc/trace.ts` |
+| 启动恢复 | 打开项目时 `job.running → interrupted`、`beat.generating/regenerating → interrupted`，并补发 outbox；失败只记日志不阻塞打开 | `src/main/doc/recovery.ts`、`doc/publish.ts` |
+| 重试幂等 | job 幂等键增加可选 `attempt`；同一任务重放复用 job，强杀后的重试必须换 attempt | `src/main/agents/job.ts` |
+| 切片入口 | `#/dev/slice` + 未打包构建；切片 IPC 只在 `app.isPackaged === false && NORYTH_SLICE !== '0'` 注册；不进入导航 | `src/main/index.ts`、`src/renderer/app/dev/Slice.tsx` |
 
 ## 当前阻塞
 
-- 无。阶段 04 已 `done`：本地门禁全绿 + CI run `43595192603`（verify 与 e2e 均通过），标签 `phase-04-done` 打在 `cc46c10`。
-- 待补测（不阻塞阶段 05）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
+- 无。阶段 05 已 `done`：本地门禁全绿（typecheck / lint / depcruise / unit 477 / e2e 7 / build / gen:check）；CI 与标签在提交后打。
+- 待补测（不阻塞阶段 06）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
+- 已知问题：`db/verify.ts` 的 `seq_not_monotonic` 按拍序检查，改早期拍会误报；阶段 07 必须改为按提交序/唯一性检查（ADR-0005 §4）。
 
 ## 下一阶段交接
 
-- 阶段 04 已 `done`；阶段 05 可直接开工。
-- 阶段 05 直接复用：
-  - `createTurnJob(repos, registry, {chapterId, beatId, actor, mode, at}, {capabilitiesLookup})` 冻结绑定、能力与工具集；主进程把 `settings.read().providers[preset]?.capabilities` 作为 lookup 传入，探测不到 tool calling 的模型就会在 job 内走 JSON 回退；
-  - `runTurn(deps, {job})` 跑「装配 → 生成 → 校验」，返回 `TurnResult.envelope`（合法信封）或 `status:'rejected'`；
-  - `TurnDeps.hooks` 提供 `onPhase/onText/onThought/onToolCall/onReset`，阶段 05 用它把流式 delta 送到 renderer；
-  - 假模型可用 `tests/integration/support/fake-llm.ts` 或自定义 `ChatAdapter`。
-- 阶段 05 要补的：`doc.commitBeat(chapterId, envelope, expectedRevision, epoch)`（唯一正文写入者）；trace 写 `logs/trace/<jobId>/<turnId>.json` 并把路径存 `beat.trace_ref`；job 状态与 beat 状态迁移。
-- 运行中改绑定只影响下一个 job：`bindingFor(snapshot, actor)` 只查快照；这正是验收 #7 的实现点，不要改成实时查库。
-- 校验失败重试 1 次后返回 `rejected`；阶段 05 把 `rejection.code` 映射到 beat `rejected` 并保留原因，不落正文。
+- 阶段 05 已 `done`，`commitBeat` 接口冻结；阶段 06 可直接开工。
+- 阶段 06 直接复用：
+  - `commitBeat(db, repos, {...})`（`src/main/doc/commit-beat.ts`）：唯一正文写入者；不要另写体写入 SQL，也不要改签名；
+  - `markGenerating` / `rollbackGenerate` / `rejectBeat` / `confirmBeat` / `editBeat`（`src/main/doc/beats.ts`）：拍状态迁移原语；
+  - `runTurn(deps, {job})` 的第 8 步落盘通过 `deps.commit` 注入；流式事件用 `TurnDeps.hooks`，turn ID 用 `turnIdFor(jobId, beatId)` 生成，避免两处拼串；
+  - `writeTurnTrace`（`src/main/doc/trace.ts`）：trace 只归档 thought/tool_call/grounding/meta，不写正文；
+  - `recoverInterrupted` + `publishPendingMirrors` 已挂到 `ProjectService.open`；不要在其他地方重复扫描 running job；
+  - 未打包构建的切片服务（`src/main/slice/*`）是脚手架：阶段 07 的正式创作台直接复用底层 `runTurn`/`commitBeat`，不要依赖 `DevSliceService`。
+- 阶段 06 注意：
+  - T31/T33/T34 提案仍落 `tool_call.result_json`；要持久化草案先加迁移 `0003`，再改 manifest 与 `docs/tools/*.json`；
+  - 切片没有新增表，`LATEST_SCHEMA_VERSION` 仍为 2；
+  - 阶段 06 的规划页需要真实模型绑定；`settings.probeProvider` 后端已就绪，UI 绑定预设在阶段 10 完结。
+- 阶段 07 注意：先修 `verify` 的 seq 检查（ADR-0005 §4 第 1 条），再接调度器/自动模式；`commitBeat` 不要改签名。
 - 真实第二家供应商补测属于阶段 10 I1/I3 之前的遗留项；`settings.probeProvider` 后端已就绪，UI 在阶段 10 接。
-- T31/T33/T34 提案仍落 `tool_call.result_json`；阶段 06 需要草案持久化时先加迁移（0003）再改 manifest。
 
 ## 更新规则
 
