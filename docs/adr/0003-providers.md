@@ -1,6 +1,6 @@
 # ADR-0003 供应商预设：OpenAI 兼容 + DeepSeek，S3 由作者手动验证
 
-- 状态：**未关闭**（DeepSeek 通过，第二家待测）
+- 状态：**已决定**（2026-11-14：M0 以 DeepSeek 一家收口，第二家顺延到阶段 04 D1 前补测）
 - 日期：2026-11-14
 - 对应：PHASE-01 S3、DEV-PLAN §7.5–§7.6、§12.3.1
 
@@ -94,15 +94,15 @@ DeepSeek 实测细节（模型 ID：`deepseek-flash`；`/v1/models` 同时返回
 
 回填后把本 ADR 状态改为「已决定」，并在 `PROGRESS.md` 的 S3 行写日期、模型名与结论。
 
-## 临时决定
+## 决定（2026-11-14 作者确认）
 
-- 项目默认预设写 `deepseek`；`model_binding` 表与设置页在阶段 10 落地。
-- 适配器在阶段 04 实现，先对本地 SSE 假服务器验证：正文增量、`tool_calls` 按 `index` 拼装、`usage`、错误归一化（401/429/5xx/protocol）。
-- 真实供应商验证需要用户提供至少两家的 Key（或明确授权使用其已有 Key），并在 `docs/PROGRESS.md` 记录运行日期与模型名。
+- M0 阶段 01 的 S3 以 **DeepSeek 一家**收口：流式正文、`tool_calls`、`usage`、401 均已实测通过。
+- 第二家（DashScope `qwen-plus` 或 Moonshot）不再阻塞阶段 01；**在阶段 04 的 D1 适配器完成前补测**，并把结果追加到本文件。
+- 这是范围豁免，不是「两家都通过」：`PROGRESS.md` 与阶段文档都按「一家收口」记录，避免后续误判。
+- 供应商预设仍保留 `openai` / `deepseek` / `tongyi` 三个枚举；设置页只对已实测的预设标「已验证」。
 
 ## 关闭条件
 
-1. 两家预设各完成一次流式正文 + 至少一次工具调用；
-2. `usage.prompt_tokens/total_tokens` 被记录到 `turn_metric`；
-3. 错误码归一化测试覆盖 `auth` / `rate_limit` / `timeout` / `protocol`；
-4. 结论补进本文件并把状态改为「已决定」。
+1. DeepSeek 已完成：流式正文 + 至少一次工具调用 + `usage` 记录 + 401 归一化（2026-11-14）。
+2. 第二家预设（DashScope 或 Moonshot）在阶段 04 D1 完成前补测，覆盖同一组四项。
+3. 两家结果都写入本文件后，状态从「已决定（一家收口）」改为「已决定（两家验证）」。

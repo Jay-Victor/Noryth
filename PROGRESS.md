@@ -6,7 +6,7 @@
 
 | 阶段 | 文档 | 状态 | 已完成 | 验收 | 已知问题 |
 |---:|---|---|---|---|---|
-| 01 | `docs/PHASE-01-SKELETON.md` | in_progress | A1–A6、B1、B6、S1、S2、S4；42+8 工具清单外壳 | 本地门禁全绿；S3 未执行 | S3 缺两家 API Key；Windows CI 未实跑 |
+| 01 | `docs/PHASE-01-SKELETON.md` | in_progress | A1–A6、B1、B6、S1、S2、S3（一家）、S4；42+8 工具清单外壳 | 本地门禁全绿；S3 按一家收口；CI 待 push 实跑 | 第二家供应商顺延阶段 04；Windows CI 未实跑 |
 | 02 | `docs/PHASE-02-DATA.md` | todo | — | — | 等 01 收口 |
 | 03 | `docs/PHASE-03-TOOLS.md` | todo | — | — | 等 01 收口 |
 | 04 | `docs/PHASE-04-RUNTIME.md` | todo | — | — | — |
@@ -46,7 +46,7 @@
 | 安装冒烟 | 静默安装 → 启动 → 建项目 → 卸载 | 通过（安装目录与注册表项均清理） |
 | S1 向量 | Electron dev + 打包产物 | `vec0.dll` 可加载；20k 条 P95 33.64ms |
 | S2 嵌入 | utilityProcess + ONNX q8 | 冷启动 377ms / 单条 2ms / 512 维 |
-| S3 供应商 | DeepSeek 已实测（`deepseek-flash`） | 非流式/流式/工具调用/401 全通过；第二家待测 |
+| S3 供应商 | DeepSeek 已实测（`deepseek-flash`） | 非流式/流式/工具调用/401 全通过；作者决定 M0 一家收口，第二家顺延阶段 04 |
 | S4 NSIS | 安装/启动/卸载 | 通过；自动更新尚未接入，启动不阻塞 |
 
 ## 关键决策
@@ -60,14 +60,15 @@
 
 ## 当前阻塞
 
-- **S3**：DeepSeek 已通过（`deepseek-flash`，2026-11-14）；还缺第二家（DashScope `qwen-plus` 或 Moonshot）。清单见 `docs/adr/0003-providers.md`；Key 不进仓库、不进应用。回填第二家后关闭。
+- 无。S3 已按「DeepSeek 一家」收口（第二家顺延到阶段 04 D1 前补测）；阶段 01 仅剩 Windows CI 实跑（需要 push 到 origin/dev 触发）。
 
 ## 下一阶段交接
 
 - 阶段 02 的依赖已就绪：迁移器（checksum / 事务 / 重入）、`openDatabase`、项目锁、`projects.json` 登记、错误模型、`IpcResult`。
 - 阶段 02 会替换 `src/main/project/service.ts` 里内联的 project 表 SQL 为 `db/repos`，并补齐 outbox/backup/verify；不要改 `0001_init.sql`（改了就 checksum mismatch，必须新增迁移）。
 - `docs/tools/*.json` 目前 `contract_complete=false`；阶段 03 C5 补 schema 并保留工具名与 actors 不变（`check_tool_spec.py` 会拦）。
-- 阶段 01 未做：自动打开上次项目、应用图标、诊断 zip、Windows CI 实跑（见 `docs/BACKLOG.md`）。
+- 阶段 01 未做：自动打开上次项目、应用图标、诊断 zip、第二家供应商、Windows CI 实跑（见 `docs/BACKLOG.md`）。
+- 阶段 02 可在 CI 实跑前开始，但阶段 01 只有在 `origin/dev` 的 CI 绿后才标 `done`。
 
 ## 更新规则
 
