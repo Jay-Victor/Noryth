@@ -23,6 +23,7 @@ import { sha256Hex } from './crypto'
 import { ALL_MANIFESTS } from './tools/manifests'
 import { buildRegistry } from './tools/registry'
 import { createMainWindow, preloadPathFor } from './window'
+import { startBackgroundUpdateCheck } from './update'
 import { IPC_EVENTS } from '../shared/schema/ipc'
 import type { AppInfo, ProjectStateEvent } from '../shared/schema/project'
 
@@ -276,6 +277,14 @@ async function bootstrap(): Promise<void> {
   }
 
   logger.info({ event: 'app_ready', windowId: window.id, schemaVersion: LATEST_SCHEMA_VERSION }, 'noryth ready')
+
+  // 更新检查是后台事：不 await、失败只记日志（PRD §9.1）。
+  void startBackgroundUpdateCheck({
+    packaged: app.isPackaged,
+    currentVersion: app.getVersion(),
+    ...(process.env.NORYTH_UPDATE_FEED ? { feedUrl: process.env.NORYTH_UPDATE_FEED } : {}),
+    log: (message, details) => logger?.info({ event: message, ...details }, message)
+  })
 }
 
 app.whenReady().then(bootstrap).catch((error: unknown) => {

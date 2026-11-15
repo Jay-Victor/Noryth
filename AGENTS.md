@@ -10,7 +10,8 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 - 阶段 04 已 `done`：SSE/OpenAI 兼容适配器与重试、能力探测、L0–L3 装配与预算、信封/grounding 校验、六角色提示词、绑定快照；标签 `phase-04-done` → `cc46c10`。
 - 阶段 05 已 `done`（2026-11-14）：`commitBeat`（唯一正文写入者）、trace 归档、拍状态迁移、启动恢复、开发切片（fixture + 假适配器 + `#/dev/slice`）、`E2E-SLICE-01` 与强杀重启；见 `docs/adr/0005-slice.md`。本地门禁全绿。
 - 阶段 06 已 `done`（2026-11-14）：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表 `agent_proposal`、G1 注册 + 5 私有/1 公共命名空间 + 隔离自检、覆盖检查占位；新增 `0003_planning.sql`（`LATEST_SCHEMA_VERSION = 3`）；`E2E-PLAN-01/02`。CI run `43603698391` 全绿；标签 `phase-06-done` → `bbea9df`。真实规划模型需 `NORYTH_PLAN_API_KEY`（设置页 Key 在阶段 10）。
-- 阶段 09 已 `done`（2026-11-15）：`memory/extract|apply|retrieve`、`MemoryExecutor`（单事务 + 向量 + 审计 + G7）、记忆台四分区与软失效；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01`。bge 模型随包留阶段 10，当前 `hash-bigram-v1` 降级并逐条记录模型名。CI run `43681891589` 全绿；标签 `phase-09-done` → `4fca40c`。
+- 阶段 09 已 `done`（2026-11-15）：`memory/extract|apply|retrieve`、`MemoryExecutor`（单事务 + 向量 + 审计 + G7）、记忆台四分区与软失效；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01`。CI run `43681891589` 全绿；标签 `phase-09-done` → `4fca40c`。
+- 阶段 10 已 `done`（2026-11-15）：I1–I4 设置中心（safeStorage Key、逐 Agent 绑定 + 批次审计 + 回滚、测试连接、外观）、J1–J6（fixture 假服务器、`E2E-M0-A` 14 步、`E2E-M0-PROVIDER`、`CHAOS-01..08`、NSIS + 安装冒烟 + 更新检查、PERF-01、安全/无障碍/200% 缩放）、导出 Markdown/TXT；新增 `0007_settings.sql`（`LATEST_SCHEMA_VERSION = 7`）；M0 验收报告 `docs/M0-ACCEPTANCE.md`。
 - S3 按「DeepSeek 一家」收口（`deepseek-flash` 实测），第二家供应商顺延到阶段 04 D1 前补测；见 `docs/adr/0003-providers.md`。
 - `docs/` 已入库，是项目规格的一部分；不要删除、移动或重写。
 - 进度与交接写 `PROGRESS.md`；阶段范围与验收以 `docs/PHASE-0X-*.md` 为准。
@@ -52,7 +53,7 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 - 阶段 07 已 `done`（2026-11-14）：创作台与调度器、G2、11 状态迁移、自动模式；`LATEST_SCHEMA_VERSION = 4`；标签 `phase-07-done`。
 - 阶段 08 已 `done`（2026-11-15）：审批报告、patch、G4–G6、定稿与记忆抽取入队；`LATEST_SCHEMA_VERSION = 5`；CI run `43676789043` 全绿，标签 `phase-08-done` → `4639eb9`。
 - 阶段 09 已 `done`（2026-11-15）：H1–H5、`MemoryExecutor`、检索管线（vec+FTS+RRF）、记忆台与 G7；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01`。CI run `43681891589` 全绿，标签 `phase-09-done` → `4fca40c`；下一阶段从 `PHASE-10-DELIVERY.md` 开工。
-- 阶段 05 已通过；阶段 06 已通过；阶段 07 已通过；阶段 08 已通过；阶段 09 已通过。
+- 阶段 05 已通过；阶段 06 已通过；阶段 07 已通过；阶段 08 已通过；阶段 09 已通过；阶段 10 已通过（M0）。
 
 ## 不能违反的规则
 

@@ -578,8 +578,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 56px;
-  padding: 0 12px;
+  /* 200% 缩放时按钮换行，而不是被裁掉（PHASE-10 J6 / UI-DESIGN §11） */
+  flex-wrap: wrap;
+  min-height: 56px;
+  padding: 6px 12px;
   border-top: 1px solid var(--border);
   background: var(--bg-raised);
   flex: 0 0 auto;

@@ -26,6 +26,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm depcruise
       - run: pnpm test:unit
+      - run: pnpm test:chaos
       - run: python docs/scripts/check_ui_spec.py
       - run: python docs/scripts/check_tool_spec.py --tools docs/tools --prd docs/PRD.md
       - run: pnpm gen:check

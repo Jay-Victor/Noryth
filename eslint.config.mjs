@@ -39,6 +39,17 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.node } }
   },
   {
+    // 安装冒烟的 page.evaluate 回调在渲染进程里跑，允许 window
+    files: ['scripts/install-smoke.mjs'],
+    languageOptions: { globals: { ...globals.node, window: 'readonly' } }
+  },
+  {
+    // 混沌 worker 是 CJS 子进程脚本：允许 require 与 node 全局
+    files: ['tests/chaos/*.cjs'],
+    languageOptions: { globals: { ...globals.node }, sourceType: 'commonjs' },
+    rules: { '@typescript-eslint/no-require-imports': 'off', 'no-console': 'off' }
+  },
+  {
     files: ['src/renderer/**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.browser } },
     rules: {

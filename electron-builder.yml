@@ -15,6 +15,11 @@ asarUnpack:
 extraResources:
   - from: resources/native
     to: native
+  # 嵌入模型目录（可选）：M0 只有说明文件，放权重即自动随包；见 docs/adr/0004-embedding.md
+  - from: resources/models
+    to: models
+# 离线可用：直接用 pnpm 装好的 Electron 运行时，避免打包时再去下载（CI 同样适用）
+electronDist: node_modules/electron/dist
 npmRebuild: false
 buildDependenciesFromSource: false
 win:

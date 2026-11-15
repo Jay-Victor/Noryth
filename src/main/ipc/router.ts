@@ -25,6 +25,7 @@ import {
 import { PresetSchema } from "../../shared/schema/model"
 import { ExportInputSchema } from '../../shared/schema/export'
 import { exportManuscript } from '../doc/export'
+import { isBusyError } from '../db/busy'
 import {
   PlanAddOutlineInputSchema,
   PlanCharacterAddInputSchema,
@@ -152,6 +153,10 @@ export function registerIpc(deps: IpcDeps): void {
       try {
         return ok(await definition.handler(parsed.data, event))
       } catch (error) {
+        if (isBusyError(error)) {
+          deps.logger.warn({ channel }, 'write rejected: database busy')
+          return fail({ code: 'project_locked', message: messageFor('project_locked') })
+        }
         if (isAppError(error)) {
           deps.logger.warn({ channel, code: error.code, details: error.details }, 'ipc handler rejected')
           return fail(error.toIpcError())

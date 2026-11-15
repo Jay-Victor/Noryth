@@ -47,6 +47,19 @@ Spike 用 `utilityProcess.fork` 启动 worker，`env.allowRemoteModels=false`，
 - 模型名写进每条 `memory_entry.embedding_model`，检索的向量通道按模型名过滤；换回 bge 时旧行仍可按关键词召回，不会把两种向量混在一起比较。
 - 阶段 10 打包前必须：`@huggingface/transformers` + `onnxruntime-node` 进 dependencies、模型进 `extraResources`，重测冷启动与安装包体积；不达标按下方回退。
 
+## 阶段 10 记录（2026-11-15）：M0 不随包 bge 权重
+
+- 打包侧已就位：`resources/models/` 进 `extraResources`，安装包里有 `resources/models/README.md`；
+  放入 `bge-small-zh-v1.5/`（config + tokenizer + `onnx/model_quantized.onnx`）即自动随包，
+  代码按 `process.resourcesPath/models/...` 解析，无需改动。
+- 权重本身**没有**随 M0 交付：本机 HuggingFace 直连超时，缓存只有 config/tokenizer（`.incomplete`），
+  仓库不存二进制；`@huggingface/transformers` 仍是 devDependency。M0 的嵌入路径是
+  `hash-bigram-v1`（确定性、离线、零依赖），每条记忆记录真实模型名，向量通道按模型名过滤。
+- 影响与判定：M0 的 PRD 退出标准不包含语义检索质量；检索延迟用 hash 模型测（PERF-01 P95 27ms）。
+  因此 M0 判定不受影响，但**语义召回能力在 M0 不具备**，作者应把它当作「字面 + 向量兜底」。
+- 推迟到 M1 的验收（写进 backlog）：权重随包 → 冷启动 < 1.5s、安装包 < 250MB → 按章重建（T40）
+  → 空结果率 < 25%；不达标按下方回退换 q4/更小模型并全量重建。
+
 ## 回退
 
 如果阶段 04 打包后冷启动 > 1.5s 或安装包 > 250MB：改用 q4 或更小模型，`embedding_dim` 变化必须全量重建索引，并更新本 ADR。

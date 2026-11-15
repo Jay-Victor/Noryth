@@ -715,8 +715,21 @@ CREATE TABLE model_binding_audit (
   old_json   TEXT,
   new_json   TEXT NOT NULL,
   actor      TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  batch_id   TEXT              -- 0007：一次「保存绑定」= 一批，回滚按批撤销
 );
+CREATE INDEX model_binding_audit_batch ON model_binding_audit(project_id, batch_id);
+
+-- 0007：回滚账本。同一批只允许回滚一次；回滚自己产生的审计批不再作为回滚候选。
+CREATE TABLE binding_rollback (
+  id             TEXT PRIMARY KEY,
+  project_id     TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  batch_id       TEXT NOT NULL,
+  audit_batch_id TEXT NOT NULL,
+  actor          TEXT NOT NULL,
+  created_at     TEXT NOT NULL
+);
+CREATE UNIQUE INDEX binding_rollback_once ON binding_rollback(batch_id);
 
 CREATE TABLE outbox (
   id            TEXT PRIMARY KEY,
@@ -2578,7 +2591,9 @@ response:
 | 记忆 apply 中断 | 事务中杀 | 要么全写，要么全不写 |
 | 数据库锁 | 第二进程持有 | 5s 超时后报 `project_locked`，不静默失败 |
 | 磁盘满 | 模拟写失败 | 明确错误；不产生 0 字节 db |
-| 版本更新中断 | 中断下载 | 启动不受影响；可手动重装 |
+| 版本更新中断 | 中断下载 | 启动不受影响；可手动重装（`CHAOS-07`） |
+| 事务中强杀 | 事务内写半条 revision 后 `taskkill /F` | 无半条 revision / 无孤儿 / integrity ok（`CHAOS-01/02`） |
+| 已确认拍零丢失 | 强杀后重开 | 逐拍比对 body 与 hash 完全一致（`CHAOS-08`） |
 
 ### 13.7 性能基线
 
@@ -2650,6 +2665,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm depcruise
       - run: pnpm test:unit --coverage
+      - run: pnpm test:chaos
       - run: pnpm test:contract
       - run: python docs/scripts/check_ui_spec.py
       - run: python docs/scripts/check_tool_spec.py --manifests docs/tools --prd docs/PRD.md
@@ -2828,6 +2844,7 @@ jobs:
 |---|---|---|
 | `model_error` | 模型超时或不可用，已重试 2 次 | 重试 / 切预设 |
 | `model_auth` | API Key 无效或过期 | 去设置 |
+| `model_untested` | 该模型还没有通过连接测试 | 去测试连接 |
 | `rate_limit` | 供应商限流，请稍后再试 | 重试 / 暂停 |
 | `content_filter` | 供应商拒绝了本次生成 | 改分镜 / 换模型 |
 | `memory_empty` | 没有检索到可用记忆，本拍依据不足 | 补记忆 / 调 top_k |
