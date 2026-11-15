@@ -758,6 +758,8 @@ export class MemoryService {
     if (existing !== null) {
       const stored = existing.resultJson === null ? {} : parseJson(existing.resultJson)
       if (stored.applied === true) {
+        // 重放也算一次「使用」：令牌在这里消费，避免留下可复用的窗口（与 G7 同口径）。
+        if ('token' in input) consumeAuthorGate(host.repos, input.token)
         return { state: this.state(chapter.id), detail: '重放：返回首次重建结果，未重复写入' }
       }
     }
