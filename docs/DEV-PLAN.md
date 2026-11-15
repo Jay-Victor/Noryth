@@ -2695,6 +2695,12 @@ jobs:
         with: { name: nsis, path: release/*.exe }
 ```
 
+### 14.1.1 nightly（性能与混沌）
+
+`pnpm test:perf`（PERF-01 基线）与 `pnpm test:chaos`（CHAOS-01..08）在
+`.github/workflows/nightly.yml` 按日跑，也可 `workflow_dispatch` 手动触发；不进每次提交的门，
+避免共享 runner 的磁盘抖动训练人忽略红灯。发布前手动跑一次并记录数字（见 `docs/M0-ACCEPTANCE.md` §5）。
+
 ### 14.2 硬门（不通过不进入下一任务）
 
 | 门 | 命令 | 失败含义 |

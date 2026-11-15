@@ -15,7 +15,7 @@
 | 07 | `docs/PHASE-07-WRITING.md` | done | F1–F7：分镜草案/G2、11 状态迁移表、出口 DSL AST、调度循环与自动模式、正文/拍卡/确认条/分镜编辑器、拒演/耗尽/预算/模型错误四类暂停；`E2E-WRITE-01/02`；新增 `0004_writing.sql`（`LATEST_SCHEMA_VERSION = 4`） | 全部通过：本地门禁全绿（unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本）+ CI run `43609438344`（verify 与 e2e 均绿） | 真实模型未接（Key 在阶段 10）；影响分析仅 M1；分支树只有线性 revision；「上下文检查器」按钮占位 |
 | 08 | `docs/PHASE-08-REVIEW.md` | done | G1–G5：报告 schema/运行/展示、维度分与 issue 定位、patch 提案+三视图+逐条决定、G5/G6 与定稿、复检维度映射+3 轮上限、版本列表与只读对比；新增 `0005_review.sql`（`LATEST_SCHEMA_VERSION = 5`）；`E2E-REVIEW-01` | 全部通过：本地门禁全绿（unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本 / depcruise 221 modules）+ CI run `43676789043`（verify 1m19 / e2e 1m52，均绿；package 按规则跳过） | 异构复检（换模型）M1；「重新打开定稿」后端未接（DEV-PLAN §9.6）；版本对比没有分支树；报告证据是子串校验，语义越界仍为概率检测 |
 | 09 | `docs/PHASE-09-MEMORY.md` | done | H1–H5：抽取（只读 final + 证据子串 + 代码级分类）、提案 UI（逐条接受/编辑/拒绝 + 来源 + 讨论）、`MemoryExecutor` 单事务 apply（文本/事实/信念/边/向量/审计 + G7）、记忆浏览与软失效、向量后隔离回归；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 249 modules / unit 578 / integration 32 / e2e 13 / build / gen:check / 规格脚本）+ CI run `43681891589`（verify 与 e2e 均绿；package 按规则跳过） | bge 模型与 onnxruntime 未随包（阶段 10）；当前用确定性 `hash-bigram-v1` 降级，模型名写进每条 `embedding_model`；按章重建（T40）与 as-of/关系图 M1；世界状态作者编辑器 M1；`tool_call` 审计面板阶段 10 |
-| 10 | `docs/PHASE-10-DELIVERY.md` | done | I1–I4：safeStorage Key/密钥库、逐 Agent 绑定+批次审计+回滚、测试连接与计价、外观 token；J1–J6：fixture 假服务器、`E2E-M0-A` 14 步、`E2E-M0-PROVIDER`、`CHAOS-01..08`、NSIS+安装冒烟+更新检查、PERF-01、安全/无障碍/200% 缩放；导出 Markdown/TXT；新增 `0007_settings.sql`（`LATEST_SCHEMA_VERSION = 7`）；`docs/M0-ACCEPTANCE.md` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 266 modules / unit 605 / integration 35 / chaos 7 / e2e 17 / build / gen:check / 规格脚本）+ 安装冒烟 PASS（127MB NSIS） | 真实第二家供应商仍待 Key 补测；bge 权重不随包（M1，ADR-0004）；文件树抽屉未实现（M1）；Win10 22H2 未测；更新通道无发布地址 |
+| 10 | `docs/PHASE-10-DELIVERY.md` | done | I1–I4：safeStorage Key/密钥库、逐 Agent 绑定+批次审计+回滚、测试连接与计价、外观 token；J1–J6：fixture 假服务器、`E2E-M0-A` 14 步、`E2E-M0-PROVIDER`、`CHAOS-01..08`、NSIS+安装冒烟+更新检查、PERF-01、安全/无障碍/200% 缩放；导出 Markdown/TXT；新增 `0007_settings.sql`（`LATEST_SCHEMA_VERSION = 7`）；`docs/M0-ACCEPTANCE.md` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 266 modules / unit 604 / integration 35 / chaos 7 / e2e 17 / build / gen:check / 规格脚本）+ 安装冒烟 PASS（127MB NSIS） | 真实第二家供应商仍待 Key 补测；bge 权重不随包（M1，ADR-0004）；文件树抽屉未实现（M1）；Win10 22H2 未测；更新通道无发布地址 |
 
 状态：`todo` / `in_progress` / `blocked` / `done`。
 
@@ -26,7 +26,7 @@
 | 类型 | `pnpm typecheck` | 通过（main + web 两套） |
 | 依赖边界 | `pnpm depcruise` | 266 modules / 1298 deps，0 违规 |
 | Lint | `pnpm lint` | 通过（新增 scripts/install-smoke.mjs、tests/chaos/*.cjs 的 override） |
-| 单元 + 契约 | `pnpm test:unit` | 605 passed（含 PERF-01） |
+| 单元 + 契约 | `pnpm test:unit` | 604 passed |
 | 集成 | `pnpm vitest run tests/integration` | 35 passed（新增 provider-settings 3） |
 | 混沌 | `pnpm test:chaos` | 7 passed / 覆盖 CHAOS-01..08（事务强杀、outbox、apply、锁、写失败、更新、零丢失） |
 | E2E | `pnpm test:e2e` | 17 passed（新增 `E2E-M0-A`、`E2E-M0-PROVIDER`、J6 无障碍/200% 缩放） |
@@ -36,7 +36,7 @@
 | 设置补丁 | `tests/unit/settings/store.test.ts` | 4 条：补丁不带 default（回归）、外观浅合并、损坏文件回落、显式键 |
 | 导出 | `tests/unit/doc/export.test.ts` | 4 条：revision+content_hash、批注开关、TXT 无标记、空项目拒绝 |
 | fixture 服务器 | `tests/unit/fake-llm/fixture-server.test.ts` | 5 条：匹配/流式/工具/错误/repeat/目录加载 |
-| 性能 | `tests/unit/perf/m0-baseline.test.ts` | 30 章 720 拍 14.0 万字：切章 P95 1ms、检索 P95 27ms、导出 14ms、RSS 234MB |
+| 性能 | `pnpm test:perf`（`tests/perf/`，nightly） | 30 章 720 拍 14.0 万字：切章 P95 1ms、检索 P95 25ms、导出 16ms、RSS 231MB |
 | 打包 | `pnpm run pack` / `pnpm run dist` | `release/Noryth-0.1.0-setup.exe` 127MB + `latest.yml`；离线打包用 `electronDist` |
 | 安装冒烟 | `node scripts/install-smoke.mjs` | PASS：静默安装 → packaged=true/schema=7 → 建项目 → 安装目录 vec0 可 COUNT → 卸载 |
 | 构建 | `pnpm build` | 通过 |
@@ -48,7 +48,8 @@
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（605：unit+contract） / `pnpm vitest run tests/integration`（35）
+- `pnpm test:unit`（604：unit+contract） / `pnpm vitest run tests/integration`（35）
+- `pnpm test:perf`（PERF-01 基线；nightly，不进提交门）
 - `pnpm test:chaos`（7 条 / CHAOS-01..08） / `pnpm test:e2e`（17）
 - `node scripts/install-smoke.mjs`（安装冒烟：装 → 建项 → 卸载）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
@@ -350,7 +351,7 @@
 
 ## 当前阻塞
 
-- 无阻塞。阶段 10 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 266 modules / unit 605 / integration 35 / chaos 7 / e2e 17 / build / gen:check / 规格脚本）+ 安装冒烟 PASS；`docs/M0-ACCEPTANCE.md` 已写。M0 的 11 条退出标准逐条有证据。
+- 无阻塞。阶段 10 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 266 modules / unit 604 / integration 35 / chaos 7 / e2e 17 / build / gen:check / 规格脚本）+ 安装冒烟 PASS；`docs/M0-ACCEPTANCE.md` 已写。M0 的 11 条退出标准逐条有证据。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
 - 已知缺口（不阻塞）：

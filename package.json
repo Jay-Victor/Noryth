@@ -25,7 +25,8 @@
     "gen:check": "node scripts/gen-check.mjs",
     "pack": "electron-vite build && electron-builder --win --dir",
     "dist": "electron-vite build && electron-builder --win nsis --publish never",
-    "test:chaos": "vitest run --config vitest.chaos.config.ts"
+    "test:chaos": "vitest run --config vitest.chaos.config.ts",
+    "test:perf": "vitest run --config vitest.perf.config.ts"
   },
   "dependencies": {
     "better-sqlite3": "13.1.1",

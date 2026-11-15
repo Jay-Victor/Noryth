@@ -1,16 +1,16 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { withTransaction } from '../../../src/main/db/tx'
-import { allocateSeq } from '../../../src/main/db/seq'
-import type { ManifestRow } from '../../../src/main/db/hash'
-import { hashManifestRows } from '../../../src/main/db/hash'
-import { LATEST_SCHEMA_VERSION } from '../../../src/main/db/migrations'
-import { exportManuscript } from '../../../src/main/doc/export'
-import { createHashEmbedder } from '../../../src/main/memory/embed/hash'
-import { retrieveOwn } from '../../../src/main/memory/retrieve'
-import { openTestDb } from '../db/support/db'
-import { tempDir } from '../helpers'
+import { withTransaction } from '../../src/main/db/tx'
+import { allocateSeq } from '../../src/main/db/seq'
+import type { ManifestRow } from '../../src/main/db/hash'
+import { hashManifestRows } from '../../src/main/db/hash'
+import { LATEST_SCHEMA_VERSION } from '../../src/main/db/migrations'
+import { exportManuscript } from '../../src/main/doc/export'
+import { createHashEmbedder } from '../../src/main/memory/embed/hash'
+import { retrieveOwn } from '../../src/main/memory/retrieve'
+import { openTestDb } from '../unit/db/support/db'
+import { tempDir } from '../unit/helpers'
 
 /**
  * PERF-01 / J5 基线（DEV-PLAN §13.7）。
@@ -18,6 +18,8 @@ import { tempDir } from '../helpers'
  * 数据量按 M0 验收口径：30 章 / 720 拍 / 约 12 万字；检索额外灌 2,000 条记忆。
  * 20k 条记忆的 vec0 KNN 已在阶段 01 S1 实测（P95 33.64ms，ADR-0001），
  * 这里跑完整检索管线（向量 + 关键词 + RRF），记录 P50/P95。
+ *
+ * 单独配置（`pnpm test:perf`）：计时断言不进每次提交的门（DEV-PLAN §13.1 nightly）。
  */
 
 const cleanups: Array<() => void> = []

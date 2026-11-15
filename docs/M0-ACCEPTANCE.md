@@ -48,7 +48,7 @@
 | J2 E2E M0-A | `tests/e2e/m0-a.spec.ts`、`tests/e2e/provider.spec.ts` | 见 §1 第 1/4 条 |
 | J3 混沌 CHAOS-01..08 | `tests/chaos/*`、`pnpm test:chaos` | 7 条用例覆盖 8 个场景（01/02 合并）：事务中强杀、outbox 中断、apply 中断、数据库锁（5s → SQLITE_BUSY → `project_locked`）、写失败、更新中断、已确认拍零丢失 |
 | J4 NSIS + 原生模块 + 自动更新 | `electron-builder.yml`、`scripts/install-smoke.mjs`、`src/main/update.ts` | `pnpm run dist` → 127MB NSIS + latest.yml；`node scripts/install-smoke.mjs` → PASS（静默安装 → `packaged=true, schema=7` → 建项目 → 只读连接加载安装目录 `resources/native/vec0.dll` 并 COUNT `memory_vec` → 卸载移除主程序）。更新检查后台执行、失败不阻塞（`CHAOS-07`） |
-| J5 性能基线 + 诊断 | `tests/unit/perf/m0-baseline.test.ts`、`observability/diagnostics.ts` | PERF-01：30 章 / 720 拍 / 14.0 万字，切章 P95 1ms、检索 P95 27ms（2,000 条记忆 + 完整管线）、导出 14ms、RSS 234MB；打开 30 章的冷启动由 `tests/unit/db/perf.test.ts` 覆盖（约 400ms < 800ms，阶段 02 记录）。诊断包无正文/无 Key（`tests/e2e/diagnostics.spec.ts`） |
+| J5 性能基线 + 诊断 | `tests/perf/m0-baseline.spec.ts`（`pnpm test:perf`，nightly）、`observability/diagnostics.ts` | PERF-01：30 章 / 720 拍 / 14.0 万字，切章 P95 1ms、检索 P95 27ms（2,000 条记忆 + 完整管线）、导出 14ms、RSS 234MB；打开 30 章的冷启动由 `tests/unit/db/perf.test.ts` 覆盖（约 400ms < 800ms，阶段 02 记录）。诊断包无正文/无 Key（`tests/e2e/diagnostics.spec.ts`） |
 | J6 安全清单 + 无障碍 + 200% 缩放 | `tests/e2e/a11y.spec.ts`、`db/busy.ts` | 桥只有命名空间方法（无通用 invoke/send）、无 `require`；所有可见按钮有可读名字；200% 缩放下导航/状态栏/确认条无截断（修复了确认条不换行的真实缺陷） |
 
 ## 3 安装冒烟记录（本机 Windows 11 x64）
@@ -83,7 +83,8 @@ node scripts/install-smoke.mjs
 
 ```bash
 pnpm typecheck && pnpm lint && pnpm depcruise
-pnpm test:unit                 # 605（unit+contract，含 PERF-01）
+pnpm test:unit                 # 604（unit+contract）
+pnpm test:perf                 # PERF-01 性能基线（nightly；不进提交门）
 pnpm vitest run tests/integration   # 35
 pnpm test:chaos                # 7 条 / 覆盖 CHAOS-01..08
 pnpm test:e2e                  # 17（含 E2E-M0-A / E2E-M0-PROVIDER / J6）
