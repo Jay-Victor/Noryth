@@ -14,7 +14,7 @@
 | 06 | `docs/PHASE-06-PLANNING.md` | done | E1–E5：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表、G1 注册与建库、覆盖检查占位；`E2E-PLAN-01/02` | 全部通过：本地门禁 + CI run `43603698391`（verify 与 e2e 均绿） | 真实供应商 Key 未接（阶段 10）；覆盖检查/影响分析仅占位（P1）；会话重命名/归档只有后端，UI 未接 |
 | 07 | `docs/PHASE-07-WRITING.md` | done | F1–F7：分镜草案/G2、11 状态迁移表、出口 DSL AST、调度循环与自动模式、正文/拍卡/确认条/分镜编辑器、拒演/耗尽/预算/模型错误四类暂停；`E2E-WRITE-01/02`；新增 `0004_writing.sql`（`LATEST_SCHEMA_VERSION = 4`） | 全部通过：本地门禁全绿（unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本）+ CI run `43609438344`（verify 与 e2e 均绿） | 真实模型未接（Key 在阶段 10）；影响分析仅 M1；分支树只有线性 revision；「上下文检查器」按钮占位 |
 | 08 | `docs/PHASE-08-REVIEW.md` | done | G1–G5：报告 schema/运行/展示、维度分与 issue 定位、patch 提案+三视图+逐条决定、G5/G6 与定稿、复检维度映射+3 轮上限、版本列表与只读对比；新增 `0005_review.sql`（`LATEST_SCHEMA_VERSION = 5`）；`E2E-REVIEW-01` | 全部通过：本地门禁全绿（unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本 / depcruise 221 modules）+ CI run `43676789043`（verify 1m19 / e2e 1m52，均绿；package 按规则跳过） | 异构复检（换模型）M1；「重新打开定稿」后端未接（DEV-PLAN §9.6）；版本对比没有分支树；报告证据是子串校验，语义越界仍为概率检测 |
-| 09 | `docs/PHASE-09-MEMORY.md` | in_progress | H1–H5：抽取（只读 final + 证据子串 + 代码级分类）、提案 UI（逐条接受/编辑/拒绝 + 来源 + 讨论）、`MemoryExecutor` 单事务 apply（文本/事实/信念/边/向量/审计 + G7）、记忆浏览与软失效、向量后隔离回归；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01` | 本地验收全绿（typecheck / lint / depcruise 249 modules / unit 578 / integration 32 / e2e 13 / build / gen:check / 规格脚本）；CI 与 `phase-09-done` 标签待提交推送后补 | bge 模型与 onnxruntime 未随包（阶段 10）；当前用确定性 `hash-bigram-v1` 降级，模型名写进每条 `embedding_model`；按章重建（T40）与 as-of/关系图 M1；世界状态作者编辑器 M1；`tool_call` 审计面板阶段 10 |
+| 09 | `docs/PHASE-09-MEMORY.md` | done | H1–H5：抽取（只读 final + 证据子串 + 代码级分类）、提案 UI（逐条接受/编辑/拒绝 + 来源 + 讨论）、`MemoryExecutor` 单事务 apply（文本/事实/信念/边/向量/审计 + G7）、记忆浏览与软失效、向量后隔离回归；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 249 modules / unit 578 / integration 32 / e2e 13 / build / gen:check / 规格脚本）+ CI run `43681891589`（verify 与 e2e 均绿；package 按规则跳过） | bge 模型与 onnxruntime 未随包（阶段 10）；当前用确定性 `hash-bigram-v1` 降级，模型名写进每条 `embedding_model`；按章重建（T40）与 as-of/关系图 M1；世界状态作者编辑器 M1；`tool_call` 审计面板阶段 10 |
 | 10 | `docs/PHASE-10-DELIVERY.md` | todo | — | — | — |
 
 状态：`todo` / `in_progress` / `blocked` / `done`。
@@ -239,6 +239,9 @@
 | 构建 | `pnpm build` | 通过（新增 `out/main/memory-embed-worker.js` 入口） |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T37/T39 升 1.1.0） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 提交 | `4fca40c`（feat） | 已推送 origin/dev |
+| CI | GitHub Actions run `43681891589`（`4fca40c`） | verify 与 e2e 均绿；package 按规则跳过 |
+| 阶段标签 | `phase-09-done` → `4fca40c` | 已推送 origin |
 
 ## 关键决策
 
@@ -310,7 +313,7 @@
 
 ## 当前阻塞
 
-- 无阻塞。阶段 09 本地验收全绿（2026-11-15）：typecheck / lint / depcruise 249 modules / unit 578 / integration 32 / e2e 13 / build / gen:check / 规格脚本。**唯一剩余步骤**：提交并推送 `dev` 跑 CI，绿后打 `phase-09-done` 标签（本会话未提交，等作者确认）。
+- 无阻塞。阶段 09 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 249 modules / unit 578 / integration 32 / e2e 13 / build / gen:check / 规格脚本）+ CI run `43681891589`（verify 与 e2e 均绿），标签 `phase-09-done` → `4fca40c`，已推送 origin。
 - 真实模型未配置 Key（不阻塞）：创作台/审批台/记忆台沿用阶段 06 的环境变量口径（`NORYTH_WRITE_API_KEY` / `NORYTH_REVIEW_API_KEY` / `NORYTH_MEMORY_API_KEY` / `NORYTH_PLAN_API_KEY` / `NORYTH_<PROVIDER>_API_KEY`）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_MEMORY_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
 - 已知缺口（不阻塞）：
@@ -322,7 +325,7 @@
 
 ## 下一阶段交接
 
-- 阶段 09 本地验收全绿（2026-11-15），待提交/CI/标签。新增迁移 `0006_memory.sql`，`LATEST_SCHEMA_VERSION = 6`；`DEV-PLAN §5.16 / §10.9` 已同步（evidence_quote / memory_audit / memory_message / apply 与检索实现记录）。
+- 阶段 09 已 `done`（2026-11-15）。提交 `4fca40c`；CI run `43681891589` 全绿；标签 `phase-09-done` → `4fca40c`。新增迁移 `0006_memory.sql`，`LATEST_SCHEMA_VERSION = 6`；`DEV-PLAN §5.16 / §10.9` 已同步（evidence_quote / memory_audit / memory_message / apply 与检索实现记录）。
 - 阶段 10 直接复用：
   - `MemoryService`（`memory/service.ts`）已装配嵌入器；`createEmbedder` 在 `memory/embed/model.ts`，模型目录解析优先 `process.resourcesPath/models`，阶段 10 只需把模型与 onnxruntime 放进去。
   - `memory.apply` 是记忆/世界状态/向量/审计的唯一写入口；`memory/retrieve.ts` 是唯一检索管线（T10/T11 已接入）；隔离回归 `isolationReport()` 可直接进验收脚本。
