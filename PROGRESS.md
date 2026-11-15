@@ -18,7 +18,7 @@
 | 10 | `docs/PHASE-10-DELIVERY.md` | done | I1–I4：safeStorage Key/密钥库、逐 Agent 绑定+批次审计+回滚、测试连接与计价、外观 token；J1–J6：fixture 假服务器、`E2E-M0-A` 14 步、`E2E-M0-PROVIDER`、`CHAOS-01..08`、NSIS+安装冒烟+更新检查、PERF-01、安全/无障碍/200% 缩放；导出 Markdown/TXT；新增 `0007_settings.sql`（`LATEST_SCHEMA_VERSION = 7`）；`docs/M0-ACCEPTANCE.md` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 266 modules / unit 604 / integration 35 / chaos 7 / e2e 17 / build / gen:check / 规格脚本）+ 安装冒烟 PASS（127MB NSIS） | 真实第二家供应商仍待 Key 补测；bge 权重不随包（M1，ADR-0004）；文件树抽屉未实现（M1）；Win10 22H2 未测；更新通道无发布地址 |
 | 11 | `docs/PHASE-11-SCALE.md` | done | M1-12 多项目切换（`project.busy` 探针 + `project_open.cancelRunning` + 切换确认框 + 事件按 projectId 丢弃）；M1-9 章节摘要查询（2 条聚合，不再逐章读正文）+ `VirtualList`（32/8/roving）+ `PERF-M1-01`；M1-16 文件树抽屉（320 overlay + 焦点陷阱 + `project.tree`）；M1-24 `openLastProject` + `project.autoOpen` 探测（失效/锁/schema/失败回首页）+ 诊断包 zip（纯 JS store、无 Key/正文）；`E2E-M1-SWITCH-01`、`E2E-M1-TREE-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 274 modules / unit 620 / integration 35 / chaos 7 / e2e 21 / build / gen:check / 规格脚本 / perf 2） | 真机 30 章冷启动尚未在安装包复跑（perf 走测试夹具）；W1 常驻树暂不支持 Ctrl+B 收起 |
 | 12 | `docs/PHASE-12-STORYBOARD-TIME.md` | done | M1-1 场景库（链接/解链/排序/fork/删除 + 只读引用 + 演出前 fork 守卫）、M1-2 时间三轴（`story_start/end`、`timeline`，`idx` 取章序）、T23 `timeline.query` 实现并打开（编排/审批/记忆各 +1）、verify `scene_cross_chapter_beats`、G2 物化回写 `scene_id`；`E2E-M1-TIME-01`、`E2E-M1-SCENE-01`；新增 `0008_story_time.sql`（`LATEST_SCHEMA_VERSION = 8`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 278 modules / unit 646 / integration 35 / chaos 7 / e2e 23 / build / gen:check / 规格脚本 / perf 2） | 故事时间仍是自由文本（M1 只展示，格式校验与自动推断 M2）；引用场在 G2 后统一排到草案场次之后（只读，不参与演出顺序）；场景库无批量操作；`tool_call` 审计面板仍缺（M1 阶段 18） |
-| 13 | `docs/PHASE-13-ASOF-WORLD.md` | todo | — | — | — |
+| 13 | `docs/PHASE-13-ASOF-WORLD.md` | done | M1-3 as-of 投影（`world/projection.ts` 纯函数）+ 世界时间线（章 + seq 滑杆、读者已知、`world.projection`）；M1-18 作者事实编辑器（`world/author-facts.ts` + `applyAuthorFact`/`closeAuthorFact`、`world.fact.add`/`world.fact.close`、source_type=author + 审计）；M1-17 上下文检查器（`turn_metric.context_json` 只读、预算条、`write.context`）；M1-19 审批/检索 as-of 边界（review 用 `covered_until_seq`、零水位拒绝复审、manuscript 按章截断）；`E2E-M1-ASOF-01`、`E2E-M1-CONTEXT-01`；未改 schema（`LATEST_SCHEMA_VERSION = 8`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 284 modules / unit 673 / integration 41 / chaos 7 / e2e 25 / build / gen:check / 规格脚本 / perf 2） | tool_call 审计面板仍缺（M1 阶段 18）；上下文检查器内嵌对话栅（<1600 未做模态变体）；世界状态无批量编辑 |
 | 14 | `docs/PHASE-14-REBUILD-GRAPH.md` | todo | — | — | — |
 | 15 | `docs/PHASE-15-COVERAGE-IMPACT.md` | todo | — | — | — |
 | 16 | `docs/PHASE-16-BRANCH-LONGFORM.md` | todo | — | — | — |
@@ -113,13 +113,39 @@
 | CI（复跑） | GitHub Actions run `43709035637`（`4711d3c`） | verify + e2e 均绿（同一代码；`43708534963` 的 e2e 中断为环境偶发） |
 | 阶段标签 | `phase-12-done` → `374578b` | 已推送 origin |
 
+## 验证记录（阶段 13，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 284 modules / 1384 deps，0 违规 |
+| Lint | `pnpm lint` | 通过 |
+| 单元 + 契约 | `pnpm test:unit` | 673 passed（新增 projection 5 / author-facts 9 / sources-asof 3 / manuscript-asof 4 / context-inspection 3 / world-view 3） |
+| 集成 | `pnpm vitest run tests/integration` | 41 passed（新增 `asof.spec.ts` 6 条） |
+| 混沌 | `pnpm test:chaos` | 7 passed / CHAOS-01..08 |
+| E2E | `pnpm test:e2e` | 25 passed（新增 `E2E-M1-ASOF-01`、`E2E-M1-CONTEXT-01`） |
+| as-of 投影 | `tests/unit/world/projection.test.ts` | 两个 as_of 返回不同事实/信念/边；读者已知只由 reveal_seq 决定；futureFacts 与 notYetRevealed 分开；输入逆序输出逐字一致 |
+| 作者事实 | `tests/unit/world/author-facts.test.ts` | 单值/多值由谓词登记表决定；未知知情者/越界序/秘密早揭示拒绝；`source_type=author` + `memory_audit(actor=author)`；单值槽旧值 valid_to 关闭、重复三元组 duplicate；关闭只写 valid_to、可回放 |
+| 审查边界 | `tests/integration/asof.spec.ts` | 第 3 章审批的 `world.get_objective` 工具结果 as_of=24、含「早夭的名字」（旧事实、读者未知）、不含「祠堂夹层」（第 20 章才产生）；第 20 章审批 as_of=92 且看得到；covered=0 章复审 `invalid_args` 且零模型请求 |
+| 定稿检索 | `tests/unit/tools/manuscript-asof.test.ts` | ch1 上下文 search_final 0 命中、ch2 上下文命中 ch2；显式请求更晚章 `invalid_args`（details.currentOrd）；get_final_chapter 同；`memory.retrieve_audit` as_of=1 看不到 learned_seq=2 的记忆 |
+| 水位解析 | `tests/unit/context/sources-asof.test.ts` | 已写章取本章 covered；新章取前一章；第一章 0；review 0 水位 `invalid_args`；collectContext 同口径 |
+| 上下文检查器 | `tests/unit/scheduler/context-inspection.test.ts` + `tests/e2e/context.spec.ts` | 无指标 found=false；块/裁剪/as_of/prefix/ratio 与 `context_json` 对齐；坏 JSON 不崩；E2E 断言 UI 数字与 `turn_metric` 逐项一致、正文不被遮、Esc 关闭 |
+| 状态矩阵 | `tests/unit/world-view-states.test.ts` | 读者可见性三态（已知/未揭示/—）、检查器三态（loading/missing/ready）、预算提示三种来源；文案唯一 |
+| UI 巡检 | Playwright 截图（1440 / 200% 缩放） | 世界事实表 10 列在 1440 不溢出（表头缩写 + min-width 520）；200% 下横向滚动而非一字列；时间线换行；检查器占对话栅、标题不换行 |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→…→0008；未新增迁移，`LATEST_SCHEMA_VERSION = 8` |
+| 性能 | `pnpm test:perf` | PERF-01：切章 P95 1ms、检索 P95 26ms、导出 16ms、RSS 258MB；PERF-M1-01：切章 P95 1ms、列表摘要 P95 1ms、RSS 148MB |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| CI | 待推送后跑 | 本地无 CI runner；推送后记录 run id |
+
 ## 当前可运行命令
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（646：unit+contract） / `pnpm vitest run tests/integration`（35）
+- `pnpm test:unit`（673：unit+contract） / `pnpm vitest run tests/integration`（41）
 - `pnpm test:perf`（PERF-01 + PERF-M1-01 基线；nightly，不进提交门）
-- `pnpm test:chaos`（7 条 / CHAOS-01..08） / `pnpm test:e2e`（23）
+- `pnpm test:chaos`（7 条 / CHAOS-01..08） / `pnpm test:e2e`（25）
 - `node scripts/install-smoke.mjs`（安装冒烟：装 → 建项 → 卸载）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
 - `python docs/scripts/check_ui_spec.py` / `python docs/scripts/check_tool_spec.py`
@@ -433,10 +459,15 @@
 | T23 | 与 `write.timeline` 共用 `queryTimeline`；输出是 §5.2 形状的超集（每拍多 `timeline`，另加 `scenes[]`）；`as_of` 超章水位 → `stale_revision`；`enabled: true` 打开 | `tools/support/timeline.ts`、`tools/manifests/knowledge.ts` |
 | 工具计数 | `M0_TOOL_COUNTS` 只数 `milestone=M0`（PRD §4.11 基线 36 不变）；新增 `TOOL_COUNTS` 记录当前启用数；`check_tool_spec.py` 仍数 `m0=true` | `scripts/gen-tools.mjs`、`generated/allowlist.ts` |
 | G2 回写 | 物化后把 `scene_id` 写回分镜草案：编辑器据此显示三轴、场景库据此判定「已在本章演出」，重复保存不会重复建场景 | `scheduler/storyboard.ts` |
+| as-of 水位 | 章节认知水位统一由 `context/sources.resolveChapterAsOf` 决定：write = 本章 covered（新章取前一章），review = 本章 covered 且为 0 拒绝；`project.seq_head` 不再作为 Agent 上下文水位 | `src/main/context/sources.ts`、`review/run.ts` |
+| 世界投影 | `world/projection.ts` 纯函数：事实按自身 valid_from/to、信念按 learned_seq、边按 since/valid_to；读者已知只认 `public + reveal_seq ≤ as_of`；`futureFacts`（还不存在）与 `notYetRevealed`（读者未知）分开计数 | `src/main/world/projection.ts` |
+| 作者事实 | 作者写入口只有 `world.fact.add` / `world.fact.close` → `applyAuthorFact`（单一事务 + 审计 actor=author）；单值槽按谓词登记表（`MULTI_VALUE_PREDICATES`），新值先关旧值，回填早于当前值被拒 | `src/main/world/author-facts.ts`、`memory/apply.ts` |
+| 定稿检索 | `manuscript.search_final` / `manuscript.get_final_chapter` 只返回 `chapter.ord ≤ 当前章` 的定稿；显式请求更晚章 → invalid_args（details 带 currentOrd） | `tools/manifests/knowledge.ts` |
+| 上下文检查器 | 数据源 `turn_metric.context_json`；`beat_id` 沿 supersedes 链查最近一条（生成记的是槽位拍）；只读、不回传被裁正文、显示估算 + 上次实际 ratio | `scheduler/service.ts`、`renderer/pages/write/ContextInspector.tsx` |
 
 ## 当前阻塞
 
-- 无阻塞。阶段 12 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 278 modules / unit 646 / integration 35 / chaos 7 / e2e 23 / build / gen:check / 规格脚本 / perf 2）+ CI run `43707502797`（verify 与 e2e 均绿），标签 `phase-12-done` → `374578b` 已推送 origin；`LATEST_SCHEMA_VERSION = 8`。
+- 无阻塞。阶段 13 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 284 modules / unit 673 / integration 41 / chaos 7 / e2e 25 / build / gen:check / 规格脚本 / perf 2）；CI 待推送后跑，`LATEST_SCHEMA_VERSION = 8`（本阶段未改 schema）。
 - 遗留观察（不阻塞）：阶段 12 的文档提交 run `43708534963`（`37af4db`）e2e 在第 10 条（provider）之前中断：日志只有 `Downloading Electron binary...`，前 9 条已 `ok`，verify 全绿。形态与阶段 11 的 `43699407599` 一致（runner 上 `node_modules/electron/dist` 不可用），判断为环境偶发；复跑记录见「验证记录（阶段 12）」。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录（M1 阶段 18，M1-26）。
@@ -445,24 +476,24 @@
   - 文件树抽屉（Ctrl B）已在阶段 11 交付（W2/W3 overlay 320、焦点进出、200% 缩放）；W1 常驻树的 Ctrl+B 收起仍未做（不阻断验收）。
   - Windows 10 22H2 未单独做安装冒烟（本机 Win11 PASS）；发布前补一台 VM（M1 阶段 18）。
   - 自动更新：`src/main/update.ts` 后台检查 + electron-updater 下载，`NORYTH_UPDATE_FEED` 未配置时 `disabled`；首个 release tag 时填 feed（M1 阶段 18）。
-  - 按章重建（T40）与 as-of 时间线、关系图是 M1（阶段 13/14）；记忆台的「按章重建」按钮禁用。
-  - 世界状态作者编辑器（显式新增事实）M1（阶段 13），当前只读。
+  - 按章重建（T40）与关系图是 M1（阶段 14）；记忆台的「按章重建」按钮禁用。as-of 时间线已在阶段 13 交付。
+  - 世界状态作者编辑器已在阶段 13 交付（新增/关闭事实、单值槽 supersede、审计）；批量编辑/导入/导出设定集是 M2。
   - `tool_call` 审计面板属 P1（工具调用指标面板），M0 未做；记忆台展示 `memory_audit` 动作链，`tool_call` 表已按 §9.5 落库（M1 阶段 18）。
-  - 创作台的「上下文检查器」按钮是占位（M1 阶段 13）；M0 分支只有线性 revision（M1 阶段 16）；审批的异构复检在 M1（阶段 16）；「重新打开定稿」后端未接（DEV-PLAN §9.6，M1 阶段 16）。
+  - 上下文检查器已在阶段 13 交付；<1600 宽度用对话栅内嵌（UI-DESIGN §2.6 的模态变体未做，未进验收）。M0 分支只有线性 revision（M1 阶段 16）；审批的异构复检在 M1（阶段 16）；「重新打开定稿」后端未接（DEV-PLAN §9.6，M1 阶段 16）。
   - 「预览 tab 上限 6」当前无对应界面：预览区只有正文/分镜两个视图 tab；多文档 tab 留给阶段 13 的上下文检查器与文件预览扩展。W1 常驻树的 Ctrl+B 收起同样后置（不阻断验收）。
 
 ## 下一阶段交接
 
-- 阶段 12 已 `done`（2026-11-15）。M1 阶段 11–12 的证据见本文件对应「验证记录」。下一阶段从 `docs/PHASE-13-ASOF-WORLD.md` 开工（as-of 与世界状态，迁移 0009 之前先读 `DEV-PLAN` §10 / `PHASE-13`）。
-- 阶段 13 直接复用（阶段 12 新增）：
-  - **场景归属**：任何「这一拍属于哪一章」的判断都用 `repos.scene.ownerChapter(sceneId)` / `listUsageByProject(projectId)`；不要用 `chapter_scene` 反推演出章（引用链接会误导）。
-  - **写正文守卫**：`commitBeat` 已拒绝「场景在别的章演出」的写入；新增写入路径（patch apply / 导入）也要先过同一判定。
-  - **时间轴**：`world/timeline` 语义在 `tools/support/timeline.ts`（`queryTimeline`），工具与 IPC 共用；阶段 13 的世界时间线 UI 直接消费它，不要另写一套三轴映射。
-  - **引用与 fork**：引用场只读、`revision_beat` 只含本章拍；需要在新章演出时走 `forkSceneIntoChapter`，不要手工复制 beat（会漏 revision 与 outbox）。
-  - **迁移**：0008 已应用，阶段 13 从 0009 起；迁移测试 `tests/unit/migrator.test.ts` 的 `applied` 列表要同步。
+- 阶段 13 已 `done`（2026-11-15）。下一阶段从 `docs/PHASE-14-REBUILD-GRAPH.md` 开工（按章重建 + 关系图）。
+- 阶段 14 直接复用（阶段 13 新增）：
+  - **认知水位**：任何「某章能看见什么」一律走 `context/sources.resolveChapterAsOf`（write/review 两种模式）；不要再用 `project.seq_head` 作为章级水位。重建旧章必须回放到该章 `covered_until_seq`，否则重建会把未来事实写回旧章。
+  - **投影**：关系图的数据源是 `WorldService.projection({ asOf })` 的 `edges` + `characters`（含 `id/name`）；不要另写一份 edges 映射，也不要绕过 `valid_to_seq`。`readerKnown/pendingReveal` 的语义在 `world/projection.ts`。
+  - **作者写入口**：世界事实只有 `applyAuthorFact` / `closeAuthorFact`（`memory/apply.ts`）；重建（T40）也必须走 `MemoryExecutor` 单事务，旧条目 `status='inactive'`，不物理删除。
+  - **审批水位**：`review/run.ts` 的 `asOf` 已是本章 covered，`review.state.asOf` 对外可见；新增审批/检索工具时沿用同一边界，`manuscript.*` 只到当前章。
+  - **迁移**：0008 已应用，阶段 14 从 0009 起；迁移测试 `tests/unit/migrator.test.ts` 的 `applied` 列表要同步。
 - M1 的关键回归：
   1. `E2E-M1-TIME-01`（闪回不误报，阶段 12）✅
-  2. `E2E-M1-ASOF-01`（第 3 章读不到第 20 章事实，阶段 13）。
+  2. `E2E-M1-ASOF-01`（第 3 章读不到第 20 章事实，阶段 13）✅
   3. `E2E-M1-REBUILD-01`（按章重建旧记忆 inactive，阶段 14）。
   4. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）。
   5. `E2E-M1-A`（30 章连续创作，阶段 18 / nightly）。
