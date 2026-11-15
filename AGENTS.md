@@ -12,6 +12,7 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 - 阶段 06 已 `done`（2026-11-14）：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表 `agent_proposal`、G1 注册 + 5 私有/1 公共命名空间 + 隔离自检、覆盖检查占位；新增 `0003_planning.sql`（`LATEST_SCHEMA_VERSION = 3`）；`E2E-PLAN-01/02`。CI run `43603698391` 全绿；标签 `phase-06-done` → `bbea9df`。真实规划模型需 `NORYTH_PLAN_API_KEY`（设置页 Key 在阶段 10）。
 - 阶段 09 已 `done`（2026-11-15）：`memory/extract|apply|retrieve`、`MemoryExecutor`（单事务 + 向量 + 审计 + G7）、记忆台四分区与软失效；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01`。CI run `43681891589` 全绿；标签 `phase-09-done` → `4fca40c`。
 - 阶段 10 已 `done`（2026-11-15）：I1–I4 设置中心（safeStorage Key、逐 Agent 绑定 + 批次审计 + 回滚、测试连接、外观）、J1–J6（fixture 假服务器、`E2E-M0-A` 14 步、`E2E-M0-PROVIDER`、`CHAOS-01..08`、NSIS + 安装冒烟 + 更新检查、PERF-01、安全/无障碍/200% 缩放）、导出 Markdown/TXT；新增 `0007_settings.sql`（`LATEST_SCHEMA_VERSION = 7`）；M0 验收报告 `docs/M0-ACCEPTANCE.md`。
+- M1 阶段文档已建（2026-11-15）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`，状态 `todo`；阶段顺序与任务 ID 见 `docs/DEV-PLAN.md` §12.4 / §12.6。
 - S3 按「DeepSeek 一家」收口（`deepseek-flash` 实测），第二家供应商顺延到阶段 04 D1 前补测；见 `docs/adr/0003-providers.md`。
 - `docs/` 已入库，是项目规格的一部分；不要删除、移动或重写。
 - 进度与交接写 `PROGRESS.md`；阶段范围与验收以 `docs/PHASE-0X-*.md` 为准。
@@ -36,7 +37,7 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 1. `docs/PRD.md` — 产品定位、6 个 Agent、权限矩阵、42 个工具、闸门、数据模型。**契约以此为准。**
 2. `docs/UI-DESIGN.md` — 六页布局、四分区栅格、逐拍确认条、状态矩阵。
 3. `docs/DEV-PLAN.md` — 技术选型、DDL、模块边界、调用流水线、测试与验收。
-4. `docs/PHASE-01` 至 `PHASE-10` — 开发顺序、每阶段任务/交付物/验收/退出条件。
+4. `docs/PHASE-01` 至 `PHASE-18` — 开发顺序、每阶段任务/交付物/验收/退出条件（01–10 为 M0，11–18 为 M1）。
 5. `PROGRESS.md` — 当前进度与交接。
 
 ## 开发顺序
@@ -47,6 +48,8 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 01 骨架 → 02 数据 → 03 工具 → 04 运行时 → 05 垂直切片
 → 06 规划台 → 07 创作台 → 08 审批台 → 09 记忆台 → 10 设置/交付
 ```
+
+M1：11 规模底座 → 12 场景/时间三轴 → 13 as-of → 14 重建/关系图 → 15 覆盖/影响/伏笔 → 16 分支/重开 → 17 DOCX → 18 分发/验收。
 
 - 阶段 05 是硬检查点：一拍没有端到端跑通，不进入 06。
 - 每个阶段以「进入下一阶段的条件」为闸门；不满足就不进入下一阶段。

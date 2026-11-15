@@ -6,20 +6,20 @@
 
 | # | 项 | 原因 | 目标 |
 |---:|---|---|---|
-| 1 | 启动时自动打开上次项目（含设置开关） | 首页已实现「打开/新建」，自动打开需要设置项与锁交互策略 | M1 |
-| 2 | 应用图标与安装包品牌资源 | M0 仍用 Electron 默认图标，不影响验收 | M1 |
+| 1 | 启动时自动打开上次项目（含设置开关） | 首页已实现「打开/新建」，自动打开需要设置项与锁交互策略 | M1（阶段 11，M1-24） |
+| 2 | 应用图标与安装包品牌资源 | M0 仍用 Electron 默认图标，不影响验收 | M1（阶段 18，M1-25） |
 | 3 | CodeMirror IME 实测 | 正文编辑器在阶段 07，本阶段无编辑器可测 | 阶段 07（F5） |
-| 4 | 诊断包压缩为 zip | 当前导出 JSON；M0 验收只要求可导出且无正文/Key | M1 |
+| 4 | 诊断包压缩为 zip | 当前导出 JSON；M0 验收只要求可导出且无正文/Key | M1（阶段 11，M1-24） |
 | 5 | 项目列表「只读 · 已开窗」徽标 | 需要跨进程锁探测扩展到列表查询，当前只在打开后显示 | 阶段 02 |
 | 6 | 第二家供应商实测 | 作者决定 M0 先按 DeepSeek 一家收口 | 阶段 04 D1 前 |
-| 7 | Windows 10 22H2 干净机安装冒烟 | 只有 Windows 11 本机，无 Win10 环境；M0 在本机 Win11 已 PASS | M1（发布前） |
+| 7 | Windows 10 22H2 干净机安装冒烟 | 只有 Windows 11 本机，无 Win10 环境；M0 在本机 Win11 已 PASS | M1（阶段 18） |
 
 ## 阶段 10 发现的后置项
 
 | # | 项 | 原因 | 目标 |
 |---:|---|---|---|
-| 8 | bge 权重与 onnxruntime 随包 + T40 按章重建 | 本机 HuggingFace 超时、缓存只有 config/tokenizer；M0 用确定性 `hash-bigram-v1`，目录与 `extraResources` 已就位 | M1（ADR-0004 阶段 10 记录） |
-| 9 | 文件树抽屉（Ctrl B）+ 抽屉焦点进出 | 1440 下树区是 44px 轨道，UI-DESIGN §11 对应项未满足 | M1 |
-| 10 | `tool_call` 审计面板（工具调用指标） | PRD 列为 P1；`tool_call` 表已按 §9.5 落库 | M1 |
-| 11 | 真实第二家供应商补测 | 需要作者提供 Key；M0 用本地 OpenAI-compatible 假服务器证明协议与路由 | M1 前 |
-| 12 | 自动更新发布地址 | `NORYTH_UPDATE_FEED` 未配置时更新状态为 `disabled`；`latest.yml` 已生成 | 首个 release tag |
+| 8 | bge 权重与 onnxruntime 随包 + T40 按章重建 | 本机 HuggingFace 超时、缓存只有 config/tokenizer；M0 用确定性 `hash-bigram-v1`，目录与 `extraResources` 已就位 | M1（阶段 14，M1-4/M1-20） |
+| 9 | 文件树抽屉（Ctrl B）+ 抽屉焦点进出 | 1440 下树区是 44px 轨道，UI-DESIGN §11 对应项未满足 | M1（阶段 11，M1-16） |
+| 10 | `tool_call` 审计面板（工具调用指标） | PRD 列为 P1；`tool_call` 表已按 §9.5 落库 | M1（阶段 18，M1-23） |
+| 11 | 真实第二家供应商补测 | 需要作者提供 Key；M0 用本地 OpenAI-compatible 假服务器证明协议与路由 | M1（阶段 18，M1-26） |
+| 12 | 自动更新发布地址 | `NORYTH_UPDATE_FEED` 未配置时更新状态为 `disabled`；`latest.yml` 已生成 | 首个 release tag（阶段 18） |

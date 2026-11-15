@@ -16,6 +16,14 @@
 | 08 | `docs/PHASE-08-REVIEW.md` | done | G1–G5：报告 schema/运行/展示、维度分与 issue 定位、patch 提案+三视图+逐条决定、G5/G6 与定稿、复检维度映射+3 轮上限、版本列表与只读对比；新增 `0005_review.sql`（`LATEST_SCHEMA_VERSION = 5`）；`E2E-REVIEW-01` | 全部通过：本地门禁全绿（unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本 / depcruise 221 modules）+ CI run `43676789043`（verify 1m19 / e2e 1m52，均绿；package 按规则跳过） | 异构复检（换模型）M1；「重新打开定稿」后端未接（DEV-PLAN §9.6）；版本对比没有分支树；报告证据是子串校验，语义越界仍为概率检测 |
 | 09 | `docs/PHASE-09-MEMORY.md` | done | H1–H5：抽取（只读 final + 证据子串 + 代码级分类）、提案 UI（逐条接受/编辑/拒绝 + 来源 + 讨论）、`MemoryExecutor` 单事务 apply（文本/事实/信念/边/向量/审计 + G7）、记忆浏览与软失效、向量后隔离回归；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 249 modules / unit 578 / integration 32 / e2e 13 / build / gen:check / 规格脚本）+ CI run `43681891589`（verify 与 e2e 均绿；package 按规则跳过） | bge 模型与 onnxruntime 未随包（阶段 10）；当前用确定性 `hash-bigram-v1` 降级，模型名写进每条 `embedding_model`；按章重建（T40）与 as-of/关系图 M1；世界状态作者编辑器 M1；`tool_call` 审计面板阶段 10 |
 | 10 | `docs/PHASE-10-DELIVERY.md` | done | I1–I4：safeStorage Key/密钥库、逐 Agent 绑定+批次审计+回滚、测试连接与计价、外观 token；J1–J6：fixture 假服务器、`E2E-M0-A` 14 步、`E2E-M0-PROVIDER`、`CHAOS-01..08`、NSIS+安装冒烟+更新检查、PERF-01、安全/无障碍/200% 缩放；导出 Markdown/TXT；新增 `0007_settings.sql`（`LATEST_SCHEMA_VERSION = 7`）；`docs/M0-ACCEPTANCE.md` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 266 modules / unit 604 / integration 35 / chaos 7 / e2e 17 / build / gen:check / 规格脚本）+ 安装冒烟 PASS（127MB NSIS） | 真实第二家供应商仍待 Key 补测；bge 权重不随包（M1，ADR-0004）；文件树抽屉未实现（M1）；Win10 22H2 未测；更新通道无发布地址 |
+| 11 | `docs/PHASE-11-SCALE.md` | todo | — | — | — |
+| 12 | `docs/PHASE-12-STORYBOARD-TIME.md` | todo | — | — | — |
+| 13 | `docs/PHASE-13-ASOF-WORLD.md` | todo | — | — | — |
+| 14 | `docs/PHASE-14-REBUILD-GRAPH.md` | todo | — | — | — |
+| 15 | `docs/PHASE-15-COVERAGE-IMPACT.md` | todo | — | — | — |
+| 16 | `docs/PHASE-16-BRANCH-LONGFORM.md` | todo | — | — | — |
+| 17 | `docs/PHASE-17-DOCX-EXPORT.md` | todo | — | — | — |
+| 18 | `docs/PHASE-18-DELIVERY-M1.md` | todo | — | — | — |
 
 状态：`todo` / `in_progress` / `blocked` / `done`。
 
@@ -356,16 +364,16 @@
 
 - 无阻塞。阶段 10 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 266 modules / unit 604 / integration 35 / chaos 7 / e2e 17 / build / gen:check / 规格脚本）+ 安装冒烟 PASS；`docs/M0-ACCEPTANCE.md` 已写。M0 的 11 条退出标准逐条有证据。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
-- 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
+- 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录（M1 阶段 18，M1-26）。
 - 已知缺口（不阻塞）：
-  - **bge 权重不随包（M1）**：`resources/models/` 已进 `extraResources` 与安装包（目录 + 说明），但权重未交付（本机 HuggingFace 超时、缓存只有 config/tokenizer），M0 用确定性 `hash-bigram-v1` 降级（每条 `memory_entry.embedding_model` 记录真实模型，向量通道按模型过滤）。放入权重即启用，无需改代码；按 ADR-0004 阶段 10 记录执行体积/冷启动门槛与 T40 重建。
-  - 文件树抽屉（Ctrl B）未实现：1440 下是 44px 轨道；UI-DESIGN §11 对应条目不满足（M1）。
-  - Windows 10 22H2 未单独做安装冒烟（本机 Win11 PASS）；发布前补一台 VM。
-  - 自动更新：`src/main/update.ts` 后台检查 + electron-updater 下载，`NORYTH_UPDATE_FEED` 未配置时 `disabled`；首个 release tag 时填 feed。
-  - 按章重建（T40）与 as-of 时间线、关系图是 M1；记忆台的「按章重建」按钮禁用。
-  - 世界状态作者编辑器（显式新增事实）M1，当前只读。
-  - `tool_call` 审计面板属 P1（工具调用指标面板），M0 未做；记忆台展示 `memory_audit` 动作链，`tool_call` 表已按 §9.5 落库。
-  - 创作台的「上下文检查器」按钮是占位；M0 分支只有线性 revision；审批的异构复检在 M1；「重新打开定稿」后端未接（DEV-PLAN §9.6）。
+  - **bge 权重不随包（M1 阶段 14）**：`resources/models/` 已进 `extraResources` 与安装包（目录 + 说明），但权重未交付（本机 HuggingFace 超时、缓存只有 config/tokenizer），M0 用确定性 `hash-bigram-v1` 降级（每条 `memory_entry.embedding_model` 记录真实模型，向量通道按模型过滤）。放入权重即启用，无需改代码；按 ADR-0004 阶段 10 记录执行体积/冷启动门槛与 T40 重建。
+  - 文件树抽屉（Ctrl B）未实现：1440 下是 44px 轨道；UI-DESIGN §11 对应条目不满足（M1 阶段 11）。
+  - Windows 10 22H2 未单独做安装冒烟（本机 Win11 PASS）；发布前补一台 VM（M1 阶段 18）。
+  - 自动更新：`src/main/update.ts` 后台检查 + electron-updater 下载，`NORYTH_UPDATE_FEED` 未配置时 `disabled`；首个 release tag 时填 feed（M1 阶段 18）。
+  - 按章重建（T40）与 as-of 时间线、关系图是 M1（阶段 13/14）；记忆台的「按章重建」按钮禁用。
+  - 世界状态作者编辑器（显式新增事实）M1（阶段 13），当前只读。
+  - `tool_call` 审计面板属 P1（工具调用指标面板），M0 未做；记忆台展示 `memory_audit` 动作链，`tool_call` 表已按 §9.5 落库（M1 阶段 18）。
+  - 创作台的「上下文检查器」按钮是占位（M1 阶段 13）；M0 分支只有线性 revision（M1 阶段 16）；审批的异构复检在 M1（阶段 16）；「重新打开定稿」后端未接（DEV-PLAN §9.6，M1 阶段 16）。
 
 ## 下一阶段交接
 
@@ -375,11 +383,14 @@
   - 绑定快照在 `agents/job.ts` 冻结；新 Agent 仍只有 6 个（铁律），不要加第 7 个。
   - 导出 `doc/export.ts` 已支持 Markdown/TXT；DOCX 是 M1，加格式时保持「只读 + 版本锚点」两条不变式。
   - 混沌套件 `pnpm test:chaos` 可扩展场景；安装冒烟 `node scripts/install-smoke.mjs` 在任何 Windows 机器可复跑。
-- M1 开工前建议顺序：
-  1. 文件树抽屉（Ctrl B）+ 上下文检查器（UI-DESIGN §11 两项）。
-  2. bge 权重随包 + T40 按章重建 + as-of 时间线/关系图。
-  3. 分支树（线性 revision 之外）、异构复检（审批绑不同供应商自动切换）。
-  4. DOCX 导出、多项目切换、Win10 VM 安装冒烟。
+- M1 阶段文档已建（2026-11-15）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`，状态均为 `todo`；阶段顺序与任务 ID 已同步 `docs/DEV-PLAN.md` §12.4 / §12.6。
+- M1 开工顺序：11 规模底座 → 12 场景与时间三轴 → 13 as-of 与世界状态 → 14 重建/关系图/bge → 15 覆盖/影响/伏笔 → 16 分支/重开/摘要 → 17 DOCX → 18 分发与验收。阶段 11 不动 schema；0008 从阶段 12 开始。
+- M1 的关键回归：
+  1. `E2E-M1-TIME-01`（闪回不误报，阶段 12）。
+  2. `E2E-M1-ASOF-01`（第 3 章读不到第 20 章事实，阶段 13）。
+  3. `E2E-M1-REBUILD-01`（按章重建旧记忆 inactive，阶段 14）。
+  4. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）。
+  5. `E2E-M1-A`（30 章连续创作，阶段 18 / nightly）。
 - 发布注意：首个 release tag 前配置 `NORYTH_UPDATE_FEED`（或 electron-builder publish），否则更新状态为 `disabled`；`latest.yml` 已随 `pnpm run dist` 生成。
 
 ## 更新规则
