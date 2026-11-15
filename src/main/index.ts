@@ -12,6 +12,8 @@ import { devCsp, PROD_CSP } from './security'
 import { SettingsStore } from './settings/store'
 import { DevSliceService } from './slice/service'
 import { WriteService } from './scheduler/service'
+import { MemoryService } from './memory/service'
+import { createEmbedder } from './memory/embed/model'
 import { ReviewService } from './review/service'
 import { sha256Hex } from './crypto'
 import { ALL_MANIFESTS } from './tools/manifests'
@@ -167,12 +169,20 @@ async function bootstrap(): Promise<void> {
       })
     : null
 
+  // 嵌入器：有 bge 模型就用真模型（utilityProcess），否则确定性哈希降级（记录在数据里）。
+  const embedder = createEmbedder({ repoRoot: app.getAppPath() })
+  logger.info(
+    { event: 'embedder_ready', model: embedder.model, source: embedder.source, dim: embedder.dim },
+    'embedder resolved'
+  )
+
   const writeService = new WriteService({
     host: () => projectServiceInstance.currentHandle(),
     registry: toolRegistry,
     settings: () => settings.read(),
     allowFakeModel: !app.isPackaged,
     gateSecret: sha256Hex(`write-gate-${Date.now()}-${Math.random()}`),
+    embedder,
     send: (event) => {
       if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.writeEvent, event)
     },
@@ -193,11 +203,26 @@ async function bootstrap(): Promise<void> {
     log: (message, details) => logger?.info({ event: message, ...details }, message)
   })
 
+  const memoryService = new MemoryService({
+    host: () => projectServiceInstance.currentHandle(),
+    registry: toolRegistry,
+    settings: () => settings.read(),
+    allowFakeModel: !app.isPackaged,
+    gateSecret: sha256Hex(`memory-gate-${Date.now()}-${Math.random()}`),
+    send: (event) => {
+      if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.memoryEvent, event)
+    },
+    embedder,
+    fakeChunkDelayMs: Number(process.env.NORYTH_MEMORY_STREAM_DELAY_MS ?? '2'),
+    log: (message, details) => logger?.info({ event: message, ...details }, message)
+  })
+
   registerIpc({
     project: projectServiceInstance,
     plan: planService,
     write: writeService,
     review: reviewService,
+    memory: memoryService,
     settings,
     logger,
     logPath: logFilePath(logDir),
@@ -205,6 +230,10 @@ async function bootstrap(): Promise<void> {
     appInfo: buildAppInfo,
     ...(slice ? { slice } : {}),
     devTools: !app.isPackaged
+  })
+
+  cleanup.push(() => {
+    void embedder.dispose()
   })
 
   window.on('closed', () => {

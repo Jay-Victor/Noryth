@@ -13,11 +13,13 @@ import { Toasts } from './Toasts'
 import { SlicePage } from './dev/Slice'
 import { HomePage } from '../pages/HomePage'
 import { PlanPage } from '../pages/plan/PlanPage'
+import { MemoryPage } from '../pages/memory/MemoryPage'
 import { ReviewPage } from '../pages/review/ReviewPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { WorkbenchPage } from '../pages/WorkbenchPage'
 import { WritePage } from '../pages/write/WritePage'
 import { usePlan } from '../stores/plan'
+import { useMemory } from '../stores/memory'
 import { useReview } from '../stores/review'
 import { useSlice } from '../stores/slice'
 import { useWrite } from '../stores/write'
@@ -55,6 +57,9 @@ export function App(): React.JSX.Element {
     const offReview = bridge.events.onReviewEvent((event) => {
       useReview.getState().applyEvent(event)
     })
+    const offMemory = bridge.events.onMemoryEvent((event) => {
+      useMemory.getState().applyEvent(event)
+    })
     return () => {
       offProject()
       offSlice()
@@ -62,6 +67,7 @@ export function App(): React.JSX.Element {
       offChoice()
       offWrite()
       offReview()
+      offMemory()
     }
   }, [])
 
@@ -160,6 +166,8 @@ export function App(): React.JSX.Element {
               <WritePage mode={mode} />
             ) : page === 'review' ? (
               <ReviewPage mode={mode} />
+            ) : page === 'memory' ? (
+              <MemoryPage mode={mode} />
             ) : (
               <WorkbenchPage page={page} mode={mode} />
             )}

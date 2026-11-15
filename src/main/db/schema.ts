@@ -360,6 +360,32 @@ export interface MemoryProposalItemTable {
   decision: Generated<string>
   edited_text: string | null
   decided_at: string | null
+  /** 0006：证据原文（必须是来源拍正文的连续子串，DEV-PLAN §10.1）。 */
+  evidence_quote: string | null
+}
+
+export interface MemoryAuditTable {
+  id: string
+  project_id: string
+  job_id: string | null
+  action: string
+  actor: string
+  entity_type: string
+  entity_id: string
+  detail_json: Generated<string>
+  created_at: string
+}
+
+export interface MemoryMessageTable {
+  id: string
+  project_id: string
+  chapter_id: string | null
+  job_id: string | null
+  role: string
+  kind: Generated<string>
+  body: Generated<string>
+  meta_json: Generated<string>
+  created_at: string
 }
 
 export interface PlanSessionTable {
@@ -491,6 +517,8 @@ export interface Database {
   outbox: OutboxTable
   turn_metric: TurnMetricTable
   memory_proposal_item: MemoryProposalItemTable
+  memory_audit: MemoryAuditTable
+  memory_message: MemoryMessageTable
   plan_session: PlanSessionTable
   plan_message: PlanMessageTable
   plan_character: PlanCharacterTable

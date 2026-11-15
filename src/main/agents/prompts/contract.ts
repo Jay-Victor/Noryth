@@ -32,9 +32,13 @@ export const REVIEW_ANSWER_CONTRACT = [
 export const MEMORY_ANSWER_CONTRACT = [
   '【输出契约】',
   '最终答复只输出一个 JSON 对象，不得输出 JSON 以外的任何字符：',
-  '{"proposals":[{"kind":"fact|belief|experience|relationship","character_id":null,"text":"...","evidence_quote":"..."}]}',
-  '- 只从定稿正文抽取；台词只能形成 belief，不能写成 objective fact。',
-  '- evidence_quote 必须是定稿原文的连续子串；否定句不合并成肯定事实。'
+  '{"proposals":[{"kind":"experience|fact|relationship|cognition|belief|world_fact","character_id":"chr_x|null","text":"...","source_beat_id":"bt_x","evidence_quote":"原文连续子串","importance":0.6,"pinned":false,"payload":{}}]}',
+  '- 只从定稿正文抽取；初稿、未确认拍、未接受 patch 都不算。',
+  '- evidence_quote 必须是 source_beat_id 那一拍正文的连续子串（不得改写、拼接、概括）；找不到原文就不提这条。',
+  '- 台词只能形成 belief，或 world_fact(truth="claim")；objective 事实必须来自旁白叙述。',
+  '- world_fact 的 payload 必带 subject / predicate / object / truth / visibility / known_by；relationship 的 payload 必带 to_id / axis / value。',
+  '- 否定句不合并成肯定事实；同一条不要重复提。',
+  '- 同样的 proposals 用 memory.proposal.submit 提交；不要调用 memory.apply（应用只由作者触发）。'
 ].join('\n')
 
 export const PLAN_ANSWER_CONTRACT = [

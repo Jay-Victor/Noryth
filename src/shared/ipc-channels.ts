@@ -82,7 +82,19 @@ export const IPC = {
   reviewG6Preview: 'review.g6.preview',
   reviewG6Issue: 'review.g6.issue',
   reviewFinalize: 'review.finalize',
-  reviewDevSeed: 'review.devSeed'
+  reviewDevSeed: 'review.devSeed',
+  // 记忆台（PHASE-09）
+  memoryState: 'memory.state',
+  memoryExtract: 'memory.extract',
+  memoryDecide: 'memory.decide',
+  memoryDecideMany: 'memory.decideMany',
+  memoryG7Issue: 'memory.g7.issue',
+  memoryApply: 'memory.apply',
+  memoryInvalidate: 'memory.invalidate',
+  memoryRecall: 'memory.recall',
+  memoryIsolation: 'memory.isolation',
+  memorySend: 'memory.send',
+  memoryDevSeed: 'memory.devSeed'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -94,7 +106,8 @@ export const IPC_EVENTS = {
   planMessage: 'event:plan.message',
   planChoice: 'event:plan.choice',
   writeEvent: 'event:write',
-  reviewEvent: 'event:review'
+  reviewEvent: 'event:review',
+  memoryEvent: 'event:memory'
 } as const
 
 export type IpcEventChannel = (typeof IPC_EVENTS)[keyof typeof IPC_EVENTS]

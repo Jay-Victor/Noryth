@@ -1,5 +1,7 @@
 import type { Repos } from '../db/repos'
 import type { ErrorCode } from '../../shared/domain/errors'
+import type { Embedder } from '../memory/embed/types'
+import type { ApplyDecision, ApplyResult } from '../memory/apply'
 
 /** 六个 Agent；没有第七个（AGENTS.md 铁律）。 */
 export const AGENT_KEYS = ['planner', 'orchestrator', 'character', 'narrator', 'reviewer', 'memory'] as const
@@ -133,9 +135,29 @@ export interface ToolContext {
   reportPartial: (payload: ToolPayload<never>) => void
 }
 
+export interface MemoryApplyPortInput {
+  /** 提案 job（T39 的 proposal_id）。 */
+  proposalJobId: string
+  /** 本次 apply 的 job id（G7 令牌绑定它）。 */
+  applyJobId: string
+  actor: string
+  decisions: readonly ApplyDecision[]
+  /** 令牌哈希；给出则在 apply 事务内消费。 */
+  gateTokenHash?: string | null
+}
+
+/** 记忆应用端口：由 MemoryService 装配；工具层只调用、不实现。 */
+export interface MemoryApplyPort {
+  apply(input: MemoryApplyPortInput): Promise<ApplyResult>
+}
+
 export interface ToolServices {
   repos: Repos
   /** 毫秒时钟，测试可注入；审计 latency 与超时共用。 */
   now: () => number
+  /** 记忆检索的嵌入器（阶段 09）；未装配时检索降级为关键词。 */
+  embedder?: Embedder
+  /** 记忆执行器（阶段 09）：T39 只委派，不自己写库。 */
+  memory?: MemoryApplyPort
   choices?: ChoiceResolver
 }

@@ -1048,6 +1048,50 @@ CREATE INDEX review_message_by_chapter ON review_message(chapter_id, created_at)
 - **定稿**：`doc/finalize.ts` 只 INSERT `revision(kind='final')` + 复制清单；`chapter.markFinalized` 冻结正文，`commitBeat` 对已定稿章抛 `already_finalized`；同事务入队 `memory.extract`（`queued`，阶段 09 执行）。
 - **转人工**：轮次 = 报告数；到 3 轮且最新仍 `fail` 时 UI 标「转人工」并关闭 G5，G6 仍可执行（保留全部报告与 patch）。
 
+### 5.16 记忆台表（迁移 0006）
+
+```sql
+ALTER TABLE memory_proposal_item ADD COLUMN evidence_quote TEXT;
+CREATE INDEX proposal_by_chapter ON memory_proposal_item(project_id, source_chapter_id, decision);
+
+CREATE TABLE memory_audit (
+  id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  job_id      TEXT,
+  action      TEXT NOT NULL CHECK (action IN ('extract','apply','invalidate','rebuild','supersede','evidence_mismatch')),
+  actor       TEXT NOT NULL,
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('memory_entry','world_fact','belief','relationship','proposal')),
+  entity_id   TEXT NOT NULL,
+  detail_json TEXT NOT NULL DEFAULT '{}',
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX memory_audit_by_entity ON memory_audit(entity_id, created_at);
+CREATE INDEX memory_audit_by_project ON memory_audit(project_id, created_at);
+
+CREATE TABLE memory_message (
+  id         TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  chapter_id TEXT REFERENCES chapter(id) ON DELETE CASCADE,
+  job_id     TEXT,
+  role       TEXT NOT NULL CHECK (role IN ('author','memory','system')),
+  kind       TEXT NOT NULL DEFAULT 'text' CHECK (kind IN ('text','proposal','apply','pause')),
+  body       TEXT NOT NULL DEFAULT '',
+  meta_json  TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX memory_message_by_chapter ON memory_message(chapter_id, created_at);
+```
+
+规则：
+
+- **证据原文单独成列**：`quote` 归一化（NFKC / 空白 / 零宽）后必须是来源拍正文的连续子串；不匹配 → 丢弃该条并写 `memory_audit(action='evidence_mismatch')`。`payload_json` 只放结构化字段（三元组、关系轴/值、置信度、`superseded` 降级标记）。
+- **审计是记忆的追溯链**：`extract / apply / invalidate / supersede` 各写一行；「标记错误」写 `invalidate` 并把 `memory_entry.status` 置 `inactive`，不物理删除。
+- **对话与审计分开**：`memory_message` 只存记忆台讨论（追问来源、为什么重要、与哪条冲突），讨论永不改长期状态；`[应用 G7]` 是唯一写入入口。
+- **提案顺序按 `rowid`**：`id` 是随机十六进制，UI 的提案时间线不能用它排序。
+- **apply 幂等**：提案 job 的 `result_json.applied=true` 表示已应用；重放返回 `duplicate:true`，不再写第二遍。`memory.apply` job 的 `idempotency_key = memory.apply:<project>:<提案 job>`。
+- **令牌消费在事务内**：G7 与 G5/G6 同格式（`gate_record`、HMAC、只存 hash、10 分钟）；apply 事务里消费，失败整体回滚，令牌可重试。
+- **向量与文本同事务**：`memory_vec`（vec0, 512 维）与 `memory_fts`（bigram, ascii）在 apply 的同一事务里写；先算 embedding，失败则整个 apply 不写任何行。
+
 ---
 
 ## 6 工具层
@@ -2075,6 +2119,17 @@ type EmbedRes =
 - M0 收集每个项目前 200 次检索的 `cosine` 分布（top1、top5、空结果率），写 `logs/retrieval-calibration.jsonl`。
 - 按嵌入模型给一个默认阈值，项目级可覆盖；**不按当次最高分归一化**（PRD §8.3）。
 - 空结果率 > 30% 时 UI 提示「补记忆或调 top_k」，不自动放宽阈值。
+
+### 10.9 记忆台实现记录（阶段 09）
+
+- **抽取只读定稿**：`buildExtractionInput` 用 `revision_beat` 清单（kind='final'）而不是 live 拍表；初稿 / 未确认拍 / 未接受 patch 都不进记忆。`submitProposalItems` 是 T37 与运行时 JSON 回退共用的唯一落库入口。
+- **分类是代码**：`classifyProposal` 在服务端执行——台词证据的 `world_fact(truth='objective')` 一律改写为 `claim` 并留 `downgraded`；缺角色 / 缺三元组直接丢弃。提示词只是第一道防线。
+- **apply 顺序**：加载提案 job → 重放检查（`result_json.applied=true` → `duplicate`）→ 先算 embedding → 单事务（`memory_entry` + `memory_vec` + `memory_fts` + `world_fact` + `character_belief` + `relationship_edge` + 审计 + 决策 + 令牌消费）→ job 落结果。失败整体回滚，令牌可重试。
+- **单值谓词 supersede**：`world_fact.single_value=1` 且新值为 objective 时，旧行 `valid_to_seq = 新 seq`；`memory_entry` 的 `supersedes_id` 由提案 payload 指定，旧条目 `status='superseded'`；关系边按 `(from,to,axis)` 关闭旧行再插新行。
+- **检索**：`memory/retrieve.ts` 按 §10.4 实现（vec top30 + bigram top30 → RRF k=60、权重 1.0/0.7 → 绝对下限 → 头名 40% 截断 → 文本去重 → pinned ≤5）。可见性过滤全部在 SQL；缓存键含 `project + actor + character + as_of + model + query`，apply/invalidate 后清空。
+- **嵌入**：有 `resources/models/bge-small-zh-v1.5` 时用 utilityProcess + bge（512 维，q8）；否则降级为确定性 `hash-bigram-v1`（512 维，无模型无网络），**模型名写进每条 `memory_entry.embedding_model`**，检索的向量通道按模型名过滤，不与 bge 混用。bge 模型与 onnxruntime 随包属于阶段 10 的打包工作；本阶段不假装具备语义检索。
+- **隔离回归**：`MemoryService.isolationReport()` 用每个角色自己的记忆原文跑一次真实检索，命中集合必须全属于本人；跨角色命中即 `isolation_violation`。UI 在世界状态页提供「跑隔离回归」。
+- **M1 边界**：按章重建（T40）后端未接，UI 按钮禁用并标注 M1；as-of 滑块、关系图同属 M1。
 
 ---
 

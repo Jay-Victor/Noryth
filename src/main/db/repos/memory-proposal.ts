@@ -1,7 +1,7 @@
 import type { Insertable, Selectable } from 'kysely'
 import type { Db } from '../project-db'
 import type { QueryRunner } from '../kysely'
-import { allRows, firstRow, runStatement } from '../kysely'
+import { firstRow, runStatement } from '../kysely'
 import type { MemoryProposalItemTable } from '../schema'
 import { BaseRepo, newId, type Clock, systemClock } from './common'
 
@@ -24,6 +24,7 @@ export interface MemoryProposalItemRecord {
   decision: ProposalDecision
   editedText: string | null
   decidedAt: string | null
+  evidenceQuote: string | null
 }
 
 export interface NewMemoryProposalItemInput {
@@ -42,6 +43,7 @@ export interface NewMemoryProposalItemInput {
   decision?: ProposalDecision
   editedText?: string | null
   decidedAt?: string | null
+  evidenceQuote?: string | null
 }
 
 type ProposalRow = Selectable<MemoryProposalItemTable>
@@ -62,7 +64,8 @@ function mapItem(row: ProposalRow): MemoryProposalItemRecord {
     pinned: row.pinned,
     decision: row.decision as ProposalDecision,
     editedText: row.edited_text,
-    decidedAt: row.decided_at
+    decidedAt: row.decided_at,
+    evidenceQuote: row.evidence_quote
   }
 }
 
@@ -89,7 +92,8 @@ export class MemoryProposalRepo extends BaseRepo {
       pinned: input.pinned ?? 0,
       decision: input.decision ?? 'pending',
       edited_text: input.editedText ?? null,
-      decided_at: input.decidedAt ?? null
+      decided_at: input.decidedAt ?? null,
+      evidence_quote: input.evidenceQuote ?? null
     }
     runStatement(this.runner, this.runner.db.insertInto('memory_proposal_item').values(values))
     return this.get(id)!
@@ -104,27 +108,25 @@ export class MemoryProposalRepo extends BaseRepo {
   }
 
   listByJob(projectId: string, jobId: string): MemoryProposalItemRecord[] {
-    const rows = allRows<ProposalRow>(
-      this.runner,
-      this.runner.db
-        .selectFrom('memory_proposal_item')
-        .selectAll()
-        .where('project_id', '=', projectId)
-        .where('job_id', '=', jobId)
-        .orderBy('id')
-    )
+    // 按插入顺序（rowid）返回：提案在 UI 里是一条时间线，id 是随机十六进制，
+    // 用它排序会让每次加载顺序都不同。
+    const rows = this.runner.raw
+      .prepare('SELECT * FROM memory_proposal_item WHERE project_id = ? AND job_id = ? ORDER BY rowid')
+      .all(projectId, jobId) as ProposalRow[]
     return rows.map(mapItem)
   }
 
   listBySource(chapterId: string): MemoryProposalItemRecord[] {
-    const rows = allRows<ProposalRow>(
-      this.runner,
-      this.runner.db
-        .selectFrom('memory_proposal_item')
-        .selectAll()
-        .where('source_chapter_id', '=', chapterId)
-        .orderBy('id')
-    )
+    const rows = this.runner.raw
+      .prepare('SELECT * FROM memory_proposal_item WHERE source_chapter_id = ? ORDER BY rowid')
+      .all(chapterId) as ProposalRow[]
+    return rows.map(mapItem)
+  }
+
+  listByProject(projectId: string, limit = 500): MemoryProposalItemRecord[] {
+    const rows = this.runner.raw
+      .prepare('SELECT * FROM memory_proposal_item WHERE project_id = ? ORDER BY rowid DESC LIMIT ?')
+      .all(projectId, limit) as ProposalRow[]
     return rows.map(mapItem)
   }
 

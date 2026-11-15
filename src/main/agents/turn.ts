@@ -17,6 +17,7 @@ import { capabilitiesFor, estimateCostCny } from '../model/presets'
 import { estimateTokens } from '../context/tokens'
 import type { ModelToolDescriptor } from '../tools/define'
 import type { RegistrySnapshot } from '../tools/registry'
+import type { Embedder } from '../memory/embed/types'
 import { baseAgentOf } from '../tools/registry'
 import { resolveToolset, type ResolvedToolset } from '../tools/resolve'
 import type { AgentInstanceKey, ChoiceResolver, ToolResult, ToolServices } from '../tools/types'
@@ -55,6 +56,8 @@ export interface TurnDeps {
   /** 必须按 job 冻结的 bindings 构造；runTurn 不信外部传入的 provider/model。 */
   adapter: ChatAdapter
   gateSecret: string
+  /** 记忆检索的嵌入器（阶段 09）；缺省时检索降级为关键词。 */
+  embedder?: Embedder
   now?: () => number
   /** 设置里的 token 校准系数；缺省 1。 */
   tokenCalibration?: number
@@ -371,7 +374,8 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
   const services: ToolServices = {
     repos,
     now,
-    ...(deps.choices === undefined ? {} : { choices: deps.choices })
+    ...(deps.choices === undefined ? {} : { choices: deps.choices }),
+    ...(deps.embedder === undefined ? {} : { embedder: deps.embedder })
   }
   const turnRefs = new TurnRefRegistry()
   turnRefs.register(assembled.refs)

@@ -104,15 +104,15 @@ G7 令牌 + 幂等键
 
 ## 6 验收清单
 
-- [ ] `E2E-MEMORY-01`：定稿 → 14 条提案 → 删 2 改 1 → apply 12 条 → 第 2 章召回 ≥1 条。
-- [ ] 用初稿跑抽取被拒或返回空；只读 final。
-- [ ] 台词「账本在祠堂」只产生 belief/claim，不产生 objective 事实。
-- [ ] 篡改 evidence quote → 该条被丢弃并记 `evidence_mismatch`。
-- [ ] 同 job 重放 → `duplicate:true`，不双写。
-- [ ] apply 中途失败 → 文本、事实、边、向量全部回滚。
-- [ ] 跨角色检索 0 命中；探针回归通过。
-- [ ] 记忆条目带 `source_chapter_id` / `source_revision_id` / `learned_seq`。
-- [ ] 标记错误 → 软失效，不删除。
+- [x] `E2E-MEMORY-01`：定稿 → 14 条提案 → 删 2 改 1 → apply 12 条 → 第 2 章召回 ≥1 条。
+- [x] 用初稿跑抽取被拒或返回空；只读 final。
+- [x] 台词「账本在祠堂」只产生 belief/claim，不产生 objective 事实。
+- [x] 篡改 evidence quote → 该条被丢弃并记 `evidence_mismatch`。
+- [x] 同 job 重放 → `duplicate:true`，不双写。
+- [x] apply 中途失败 → 文本、事实、边、向量全部回滚。
+- [x] 跨角色检索 0 命中；探针回归通过。
+- [x] 记忆条目带 `source_chapter_id` / `source_revision_id` / `learned_seq`。
+- [x] 标记错误 → 软失效，不删除。
 
 ## 7 风险与回退
 

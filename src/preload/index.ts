@@ -5,6 +5,7 @@ import type { ProjectStateEvent } from '../shared/schema/project'
 import type { PlanChoiceRequest, PlanEvent } from '../shared/schema/plan'
 import type { SliceBeatEvent } from '../shared/schema/slice'
 import type { ReviewEvent } from '../shared/schema/review'
+import type { MemoryEvent } from '../shared/schema/memory'
 import type { WriteEvent } from '../shared/schema/write'
 import type { NorythBridge } from '../shared/schema/bridge'
 
@@ -117,6 +118,19 @@ const bridge: NorythBridge = {
     finalize: (input) => invoke(IPC.reviewFinalize, input),
     devSeed: (input) => invoke(IPC.reviewDevSeed, input ?? {})
   },
+  memory: {
+    state: (chapterId) => invoke(IPC.memoryState, chapterId === undefined ? {} : { chapterId }),
+    extract: (chapterId) => invoke(IPC.memoryExtract, { chapterId }),
+    decide: (input) => invoke(IPC.memoryDecide, input),
+    decideMany: (input) => invoke(IPC.memoryDecideMany, input),
+    issueG7Token: (chapterId) => invoke(IPC.memoryG7Issue, chapterId === undefined ? {} : { chapterId }),
+    apply: (input) => invoke(IPC.memoryApply, input),
+    invalidate: (input) => invoke(IPC.memoryInvalidate, input),
+    recall: (input) => invoke(IPC.memoryRecall, input),
+    isolation: () => invoke(IPC.memoryIsolation, {}),
+    send: (input) => invoke(IPC.memorySend, input),
+    devSeed: (input) => invoke(IPC.memoryDevSeed, input ?? {})
+  },
   app: {
     info: () => invoke(IPC.appInfo, {})
   },
@@ -173,6 +187,15 @@ const bridge: NorythBridge = {
       ipcRenderer.on(IPC_EVENTS.reviewEvent, handler)
       return () => {
         ipcRenderer.removeListener(IPC_EVENTS.reviewEvent, handler)
+      }
+    },
+    onMemoryEvent: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: MemoryEvent): void => {
+        listener(payload)
+      }
+      ipcRenderer.on(IPC_EVENTS.memoryEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_EVENTS.memoryEvent, handler)
       }
     }
   }

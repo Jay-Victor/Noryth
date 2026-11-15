@@ -1,0 +1,579 @@
+/* 记忆台（PHASE-09 / UI-DESIGN §7）。只补记忆台自己的类，复用 write-/plan- 既有样式。 */
+
+.memory-chapters {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.memory-chapter-items {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.memory-job-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+
+.memory-job-row:hover {
+  background: var(--accent-weak);
+}
+
+.memory-job-row__chapter {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-job-row__status {
+  font-size: 11px;
+  color: var(--muted);
+}
+.memory-job-row__status[data-status='proposed'] {
+  color: var(--warn);
+}
+.memory-job-row__status[data-status='applied'] {
+  color: var(--ok);
+}
+.memory-job-row__status[data-status='failed'] {
+  color: var(--danger);
+}
+
+/* 对话区 */
+.memory-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.memory-summary {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  padding: 8px 10px;
+}
+
+.memory-summary__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.memory-summary p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+
+/* 预览 header */
+.memory-preview-head {
+  gap: 8px;
+}
+
+.memory-extract-btn {
+  margin-left: auto;
+}
+
+/* 提案 */
+.memory-proposals {
+  overflow: auto;
+  padding: 10px 12px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.memory-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memory-group__title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.memory-proposal {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.memory-proposal.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-weak);
+}
+
+.memory-proposal.is-reject {
+  opacity: 0.62;
+}
+
+.memory-proposal.is-accept,
+.memory-proposal.is-edit {
+  border-left: 3px solid var(--ok);
+}
+
+.memory-proposal__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.memory-proposal__kind {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.memory-proposal__who {
+  color: var(--accent-strong);
+}
+
+.memory-proposal__truth {
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+
+.memory-proposal__pin {
+  border-radius: 999px;
+  background: var(--accent-weak);
+  color: var(--accent-strong);
+  padding: 0 6px;
+}
+
+.memory-proposal__importance {
+  font-family: var(--font-mono);
+}
+
+.memory-proposal__spacer {
+  flex: 1;
+}
+
+.memory-proposal__decision {
+  font-size: 11px;
+}
+
+.memory-proposal__text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.memory-proposal__edited {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ok);
+}
+
+.memory-proposal__evidence {
+  margin: 0;
+  padding: 6px 8px;
+  border-left: 2px solid var(--border-strong);
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+
+.memory-proposal__source {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.memory-proposal__downgraded {
+  margin: 0;
+  font-size: 11px;
+  color: var(--warn);
+}
+
+.memory-proposal__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.memory-proposal__editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memory-proposal__editor-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* 闸门行动条 */
+.memory-gate-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+}
+
+.memory-gate-bar__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--fg-soft);
+  margin-right: auto;
+  white-space: nowrap;
+}
+
+.memory-gate-bar__reason {
+  font-size: 11px;
+  color: var(--muted);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 角色记忆 */
+.memory-browser {
+  overflow: auto;
+  padding: 10px 12px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.memory-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.memory-filters label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.memory-filters select,
+.memory-recall select,
+.memory-recall__query,
+.memory-detail__reason {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--fg);
+  font-size: 12px;
+  padding: 3px 6px;
+}
+
+.memory-filters__check {
+  gap: 4px;
+}
+
+.memory-browser__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.memory-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.memory-entry {
+  display: grid;
+  grid-template-columns: 34px 64px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 5px 6px;
+  text-align: left;
+  font-size: 12px;
+  color: var(--fg-soft);
+  cursor: pointer;
+}
+
+.memory-entry:hover {
+  background: var(--accent-weak);
+}
+
+.memory-entry.is-active {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+
+.memory-entry[data-status='inactive'],
+.memory-entry[data-status='superseded'] {
+  opacity: 0.55;
+}
+
+.memory-entry__kind {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.memory-entry__who {
+  color: var(--accent-strong);
+  font-size: 11px;
+}
+
+.memory-entry__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-entry__pin {
+  font-size: 10px;
+  color: var(--accent-strong);
+}
+
+.memory-entry__status {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.memory-detail {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.memory-detail h4 {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.memory-detail__text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.memory-detail__meta {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 4px 8px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--fg-soft);
+}
+
+.memory-detail__meta dt {
+  color: var(--muted);
+}
+
+.memory-detail__meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.memory-detail__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.memory-detail__reason {
+  flex: 1 1 140px;
+}
+
+/* 召回探针 */
+.memory-recall {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memory-recall__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memory-recall__query {
+  flex: 1;
+}
+
+.memory-recall__result {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.memory-recall__item {
+  display: flex;
+  gap: 8px;
+  color: var(--fg-soft);
+}
+
+/* 世界状态 */
+.memory-world {
+  overflow: auto;
+  padding: 10px 12px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.memory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.memory-table th,
+.memory-table td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-soft);
+}
+
+.memory-table th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.memory-table tr.is-stale {
+  opacity: 0.55;
+}
+
+.memory-truth {
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 11px;
+  border: 1px solid var(--border-strong);
+}
+
+.memory-truth.is-objective {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.memory-truth.is-claim {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.memory-belief,
+.memory-relation,
+.memory-isolation__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+  color: var(--fg-soft);
+  border-bottom: 1px dashed var(--border);
+}
+
+.memory-belief__who {
+  color: var(--accent-strong);
+}
+
+.memory-relation__axis {
+  color: var(--muted);
+}
+
+.memory-isolation {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+/* 审计 */
+.memory-audit {
+  overflow: auto;
+  padding: 10px 12px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.memory-audit__row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  padding: 6px 8px;
+}
+
+.memory-audit__row.is-evidence_mismatch {
+  border-left: 3px solid var(--danger);
+}
+
+.memory-audit__row.is-supersede,
+.memory-audit__row.is-invalidate {
+  border-left: 3px solid var(--warn);
+}
+
+.memory-audit__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.memory-audit__action {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.memory-audit__id {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.memory-audit__spacer {
+  flex: 1;
+}
+
+.memory-audit__detail {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--fg-soft);
+  overflow-wrap: anywhere;
+}

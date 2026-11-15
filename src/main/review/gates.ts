@@ -17,14 +17,16 @@ import type { ToolGateId } from '../tools/types'
  * 看到当前 revision、当前报告之后做出的，而不是旧窗口里的一个残留按钮。
  */
 
-export type AuthorGateId = Extract<ToolGateId, 'G5' | 'G6'>
+export type AuthorGateId = Extract<ToolGateId, 'G5' | 'G6' | 'G7'>
+
+export type AuthorGateEntity = 'chapter' | 'revision' | 'proposal'
 
 export interface AuthorGateIssueInput {
   repos: Repos
   secret: string
   projectId: string
   gateId: AuthorGateId
-  entityType: 'chapter' | 'revision'
+  entityType: AuthorGateEntity
   entityId: string
   revision: string | null
   jobId: string
@@ -60,7 +62,7 @@ export interface AuthorGateCheckInput {
   repos: Repos
   secret: string
   gateId: AuthorGateId
-  entityType: 'chapter' | 'revision'
+  entityType: AuthorGateEntity
   entityId: string
   revision: string | null
   token: string | null

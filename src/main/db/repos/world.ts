@@ -282,6 +282,16 @@ export class CharacterBeliefRepo extends BaseRepo {
     return rows.map(mapBelief)
   }
 
+  listByProject(projectId: string, options: { status?: WorldEntryStatus } = {}): CharacterBeliefRecord[] {
+    let query = this.runner.db
+      .selectFrom('character_belief')
+      .selectAll()
+      .where('project_id', '=', projectId)
+      .orderBy('learned_seq')
+    if (options.status) query = query.where('status', '=', options.status)
+    return allRows<BeliefRow>(this.runner, query).map(mapBelief)
+  }
+
   setStatus(id: string, status: WorldEntryStatus): void {
     runStatement(
       this.runner,

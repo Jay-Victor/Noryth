@@ -147,6 +147,59 @@ export class MemoryRepo extends BaseRepo {
     return rows.map(mapMemory)
   }
 
+  /**
+   * 记忆浏览器的过滤（UI-DESIGN §7.4）：角色、类型、章节、状态、pin。
+   * 全部条件进 SQL，不在 renderer 里做「先全量再筛」。
+   */
+  listFiltered(
+    projectId: string,
+    filter: {
+      characterId?: string
+      kind?: MemoryKind
+      chapterId?: string
+      status?: MemoryStatus | 'all'
+      pinnedOnly?: boolean
+    } = {}
+  ): MemoryEntryRecord[] {
+    let query = this.runner.db
+      .selectFrom('memory_entry')
+      .selectAll()
+      .where('project_id', '=', projectId)
+      .orderBy('learned_seq', 'desc')
+      .orderBy('id')
+    if (filter.characterId) query = query.where('character_id', '=', filter.characterId)
+    if (filter.kind) query = query.where('kind', '=', filter.kind)
+    if (filter.chapterId) query = query.where('source_chapter_id', '=', filter.chapterId)
+    if (filter.status && filter.status !== 'all') query = query.where('status', '=', filter.status)
+    if (filter.pinnedOnly === true) query = query.where('pinned', '=', 1)
+    return allRows<MemoryRow>(this.runner, query).map(mapMemory)
+  }
+
+  /** pinned 独立成段（DEV-PLAN §10.4）：最多 5 条，不参与相关性排序。 */
+  listPinned(characterId: string, asOf: number, limit = 5): MemoryEntryRecord[] {
+    const rows = allRows<MemoryRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('memory_entry')
+        .selectAll()
+        .where('character_id', '=', characterId)
+        .where('pinned', '=', 1)
+        .where('status', '=', 'active')
+        .where('learned_seq', '<=', asOf)
+        .orderBy('importance', 'desc')
+        .orderBy('learned_seq', 'desc')
+        .limit(limit)
+    )
+    return rows
+      .map(mapMemory)
+      .filter((entry) => entry.validToSeq === null || entry.validToSeq > asOf)
+  }
+
+  /** 软失效：标记错误 / 作者否决，不物理删除（PRD §6.4）。 */
+  markInvalid(id: string, status: Extract<MemoryStatus, 'inactive' | 'superseded'> = 'inactive'): void {
+    runStatement(this.runner, this.runner.db.updateTable('memory_entry').set({ status }).where('id', '=', id))
+  }
+
   setStatus(id: string, status: MemoryStatus): void {
     runStatement(this.runner, this.runner.db.updateTable('memory_entry').set({ status }).where('id', '=', id))
   }

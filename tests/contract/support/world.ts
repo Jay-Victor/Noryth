@@ -8,6 +8,9 @@ import { withTransaction } from '../../../src/main/db/tx'
 import { hashManifestRows } from '../../../src/main/db/hash'
 import type { ManifestBeatRow } from '../../../src/main/db/revision'
 import { openTestDb, closeTestDb } from '../../unit/db/support/db'
+import { applyMemoryProposals } from '../../../src/main/memory/apply'
+import { createHashEmbedder } from '../../../src/main/memory/embed/hash'
+import type { MemoryApplyPort } from '../../../src/main/tools/types'
 
 /**
  * 契约测试的合成项目：一个草稿章 + 一个定稿章，足够覆盖 36 个工具。
@@ -185,6 +188,15 @@ export function openContractWorld(): ContractWorld {
         speakerType: 'character',
         speakerId: 'chr_lin',
         body: '她把匣子放回供桌下面，没有点灯。'
+      },
+      {
+        beatId: 'bt_final_n',
+        sceneId: 'scn_final',
+        sceneOrd: 1,
+        beatOrd: 2,
+        speakerType: 'narrator',
+        speakerId: 'narrator',
+        body: '供桌上的灰被人抹过一道，露出底下的木纹。'
       }
     ]
     repos.revision.insert({
@@ -239,13 +251,27 @@ export function openContractWorld(): ContractWorld {
       createdRevisionId: 'rev_final',
       wordCount: 16
     })
+    repos.beat.insert({
+      id: 'bt_final_n',
+      chapterId: 'ch_final',
+      sceneId: 'scn_final',
+      ord: 2,
+      seq: 4,
+      speakerType: 'narrator',
+      speakerId: 'narrator',
+      body: '供桌上的灰被人抹过一道，露出底下的木纹。',
+      status: 'confirmed',
+      createdRevisionId: 'rev_final',
+      wordCount: 20
+    })
 
     repos.revision.insertMembers('rev_draft', [
       { revisionId: 'rev_draft', beatId: 'bt_a', sceneOrd: 1, beatOrd: 1 },
       { revisionId: 'rev_draft', beatId: 'bt_b', sceneOrd: 1, beatOrd: 2 }
     ])
     repos.revision.insertMembers('rev_final', [
-      { revisionId: 'rev_final', beatId: 'bt_final', sceneOrd: 1, beatOrd: 1 }
+      { revisionId: 'rev_final', beatId: 'bt_final', sceneOrd: 1, beatOrd: 1 },
+      { revisionId: 'rev_final', beatId: 'bt_final_n', sceneOrd: 1, beatOrd: 2 }
     ])
     repos.chapter.setCurrentRevision('ch_draft', 'rev_draft')
 
@@ -373,6 +399,7 @@ export function openContractWorld(): ContractWorld {
       sourceChapterId: 'ch_final',
       sourceRevisionId: 'rev_final',
       sourceBeatId: 'bt_final',
+      evidenceQuote: '她把匣子放回供桌下面，没有点灯。',
       importance: 0.8
     })
     repos.memoryProposal.insert({
@@ -391,7 +418,18 @@ export function openContractWorld(): ContractWorld {
       }),
       sourceChapterId: 'ch_final',
       sourceRevisionId: 'rev_final',
-      sourceBeatId: 'bt_final'
+      sourceBeatId: 'bt_final_n'
+    })
+
+    repos.job.insert({
+      id: 'job_prop',
+      projectId: project.id,
+      type: 'memory.extract',
+      status: 'succeeded',
+      expectedRevision: 'rev_final',
+      epoch: project.writeEpoch,
+      idempotencyKey: 'contract:memory.extract:rev_final',
+      payloadJson: JSON.stringify({ chapterId: 'ch_final', revisionId: 'rev_final' })
     })
 
     return { beatDraftBody }
@@ -421,5 +459,29 @@ export function openContractWorld(): ContractWorld {
       closeTestDb(handle)
       rmSync(dir, { recursive: true, force: true })
     }
+  }
+}
+
+/**
+ * 契约测试的记忆执行器：与生产同一个 `applyMemoryProposals`，只换嵌入器。
+ * T39 的 handler 只委派到这个端口，因此这里的语义就是生产语义。
+ */
+export function memoryApplyPort(world: ContractWorld): MemoryApplyPort {
+  const embedder = createHashEmbedder()
+  return {
+    apply: (input) =>
+      applyMemoryProposals(
+        world.db,
+        world.repos,
+        {
+          projectId: world.projectId,
+          proposalJobId: input.proposalJobId,
+          applyJobId: input.applyJobId,
+          actor: input.actor,
+          decisions: input.decisions,
+          gateTokenHash: input.gateTokenHash ?? null
+        },
+        embedder
+      )
   }
 }

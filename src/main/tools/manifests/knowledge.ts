@@ -3,12 +3,13 @@ import { AppError } from '../../../shared/domain/app-error'
 import type { Repos } from '../../db/repos'
 import type { MemoryEntryRecord, MemoryKind } from '../../db/repos/memory'
 import type { WorldFactRecord } from '../../db/repos/world'
+import { retrieveOwn } from '../../memory/retrieve'
 import { defineTool } from '../define'
 import { makeRef } from '../support/refs'
 import { clampAsOf, scoreText } from '../support/text'
 import { AUDIT, Id, Query, degradeFor, limitsFor, parseJson } from './shared'
 
-/** T10–T23：知识检索（PRD §4.10.2）。检索基线是 bigram，阶段 09 换 sqlite-vec。 */
+/** T10–T23：知识检索（PRD §4.10.2）。检索走 memory/retrieve（向量 + bigram + pinned）。 */
 
 const MemoryKindSchema = z.enum(['experience', 'fact', 'relationship', 'cognition'])
 const MEMORY_KINDS: MemoryKind[] = ['experience', 'fact', 'relationship', 'cognition']
@@ -28,32 +29,39 @@ function requireCharacter(ctxCharacterId: string | null): string {
   return ctxCharacterId
 }
 
-function searchMemory(
+async function searchMemory(
   repos: Repos,
-  characterId: string,
-  query: string,
-  kinds: readonly MemoryKind[] | undefined,
-  topK: number,
-  asOf: number
-): MemoryEntryRecord[] {
-  const allowed = kinds ? new Set(kinds) : null
-  return repos.memory
-    .listByCharacter(characterId, { status: 'active' })
-    .filter((entry) => entry.learnedSeq <= asOf)
-    .filter((entry) => entry.validToSeq === null || entry.validToSeq > asOf)
-    .filter((entry) => !allowed || allowed.has(entry.kind))
-    .map((entry) => ({ entry, ...scoreText(entry.text, query) }))
-    .filter((scored) => scored.hits > 0)
-    .sort(
-      (left, right) =>
-        right.score - left.score ||
-        right.hits - left.hits ||
-        right.entry.importance - left.entry.importance ||
-        right.entry.learnedSeq - left.entry.learnedSeq ||
-        left.entry.id.localeCompare(right.entry.id)
-    )
-    .slice(0, topK)
-    .map((scored) => scored.entry)
+  embedder: Parameters<typeof retrieveOwn>[1],
+  input: {
+    projectId: string
+    actorId: string
+    characterId: string
+    query: string
+    kinds?: readonly MemoryKind[] | undefined
+    topK: number
+    asOf: number
+  }
+): Promise<{ entries: MemoryEntryRecord[]; empty: boolean; degraded: 'none' | 'empty' | 'facts_only' }> {
+  const result = await retrieveOwn(
+    repos,
+    embedder,
+    {
+      text: input.query,
+      topK: input.topK,
+      ...(input.kinds === undefined ? {} : { kinds: input.kinds })
+    },
+    {
+      projectId: input.projectId,
+      actorId: input.actorId,
+      characterId: input.characterId,
+      asOf: input.asOf
+    }
+  )
+  return {
+    entries: [...result.items, ...result.pinned].map((item) => item.entry),
+    empty: result.empty,
+    degraded: result.degraded
+  }
 }
 
 const memoryRetrieveOwn = defineTool({
@@ -79,13 +87,21 @@ const memoryRetrieveOwn = defineTool({
   audit: AUDIT,
   milestone: 'M0',
   selfOnly: true,
-  handler: (args, ctx, services) => {
+  handler: async (args, ctx, services) => {
     const characterId = requireCharacter(ctx.runtime.character_id)
-    const entries = searchMemory(services.repos, characterId, args.query, args.kinds, args.top_k, ctx.runtime.as_of)
+    const found = await searchMemory(services.repos, services.embedder ?? null, {
+      projectId: ctx.runtime.project_id,
+      actorId: ctx.runtime.actor_id,
+      characterId,
+      query: args.query,
+      ...(args.kinds === undefined ? {} : { kinds: args.kinds }),
+      topK: args.top_k,
+      asOf: ctx.runtime.as_of
+    })
     return {
       data: {
-        hit_count: entries.length,
-        items: entries.map((entry) => ({
+        hit_count: found.entries.length,
+        items: found.entries.map((entry) => ({
           id: entry.id,
           kind: entry.kind,
           text: entry.text,
@@ -93,8 +109,8 @@ const memoryRetrieveOwn = defineTool({
           importance: entry.importance
         }))
       },
-      refs: entries.map((entry) => makeRef('memory', entry.id, entry.text, entry.learnedSeq)),
-      degraded: entries.length === 0 ? ('empty' as const) : ('none' as const)
+      refs: found.entries.map((entry) => makeRef('memory', entry.id, entry.text, entry.learnedSeq)),
+      degraded: found.degraded
     }
   }
 })
@@ -122,17 +138,24 @@ const memoryRetrieveAudit = defineTool({
   degrade: degradeFor('knowledge'),
   audit: AUDIT,
   milestone: 'M0',
-  handler: (args, ctx, services) => {
+  handler: async (args, ctx, services) => {
     const character = services.repos.character.get(args.character_id)
     const inProject = character !== null && character.projectId === ctx.runtime.project_id
-    const entries = inProject
-      ? searchMemory(services.repos, args.character_id, args.query, undefined, args.top_k, ctx.runtime.as_of)
-      : []
+    const found = inProject
+      ? await searchMemory(services.repos, services.embedder ?? null, {
+          projectId: ctx.runtime.project_id,
+          actorId: ctx.runtime.actor_id,
+          characterId: args.character_id,
+          query: args.query,
+          topK: args.top_k,
+          asOf: ctx.runtime.as_of
+        })
+      : { entries: [], empty: true, degraded: 'empty' as const }
     return {
       data: {
         issue_ref: args.issue_ref,
-        hit_count: entries.length,
-        items: entries.map((entry) => ({
+        hit_count: found.entries.length,
+        items: found.entries.map((entry) => ({
           id: entry.id,
           kind: entry.kind,
           text: entry.text,
@@ -140,8 +163,8 @@ const memoryRetrieveAudit = defineTool({
           importance: entry.importance
         }))
       },
-      refs: entries.map((entry) => makeRef('memory', entry.id, entry.text, entry.learnedSeq)),
-      degraded: entries.length === 0 ? ('empty' as const) : ('none' as const)
+      refs: found.entries.map((entry) => makeRef('memory', entry.id, entry.text, entry.learnedSeq)),
+      degraded: found.degraded
     }
   }
 })

@@ -1,6 +1,6 @@
 {
   "name": "memory.apply",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "family": "propose",
   "summary": "凭 G7 令牌应用记忆提案：写记忆、世界状态与关系；不碰正文",
   "actors": [
@@ -103,13 +103,17 @@
           "minLength": 1,
           "maxLength": 80
         }
+      },
+      "duplicate": {
+        "type": "boolean"
       }
     },
     "required": [
       "applied_count",
       "rejected_count",
       "superseded",
-      "inactive"
+      "inactive",
+      "duplicate"
     ],
     "additionalProperties": false
   },

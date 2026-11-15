@@ -5,6 +5,7 @@ import type { Repos } from '../db/repos'
 import type { WriteMessageRecord } from '../db/repos/write'
 import type { ChatAdapter, ChatMessage, ChatResult, ChatToolCall } from '../model/adapter'
 import type { RegistrySnapshot } from '../tools/registry'
+import type { Embedder } from '../memory/embed/types'
 import { RepoAuditSink } from '../tools/audit'
 import { TurnBudget } from '../tools/budget'
 import { RepoIdempotencyStore } from '../tools/idempotency'
@@ -28,6 +29,8 @@ export interface OrchestratorDeps {
   registry: RegistrySnapshot
   adapter: ChatAdapter
   gateSecret: string
+  /** 记忆检索的嵌入器（阶段 09）。 */
+  embedder?: Embedder
   allowTools?: boolean
   signal?: AbortSignal
   maxRounds?: number
@@ -184,7 +187,11 @@ export async function runOrchestratorTurn(
 
   const toolset = resolveToolset('orchestrator', {}, deps.registry)
   const tools = deps.allowTools === false ? [] : toolset.toModelTools()
-  const services: ToolServices = { repos: deps.repos, now: () => Date.now() }
+  const services: ToolServices = {
+    repos: deps.repos,
+    now: () => Date.now(),
+    ...(deps.embedder === undefined ? {} : { embedder: deps.embedder })
+  }
   const turnContext: TurnContext = {
     projectId: project.id,
     jobId: `write_${chapter.id}`,

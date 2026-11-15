@@ -60,9 +60,21 @@ import {
   ReviewFinalizeInputSchema,
   ReviewSendInputSchema
 } from '../../shared/schema/review'
+import {
+  MemoryApplyInputSchema,
+  MemoryChapterInputSchema,
+  MemoryDecideInputSchema,
+  MemoryDecideManyInputSchema,
+  MemoryDevSeedInputSchema,
+  MemoryInvalidateInputSchema,
+  MemoryRecallInputSchema,
+  MemorySendInputSchema,
+  MemoryStateInputSchema
+} from '../../shared/schema/memory'
 import { probeProvider } from '../model/probe'
 import type { Logger } from '../observability/logger'
 import { exportDiagnostics } from '../observability/diagnostics'
+import type { MemoryService } from '../memory/service'
 import type { PlanService } from '../plan/service'
 import type { ProjectService } from '../project/service'
 import type { ReviewService } from '../review/service'
@@ -87,6 +99,7 @@ export interface IpcDeps {
   devTools?: boolean
   write: WriteService
   review: ReviewService
+  memory: MemoryService
 }
 
 interface HandlerDefinition<S extends z.ZodTypeAny, R> {
@@ -515,6 +528,66 @@ export function registerIpc(deps: IpcDeps): void {
       mutation: true,
       handler: (payload) => {
         const state = review.devSeed(payload)
+        deps.project.refreshState()
+        return state
+      }
+    })
+  }
+
+  const memory = deps.memory
+  register(IPC.memoryState, {
+    schema: MemoryStateInputSchema,
+    handler: (payload) => memory.state(payload.chapterId)
+  })
+  register(IPC.memoryExtract, {
+    schema: MemoryChapterInputSchema,
+    mutation: true,
+    handler: (payload) => memory.extract(payload.chapterId)
+  })
+  register(IPC.memoryDecide, {
+    schema: MemoryDecideInputSchema,
+    mutation: true,
+    handler: (payload) => memory.decide(payload)
+  })
+  register(IPC.memoryDecideMany, {
+    schema: MemoryDecideManyInputSchema,
+    mutation: true,
+    handler: (payload) => memory.decideMany(payload)
+  })
+  register(IPC.memoryG7Issue, {
+    schema: MemoryStateInputSchema,
+    mutation: true,
+    handler: (payload) => memory.issueG7Token(payload.chapterId)
+  })
+  register(IPC.memoryApply, {
+    schema: MemoryApplyInputSchema,
+    mutation: true,
+    handler: (payload) => memory.apply(payload)
+  })
+  register(IPC.memoryInvalidate, {
+    schema: MemoryInvalidateInputSchema,
+    mutation: true,
+    handler: (payload) => memory.invalidate(payload)
+  })
+  register(IPC.memoryRecall, {
+    schema: MemoryRecallInputSchema,
+    handler: (payload) => memory.recall(payload)
+  })
+  register(IPC.memoryIsolation, {
+    schema: EmptySchema,
+    handler: () => memory.isolationReport()
+  })
+  register(IPC.memorySend, {
+    schema: MemorySendInputSchema,
+    mutation: true,
+    handler: (payload) => memory.send(payload)
+  })
+  if (deps.devTools) {
+    register(IPC.memoryDevSeed, {
+      schema: MemoryDevSeedInputSchema,
+      mutation: true,
+      handler: (payload) => {
+        const state = memory.devSeed(payload)
         deps.project.refreshState()
         return state
       }

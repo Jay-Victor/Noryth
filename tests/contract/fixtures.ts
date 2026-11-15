@@ -117,7 +117,8 @@ export const CONTRACT_FIXTURES: Record<string, ContractFixture> = {
             kind: 'experience',
             character_id: 'chr_lin',
             text: '她确认匣子在祠堂供桌下面',
-            source_beat_id: 'bt_final'
+            source_beat_id: 'bt_final',
+            evidence_quote: '她把匣子放回供桌下面，没有点灯。'
           }
         ]
       }

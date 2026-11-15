@@ -14,7 +14,7 @@
 | 06 | `docs/PHASE-06-PLANNING.md` | done | E1–E5：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表、G1 注册与建库、覆盖检查占位；`E2E-PLAN-01/02` | 全部通过：本地门禁 + CI run `43603698391`（verify 与 e2e 均绿） | 真实供应商 Key 未接（阶段 10）；覆盖检查/影响分析仅占位（P1）；会话重命名/归档只有后端，UI 未接 |
 | 07 | `docs/PHASE-07-WRITING.md` | done | F1–F7：分镜草案/G2、11 状态迁移表、出口 DSL AST、调度循环与自动模式、正文/拍卡/确认条/分镜编辑器、拒演/耗尽/预算/模型错误四类暂停；`E2E-WRITE-01/02`；新增 `0004_writing.sql`（`LATEST_SCHEMA_VERSION = 4`） | 全部通过：本地门禁全绿（unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本）+ CI run `43609438344`（verify 与 e2e 均绿） | 真实模型未接（Key 在阶段 10）；影响分析仅 M1；分支树只有线性 revision；「上下文检查器」按钮占位 |
 | 08 | `docs/PHASE-08-REVIEW.md` | done | G1–G5：报告 schema/运行/展示、维度分与 issue 定位、patch 提案+三视图+逐条决定、G5/G6 与定稿、复检维度映射+3 轮上限、版本列表与只读对比；新增 `0005_review.sql`（`LATEST_SCHEMA_VERSION = 5`）；`E2E-REVIEW-01` | 全部通过：本地门禁全绿（unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本 / depcruise 221 modules）+ CI run `43676789043`（verify 1m19 / e2e 1m52，均绿；package 按规则跳过） | 异构复检（换模型）M1；「重新打开定稿」后端未接（DEV-PLAN §9.6）；版本对比没有分支树；报告证据是子串校验，语义越界仍为概率检测 |
-| 09 | `docs/PHASE-09-MEMORY.md` | todo | — | — | — |
+| 09 | `docs/PHASE-09-MEMORY.md` | in_progress | H1–H5：抽取（只读 final + 证据子串 + 代码级分类）、提案 UI（逐条接受/编辑/拒绝 + 来源 + 讨论）、`MemoryExecutor` 单事务 apply（文本/事实/信念/边/向量/审计 + G7）、记忆浏览与软失效、向量后隔离回归；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01` | 本地验收全绿（typecheck / lint / depcruise 249 modules / unit 578 / integration 32 / e2e 13 / build / gen:check / 规格脚本）；CI 与 `phase-09-done` 标签待提交推送后补 | bge 模型与 onnxruntime 未随包（阶段 10）；当前用确定性 `hash-bigram-v1` 降级，模型名写进每条 `embedding_model`；按章重建（T40）与 as-of/关系图 M1；世界状态作者编辑器 M1；`tool_call` 审计面板阶段 10 |
 | 10 | `docs/PHASE-10-DELIVERY.md` | todo | — | — | — |
 
 状态：`todo` / `in_progress` / `blocked` / `done`。
@@ -23,7 +23,7 @@
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（562：unit+contract） / `pnpm vitest run tests/integration`（29） / `pnpm test:e2e`（12）
+- `pnpm test:unit`（578：unit+contract） / `pnpm vitest run tests/integration`（32） / `pnpm test:e2e`（13）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
 - `python docs/scripts/check_ui_spec.py` / `python docs/scripts/check_tool_spec.py`
 - `pnpm pack`（win-unpacked） / `pnpm dist`（NSIS）
@@ -219,6 +219,27 @@
 | CI | GitHub Actions run `43676789043`（`4639eb9`） | verify 1m19 / e2e 1m52，均绿；package 按规则跳过 |
 | 阶段标签 | `phase-08-done` → `4639eb9` | 已推送 origin |
 
+## 验证记录（阶段 09，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 249 modules / 1218 deps，0 违规 |
+| Lint | `pnpm lint` | 通过 |
+| 单元 + 契约 | `pnpm test:unit` | 578 passed（unit+contract） |
+| 集成 | `pnpm vitest run tests/integration` | 32 passed（新增 memory 3） |
+| E2E | `pnpm test:e2e` | 13 passed（原 12 + `E2E-MEMORY-01`） |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→…→0006；`LATEST_SCHEMA_VERSION = 6` |
+| 证据校验 | `tests/unit/memory/evidence.test.ts` | 3 条：归一化、连续子串、缺拍/缺 quote/拍不在清单/非子串四种原因 |
+| 分类 | `tests/unit/memory/classify.test.ts` | 6 条：台词 objective→claim、旁白/作者可 objective、claim 原样、缺角色/缺三元组丢弃、关系退化、置信度/轴/值夹紧 |
+| apply | `tests/unit/memory/apply.test.ts` | 4 条：一次应用 8 记忆/3 信念/4 事实/1 边/8 向量 + 审计；重放 duplicate 不双写；中途失败全回滚（令牌未消费、决策保留）；单值事实与记忆 supersede；同一客观三元组重复提案只记已应用、不撞唯一索引 |
+| 检索 | `tests/unit/memory/retrieve.test.ts` | 3 条：as_of / valid_to 在 SQL 过滤、pinned 独立、跨角色 0 命中、无嵌入器降级关键词仍命中 |
+| 记忆链路 | `tests/integration/memory.spec.ts` | `E2E-MEMORY-01` 链路版：14 提案（台词→claim）→ 拒 2 改 1 → 应用 12 → 第 2 章召回 ≥1 → 隔离回归通过；初稿抽取被拒；篡改 quote 丢弃并记 `evidence_mismatch` |
+| 记忆台 E2E | `tests/e2e/memory.spec.ts` | `E2E-MEMORY-01`：devSeed（第 1 章定稿 + 第 2 章已规划 + 入队）→ 自动抽取 14 → 删 2 改 1 → 全部接受 → G7 应用 12 → 角色记忆 6 / 世界事实 4（1 claim）/ 信念 3 / 关系 1 → 隔离回归 → 第 2 章召回；DB：memory_vec 6 / memory_fts 6 / G7 已消费 / memory.apply succeeded / extract job applied |
+| 构建 | `pnpm build` | 通过（新增 `out/main/memory-embed-worker.js` 入口） |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T37/T39 升 1.1.0） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+
 ## 关键决策
 
 | 决策 | 结论 | 记录 |
@@ -278,29 +299,39 @@
 | 3 轮上限 | 轮次 = 报告数；到 3 轮且最新仍 fail → 转人工（G5 关闭、G6 仍可执行） | `review/rounds.ts`、`review/service.ts` |
 | 审计通道 | 审批是独立事件通道 `event:review`；消息存 `review_message`，不混进创作台的 `write_message` | `shared/ipc-channels.ts`、`db/migrations/0005_review.sql` |
 | 审批 E2E 脚手架 | `review.devSeed` 只在未打包构建注册：G2 → 6 拍 commitBeat（confirmed）→ draft_complete；生产包返回 `invalid_args` | `review/service.ts`、`ipc/router.ts` |
+| 记忆抽取 | 只读 `revision_beat`（kind='final'）清单；T37 与运行时 JSON 回退共用 `submitProposalItems`；quote 归一化子串校验，不匹配丢弃并记 `evidence_mismatch` | `memory/extract.ts`、`memory/evidence.ts` |
+| 事实/信念分类 | 代码级：台词证据的 `world_fact(objective)` 改写为 `claim` 并留 downgraded；旁白/作者可 objective；缺角色或三元组丢弃 | `memory/classify.ts`、`propose.ts` T37 |
+| 记忆执行器 | 先算 embedding（批量、维度校验）再单事务写 `memory_entry`+`memory_vec`+`memory_fts`+`world_fact`+`character_belief`+`relationship_edge`+审计+决策；G7 同事务消费；重放 `duplicate` | `memory/apply.ts` |
+| 检索管线 | vec top30 + bigram top30 → RRF(k=60, 1.0/0.7) → 绝对下限 → 头名 40% 截断 → 文本去重 → pinned ≤5；可见性过滤在 SQL；缓存键含 project/actor/character/as_of/model | `memory/retrieve.ts`、`db/repos/memory-index.ts` |
+| 嵌入降级 | 有 `resources/models/bge-small-zh-v1.5` 时 utilityProcess+bge；否则确定性 `hash-bigram-v1`（512 维）；每条 `memory_entry.embedding_model` 记真实模型，向量通道按模型过滤 | `memory/embed/**`、`docs/adr/0004-embedding.md` |
+| 单值 supersede | `world_fact.single_value=1` 且 objective → 旧行 `valid_to_seq`；记忆 `supersedes_id` → 旧条目 `superseded`；关系边按 `(from,to,axis)` 关闭旧行 | `memory/apply.ts`、`db/repos/{world,memory}.ts` |
+| 记忆台 IPC | `memory.state/extract/decide/decideMany/g7.issue/apply/invalidate/recall/isolation/send` + 未打包 `devSeed`；G7 令牌只在主进程签发 | `shared/schema/memory.ts`、`ipc/router.ts` |
+| 软失效 | 「标记错误」只写 `status='inactive'` + `memory_audit`；不物理删除；按章重建 M1 禁用 | `memory/apply.ts`、`memory/service.ts`、`MemoryBrowser.tsx` |
 
 ## 当前阻塞
 
-- 无阻塞。阶段 08 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise / unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本）+ CI run `43676789043`（verify 与 e2e 均绿），标签 `phase-08-done` → `4639eb9`，已推送 origin。
-- 真实模型未配置 Key（不阻塞）：创作台与审批台沿用阶段 06 的环境变量口径（`NORYTH_WRITE_API_KEY` / `NORYTH_REVIEW_API_KEY` / `NORYTH_<PROVIDER>_API_KEY` / `NORYTH_PLAN_API_KEY`）；未配置时生成/审批失败为 `model_auth`，不伪造报告或正文。E2E 用 `NORYTH_WRITE_FAKE=1` / `NORYTH_REVIEW_FAKE=1` 假适配器，生产包不认。
-- 待补测（不阻塞阶段 09）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
-- 已知缺口（不阻塞）：创作台的「上下文检查器」按钮是占位（只显示 traceRef）；M0 分支只有线性 revision，没有分支树 UI；跨章影响分析在 M1；审批的异构复检（换模型/换供应商）在 M1；「重新打开定稿」后端未接（DEV-PLAN §9.6），UI 只提示不可在此回退。
+- 无阻塞。阶段 09 本地验收全绿（2026-11-15）：typecheck / lint / depcruise 249 modules / unit 578 / integration 32 / e2e 13 / build / gen:check / 规格脚本。**唯一剩余步骤**：提交并推送 `dev` 跑 CI，绿后打 `phase-09-done` 标签（本会话未提交，等作者确认）。
+- 真实模型未配置 Key（不阻塞）：创作台/审批台/记忆台沿用阶段 06 的环境变量口径（`NORYTH_WRITE_API_KEY` / `NORYTH_REVIEW_API_KEY` / `NORYTH_MEMORY_API_KEY` / `NORYTH_PLAN_API_KEY` / `NORYTH_<PROVIDER>_API_KEY`）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_MEMORY_FAKE=1` 假适配器，生产包不认。
+- 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
+- 已知缺口（不阻塞）：
+  - **bge 模型与 onnxruntime 未随包**：`@huggingface/transformers` 仍是 devDependency，`resources/models/bge-small-zh-v1.5` 未入库；当前 dev/E2E 用确定性 `hash-bigram-v1` 降级（每条 `memory_entry.embedding_model` 记录真实模型，检索向量通道按模型过滤）。阶段 10 的 I/J 打包时补依赖与 `extraResources`，并按 ADR-0004 重新测体积与冷启动。
+  - 按章重建（T40）与 as-of 时间线、关系图是 M1；记忆台的「按章重建」按钮禁用。
+  - 世界状态作者编辑器（显式新增事实）M1，当前只读。
+  - `tool_call` 审计面板留阶段 10 工具面板；记忆台目前展示 `memory_audit` 动作链。
+  - 创作台的「上下文检查器」按钮是占位；M0 分支只有线性 revision；审批的异构复检在 M1；「重新打开定稿」后端未接（DEV-PLAN §9.6）。
 
 ## 下一阶段交接
 
-- 阶段 08 已 `done`（2026-11-15）。提交 `48cd5c6` + `4639eb9`；CI run `43676789043` 全绿；标签 `phase-08-done` → `4639eb9`。新增迁移 `0005_review.sql`，`LATEST_SCHEMA_VERSION = 5`；`DEV-PLAN §5.15` 已同步（approval_report.scope_json / review_message）。
-- 阶段 09 直接复用：
-  - 定稿已经入队 `memory.extract`（`job.status = 'queued'`，`expected_revision` = final revision id，payload `{chapterId, revisionId}`）；`MemoryExecutor` 从这里开始，不需要再读 chapter 状态。
-  - 记忆只从定稿抽取：`repos.chapter.finalRevisionId` 是唯一入口；`repos.revision.manifest(finalId)` 拿到定稿正文与拍 id。
-  - `repos.memoryProposal` / `agent_proposal` / `memory_entry` / `world` / `belief` / `relationship` 均已就绪；G7 令牌用 `tools/gates.issueGate` + `consumeGate`（与 G5/G6 同格式）。
-  - 审批的 `tool_call` 审计与 `review_message` 可用于记忆台的「来源/为什么重要」解释；不要把 `scheduler_event` 当记忆审计。
-  - 审批台的四分区、`reviewEvent` 事件通道、`devSeed` 脚手架与 `check_missing` 降级模式可照搬到记忆台。
-- 阶段 09 注意：
-  - `memory.extract` 只消费 `final` revision；初稿、未接受的 patch、作者未确认的改动都不进记忆。
-  - 台词不是事实：只能写 `belief` / `claim`，客观事实要事件或作者确认（PRD §6.4）。
-  - `memory.apply` 必须带 G7 令牌 + 幂等键；重放返回首次结果并标 `duplicate`。
-  - 软失效不物理删除；重建按 `source_revision_id`，旧条目 `inactive`。
-- 真实第二家供应商补测属于阶段 10 I1/I3 之前的遗留项；`settings.probeProvider` 后端已就绪，UI 在阶段 10 接。
+- 阶段 09 本地验收全绿（2026-11-15），待提交/CI/标签。新增迁移 `0006_memory.sql`，`LATEST_SCHEMA_VERSION = 6`；`DEV-PLAN §5.16 / §10.9` 已同步（evidence_quote / memory_audit / memory_message / apply 与检索实现记录）。
+- 阶段 10 直接复用：
+  - `MemoryService`（`memory/service.ts`）已装配嵌入器；`createEmbedder` 在 `memory/embed/model.ts`，模型目录解析优先 `process.resourcesPath/models`，阶段 10 只需把模型与 onnxruntime 放进去。
+  - `memory.apply` 是记忆/世界状态/向量/审计的唯一写入口；`memory/retrieve.ts` 是唯一检索管线（T10/T11 已接入）；隔离回归 `isolationReport()` 可直接进验收脚本。
+  - G7 令牌与 G5/G6 同一套 `gate_record`；`AuthorGateEntity` 已含 `proposal`。
+  - 记忆台事件通道 `event:memory`、四分区页面、`memory.devSeed` 脚手架（只在未打包构建注册）。
+- 阶段 10 注意：
+  - 打包前把 `@huggingface/transformers` 与 `onnxruntime-node` 移入 dependencies、模型放 `resources/models/bge-small-zh-v1.5`（`extraResources`），重测冷启动与安装包体积；若冷启动 > 1.5s 或包 > 250MB，按 ADR-0004 回退 q4/更小模型并全量重建索引。
+  - 设置页接 `settings.probeProvider` 与逐 Agent 绑定后，记忆台的 `NORYTH_MEMORY_API_KEY` 环境变量可退居兜底；不要把 Key 写进项目库或日志。
+  - 交付验收跑 `E2E-MEMORY-01` 时确认 `memory_vec` 在安装包里可加载（只读连接也要 `loadExtension` 才能 COUNT）。
 
 ## 更新规则
 

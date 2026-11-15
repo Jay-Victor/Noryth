@@ -8,7 +8,8 @@ import { ALL_MANIFESTS } from '../../src/main/tools/manifests'
 import { buildRegistry } from '../../src/main/tools/registry'
 import { resolveToolset } from '../../src/main/tools/resolve'
 import type { ToolServices } from '../../src/main/tools/types'
-import { openContractWorld, type ContractWorld } from './support/world'
+import { openContractWorld, memoryApplyPort, type ContractWorld } from './support/world'
+import { createHashEmbedder } from '../../src/main/memory/embed/hash'
 
 /** 验收硬项：memory.apply 无令牌 / 错实体 / 复用令牌 / 幂等重放。 */
 
@@ -20,7 +21,12 @@ let services: ToolServices
 
 beforeAll(() => {
   world = openContractWorld()
-  services = { repos: world.repos, now: () => Date.now() }
+  services = {
+    repos: world.repos,
+    now: () => Date.now(),
+    embedder: createHashEmbedder(),
+    memory: memoryApplyPort(world)
+  }
 })
 
 afterAll(() => {
@@ -113,7 +119,8 @@ describe('memory.apply 闸门与幂等', () => {
     const replay = await invoke(args, withToken)
     expect(replay.duplicate).toBe(true)
 
-    consumeGate(world.repos, token)
+    // 令牌在首次 apply 的事务内消费：再次手工消费一定是 gate_consumed。
+    expect(() => consumeGate(world.repos, token)).toThrow()
     const reused = await invoke(
       {
         proposal_id: 'job_prop',

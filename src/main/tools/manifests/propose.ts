@@ -9,8 +9,9 @@ import { defineTool } from '../define'
 import { canonicalJson } from '../idempotency'
 import { sha256Hex } from '../../crypto'
 import { ensureNamespaces } from '../../memory/namespace'
+import { submitProposalItems } from '../../memory/extract'
 import { validateStoryboard, DraftSceneSchema } from '../support/storyboard'
-import { AUDIT, Id, degradeFor, limitsFor, parseJson } from './shared'
+import { AUDIT, Id, degradeFor, limitsFor } from './shared'
 
 /** T31–T41：提案与执行（PRD §4.10.4）。T40 按里程碑开关。 */
 
@@ -534,7 +535,9 @@ const ProposalItem = z.strictObject({
   character_id: Id.optional(),
   text: z.string().min(1).max(1000),
   payload: z.record(z.string(), z.unknown()).optional(),
-  source_beat_id: Id.optional(),
+  source_beat_id: Id,
+  /** 证据原文：必须是 source_beat_id 那一拍正文的连续子串（DEV-PLAN §10.1）。 */
+  evidence_quote: z.string().min(1).max(1000),
   importance: z.number().min(0).max(1).optional(),
   pinned: z.boolean().optional()
 })
@@ -542,7 +545,7 @@ const ProposalItem = z.strictObject({
 const memoryProposalSubmit = defineTool({
   toolId: 'T37',
   name: 'memory.proposal.submit',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'propose',
   summary: '只从定稿抽取记忆固化提案；台词只能进信念或声称，不写客观事实',
   actors: ['memory'],
@@ -554,7 +557,10 @@ const memoryProposalSubmit = defineTool({
   output: z.strictObject({
     job_id: Id,
     status: z.literal('proposed'),
-    item_count: z.number().int()
+    item_count: z.number().int(),
+    dropped: z.number().int(),
+    downgraded: z.number().int(),
+    mismatches: z.number().int()
   }),
   limits: limitsFor('propose'),
   degrade: degradeFor('propose'),
@@ -573,48 +579,35 @@ const memoryProposalSubmit = defineTool({
     if (revisionId !== chapter.finalRevisionId) {
       throw new AppError('stale_revision', 'expected revision is not the final revision')
     }
-    const members = new Set(services.repos.revision.listMembers(revisionId).map((member) => member.beatId))
 
-    for (const item of args.proposal.items) {
-      if (item.kind !== 'world_fact' && !item.character_id) {
-        throw new AppError('invalid_args', `kind ${item.kind} 需要 character_id`)
-      }
-      if (item.character_id) {
-        const character = services.repos.character.get(item.character_id)
-        if (!character || character.projectId !== ctx.runtime.project_id) {
-          throw new AppError('invalid_args', 'character not in project')
-        }
-      }
-      if (item.source_beat_id && !members.has(item.source_beat_id)) {
-        throw new AppError('invalid_args', 'source beat not in final revision')
-      }
-      if (item.kind === 'world_fact') {
-        const truth = item.payload?.truth
-        const sourceType = item.payload?.source_type
-        if (truth === 'objective' && sourceType === 'dialogue') {
-          throw new AppError('invalid_args', '台词不能写成客观事实')
-        }
-      }
-    }
-
-    for (const item of args.proposal.items) {
-      services.repos.memoryProposal.insert({
-        projectId: ctx.runtime.project_id,
-        jobId: ctx.runtime.job_id,
+    const result = submitProposalItems(services.repos, {
+      projectId: ctx.runtime.project_id,
+      jobId: ctx.runtime.job_id,
+      chapterId: chapter.id,
+      revisionId,
+      actor: 'memory',
+      items: args.proposal.items.map((item) => ({
         kind: item.kind as ProposalKind,
         characterId: item.character_id ?? null,
         text: item.text,
-        payloadJson: JSON.stringify(item.payload ?? {}),
-        sourceChapterId: chapter.id,
-        sourceRevisionId: revisionId,
-        sourceBeatId: item.source_beat_id ?? null,
-        importance: item.importance,
-        pinned: item.pinned ? 1 : 0
-      })
-    }
+        payload: item.payload ?? {},
+        sourceBeatId: item.source_beat_id,
+        evidenceQuote: item.evidence_quote,
+        importance: item.importance ?? 0.5,
+        pinned: item.pinned === true
+      }))
+    })
 
     return {
-      data: { job_id: ctx.runtime.job_id, status: 'proposed' as const, item_count: args.proposal.items.length }
+      data: {
+        job_id: ctx.runtime.job_id,
+        status: 'proposed' as const,
+        item_count: result.inserted.length,
+        dropped: result.dropped.length,
+        downgraded: result.downgraded.length,
+        mismatches: result.mismatches
+      },
+      degraded: result.dropped.length > 0 ? ('summary' as const) : ('none' as const)
     }
   }
 })
@@ -693,7 +686,7 @@ const MemoryDecision = z.strictObject({
 const memoryApply = defineTool({
   toolId: 'T39',
   name: 'memory.apply',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'propose',
   summary: '凭 G7 令牌应用记忆提案：写记忆、世界状态与关系；不碰正文',
   actors: ['memory'],
@@ -709,124 +702,38 @@ const memoryApply = defineTool({
     applied_count: z.number().int(),
     rejected_count: z.number().int(),
     superseded: z.array(Id),
-    inactive: z.array(Id)
+    inactive: z.array(Id),
+    duplicate: z.boolean()
   }),
   limits: limitsFor('propose'),
   degrade: degradeFor('propose'),
   audit: AUDIT,
   milestone: 'M0',
-  handler: (args, ctx, services) => {
+  handler: async (args, ctx, services) => {
     if (!ctx.gate || ctx.gate.eid !== args.proposal_id) {
       throw new AppError('stale_revision', 'gate entity mismatch')
     }
-    const project = services.repos.project.getById(ctx.runtime.project_id)
-    if (!project) throw new AppError('project_not_found', 'project row missing')
-
-    const items = services.repos.memoryProposal.listByJob(ctx.runtime.project_id, args.proposal_id)
-    if (items.length === 0) throw new AppError('invalid_args', 'proposal not found')
-    const byId = new Map(items.map((item) => [item.id, item]))
-
-    let applied = 0
-    let rejected = 0
-    const superseded: string[] = []
-
-    for (const decision of args.decisions) {
-      const item = byId.get(decision.item_id)
-      if (!item) throw new AppError('invalid_args', `proposal item ${decision.item_id} not found`)
-      if (item.decision !== 'pending') throw new AppError('invalid_args', `proposal item ${item.id} already decided`)
-      if (decision.decision === 'edit' && !decision.edited_text) {
-        throw new AppError('invalid_args', 'edit 需要 edited_text')
-      }
-
-      if (decision.decision === 'reject') {
-        services.repos.memoryProposal.decide(item.id, 'reject')
-        rejected += 1
-        continue
-      }
-
-      const text = decision.decision === 'edit' ? decision.edited_text! : item.text
-      const payload = parseJson<Record<string, unknown>>(item.payloadJson, {})
-      const learnedSeq =
-        (item.sourceBeatId ? services.repos.beat.get(item.sourceBeatId)?.seq : null) ?? ctx.runtime.as_of
-
-      if (item.kind === 'world_fact') {
-        const subject = payload.subject
-        const predicate = payload.predicate
-        const object = payload.object
-        if (typeof subject !== 'string' || typeof predicate !== 'string' || typeof object !== 'string') {
-          throw new AppError('invalid_args', 'world_fact 需要 subject/predicate/object')
-        }
-        const singleValue = typeof payload.single_value === 'number' ? payload.single_value : 1
-        if (singleValue === 1) {
-          const current = services.repos.world.current(subject, predicate)
-          if (current) {
-            services.repos.world.closeValidity(current.id, learnedSeq)
-            superseded.push(current.id)
-          }
-        }
-        const truth = payload.truth === 'objective' ? 'objective' : 'claim'
-        const visibility = payload.visibility === 'public' ? 'public' : 'secret'
-        const knownBy = Array.isArray(payload.known_by)
-          ? payload.known_by.filter((value): value is string => typeof value === 'string')
-          : []
-        const revealSeq = typeof payload.reveal_seq === 'number' ? payload.reveal_seq : null
-        services.repos.world.insert({
-          projectId: project.id,
-          subject,
-          predicate,
-          object,
-          singleValue,
-          truth,
-          visibility,
-          knownByJson: JSON.stringify(knownBy),
-          revealSeq,
-          validFromSeq: learnedSeq,
-          sourceType: 'memory',
-          sourceId: item.id
-        })
-      } else if (item.kind === 'belief') {
-        if (!item.characterId) throw new AppError('invalid_args', 'belief 需要 character_id')
-        services.repos.belief.insert({
-          projectId: project.id,
-          characterId: item.characterId,
-          factId: typeof payload.fact_id === 'string' ? payload.fact_id : null,
-          beliefText: text,
-          confidence: typeof payload.confidence === 'number' ? payload.confidence : 0.6,
-          learnedSeq,
-          sourceType: 'author',
-          sourceId: item.id
-        })
-      } else {
-        if (!item.characterId) throw new AppError('invalid_args', `${item.kind} 需要 character_id`)
-        const record = services.repos.memory.insert({
-          projectId: project.id,
-          characterId: item.characterId,
-          kind: item.kind,
-          text,
-          learnedSeq,
-          sourceChapterId: item.sourceChapterId,
-          sourceRevisionId: item.sourceRevisionId,
-          sourceBeatId: item.sourceBeatId,
-          importance: item.importance,
-          pinned: item.pinned,
-          embeddingModel: project.embeddingModel
-        })
-        if (typeof payload.supersedes_id === 'string') {
-          services.repos.memory.supersede(payload.supersedes_id, record.id)
-          superseded.push(payload.supersedes_id)
-        }
-      }
-
-      services.repos.memoryProposal.decide(item.id, decision.decision === 'edit' ? 'edit' : 'accept', decision.edited_text)
-      applied += 1
-    }
-
+    const port = services.memory
+    if (!port) throw new AppError('tool_unavailable', '记忆执行器未装配')
+    const token = ctx.runtime.gate_token
+    const result = await port.apply({
+      proposalJobId: args.proposal_id,
+      applyJobId: ctx.runtime.job_id,
+      actor: ctx.runtime.actor_id,
+      decisions: args.decisions.map((decision) => ({
+        itemId: decision.item_id,
+        decision: decision.decision,
+        editedText: decision.edited_text ?? null
+      })),
+      gateTokenHash: token === null || token.length === 0 ? null : sha256Hex(token)
+    })
     return {
       data: {
-        applied_count: applied,
-        rejected_count: rejected,
-        superseded,
-        inactive: []
+        applied_count: result.appliedCount,
+        rejected_count: result.rejectedCount,
+        superseded: result.superseded,
+        inactive: result.inactive,
+        duplicate: result.duplicate
       }
     }
   }

@@ -10,6 +10,7 @@ import { recomputeCoveredUntilSeq } from '../db/seq'
 import { createTurnJob } from '../agents/job'
 import { runTurn, turnIdFor, type TurnCommitInput, type TurnCommitResult, type TurnHooks } from '../agents/turn'
 import type { RegistrySnapshot } from '../tools/registry'
+import type { Embedder } from '../memory/embed/types'
 import { commitBeat } from '../doc/commit-beat'
 import { markGenerating, rejectBeat, rollbackGenerate, type GenerateMark } from '../doc/beats'
 import { writeTurnTrace } from '../doc/trace'
@@ -37,6 +38,8 @@ export interface BeatRunDeps {
   /** 按 job 冻结的绑定构造适配器；runTurn 不信外部 provider/model。 */
   adapterFor: (binding: ResolvedBinding) => ChatAdapter
   gateSecret: string
+  /** 记忆检索的嵌入器（阶段 09）。 */
+  embedder?: Embedder
   mode: 'interactive' | 'auto' | 'batch'
   /** 设置里的探测结果；缺省用预设表（与 job 创建时一致）。 */
   capabilitiesLookup?: CapabilitiesLookup
@@ -111,6 +114,7 @@ export async function runBeatTurn(deps: BeatRunDeps, input: { beat: BeatRecord; 
         registry,
         adapter,
         gateSecret: deps.gateSecret,
+        ...(deps.embedder === undefined ? {} : { embedder: deps.embedder }),
         ...(deps.hooks === undefined ? {} : { hooks: deps.hooks }),
         ...(deps.signal === undefined ? {} : { signal: deps.signal }),
         ...(deps.now === undefined ? {} : { now: deps.now }),

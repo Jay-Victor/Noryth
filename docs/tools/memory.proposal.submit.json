@@ -1,6 +1,6 @@
 {
   "name": "memory.proposal.submit",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "family": "propose",
   "summary": "只从定稿抽取记忆固化提案；台词只能进信念或声称，不写客观事实",
   "actors": [
@@ -72,6 +72,11 @@
                   "minLength": 1,
                   "maxLength": 80
                 },
+                "evidence_quote": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
                 "importance": {
                   "type": "number",
                   "minimum": 0,
@@ -83,7 +88,9 @@
               },
               "required": [
                 "kind",
-                "text"
+                "text",
+                "source_beat_id",
+                "evidence_quote"
               ],
               "additionalProperties": false
             }
@@ -117,12 +124,30 @@
         "type": "integer",
         "minimum": -9007199254740991,
         "maximum": 9007199254740991
+      },
+      "dropped": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "downgraded": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
+      "mismatches": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
       }
     },
     "required": [
       "job_id",
       "status",
-      "item_count"
+      "item_count",
+      "dropped",
+      "downgraded",
+      "mismatches"
     ],
     "additionalProperties": false
   },

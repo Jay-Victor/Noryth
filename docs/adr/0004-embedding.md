@@ -40,6 +40,13 @@ Spike 用 `utilityProcess.fork` 启动 worker，`env.allowRemoteModels=false`，
 > 2026-11-14 范围复核：`PHASE-04-RUNTIME.md` 的 D1–D6 不含嵌入 worker，阶段 04 实际未做随包；
 > 该工作随记忆检索（阶段 09 H3）与打包（阶段 10 I/J）一起完成，届时按本 ADR 重新测量体积与冷启动。
 
+## 阶段 09 记录（2026-11-15）
+
+- 嵌入 worker 已实现并作为第二个 main 入口打包（`out/main/memory-embed-worker.js`），协议见 `src/main/memory/embed/protocol.ts`；只有 `resources/models/bge-small-zh-v1.5` 存在时才启用。
+- 本机与 CI 没有 ONNX 权重（缓存里只有 tokenizer/config，`onnxruntime-node` 未安装），因此阶段 09 的验收使用确定性 `hash-bigram-v1`（512 维，L2 归一化，无模型无网络）。它**不是**语义模型：同义改写召回不了，只能命中共享字面；这比假装有语义能力更诚实。
+- 模型名写进每条 `memory_entry.embedding_model`，检索的向量通道按模型名过滤；换回 bge 时旧行仍可按关键词召回，不会把两种向量混在一起比较。
+- 阶段 10 打包前必须：`@huggingface/transformers` + `onnxruntime-node` 进 dependencies、模型进 `extraResources`，重测冷启动与安装包体积；不达标按下方回退。
+
 ## 回退
 
 如果阶段 04 打包后冷启动 > 1.5s 或安装包 > 250MB：改用 q4 或更小模型，`embedding_dim` 变化必须全量重建索引，并更新本 ADR。

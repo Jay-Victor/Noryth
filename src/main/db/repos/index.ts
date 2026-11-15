@@ -6,6 +6,9 @@ import { CharacterRepo } from './character'
 import { systemClock, type Clock } from './common'
 import { JobRepo } from './job'
 import { MemoryRepo } from './memory'
+import { MemoryAuditRepo } from './memory-audit'
+import { MemoryIndexRepo } from './memory-index'
+import { MemoryMessageRepo } from './memory-message'
 import { MemoryProposalRepo } from './memory-proposal'
 import { ModelBindingRepo, TurnMetricRepo } from './model'
 import { OutlineRepo } from './outline'
@@ -49,6 +52,9 @@ export function createRepos(db: Db, options: RepoOptions = {}) {
     patch: new PatchRepo(runner, now),
     memory: new MemoryRepo(runner, now),
     memoryProposal: new MemoryProposalRepo(runner, now),
+    memoryIndex: new MemoryIndexRepo(runner),
+    memoryAudit: new MemoryAuditRepo(runner, now),
+    memoryMessage: new MemoryMessageRepo(runner, now),
     planSession: new PlanSessionRepo(runner, now),
     planMessage: new PlanMessageRepo(runner, now),
     planCharacter: new PlanCharacterRepo(runner, now),

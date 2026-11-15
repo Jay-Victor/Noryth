@@ -29,6 +29,14 @@ import type {
 } from './slice'
 import type { StoryboardConflict, StoryboardDraft } from './storyboard'
 import type {
+  MemoryActionResult,
+  MemoryEvent,
+  MemoryIssueResult,
+  MemoryRecallResult,
+  MemorySendResult,
+  MemoryState
+} from './memory'
+import type {
   ReviewActionResult,
   ReviewCompareResult,
   ReviewEvent,
@@ -144,6 +152,7 @@ export interface EventApi {
   onPlanChoice(listener: (event: PlanChoiceRequest) => void): () => void
   onWriteEvent(listener: (event: WriteEvent) => void): () => void
   onReviewEvent(listener: (event: ReviewEvent) => void): () => void
+  onMemoryEvent(listener: (event: MemoryEvent) => void): () => void
 }
 
 /** 创作台 G2 预览（PHASE-07 F1）。 */
@@ -227,6 +236,42 @@ export interface ReviewApi {
   devSeed(input?: { scenes?: number; beatsPerScene?: number }): Promise<IpcResult<ReviewState>>
 }
 
+/** 记忆台 API（PHASE-09）。G7 令牌在主进程签发；apply 是唯一写记忆的入口。 */
+export interface MemoryApi {
+  state(chapterId?: string): Promise<IpcResult<MemoryState>>
+  /** 生成固化提案（只写 job + 提案，不写记忆库）。 */
+  extract(chapterId: string): Promise<IpcResult<MemoryActionResult>>
+  decide(input: {
+    itemId: string
+    decision: 'accept' | 'edit' | 'reject'
+    editedText?: string
+  }): Promise<IpcResult<MemoryActionResult>>
+  decideMany(input: {
+    decisions: Array<{ itemId: string; decision: 'accept' | 'edit' | 'reject'; editedText?: string }>
+  }): Promise<IpcResult<MemoryActionResult>>
+  /** G7：签发一次性应用令牌（10 分钟）。 */
+  issueG7Token(chapterId?: string): Promise<IpcResult<MemoryIssueResult>>
+  apply(input: { chapterId?: string; token: string }): Promise<IpcResult<MemoryActionResult>>
+  /** 标记错误：软失效，不删除。 */
+  invalidate(input: { entryId: string; reason: string }): Promise<IpcResult<MemoryActionResult>>
+  /** 召回探针（只读）：用真实检索管线按角色取记忆。 */
+  recall(input: {
+    characterId: string
+    query: string
+    asOf?: number
+    topK?: number
+  }): Promise<IpcResult<MemoryRecallResult>>
+  /** 隔离回归（H5）：写向量后的跨角色探针。 */
+  isolation(): Promise<IpcResult<{ verified: boolean; probes: Array<{ characterId: string; query: string; hits: number; foreign: number }> }>>
+  send(input: { chapterId?: string; text: string }): Promise<IpcResult<MemorySendResult>>
+  /** 仅未打包构建：E2E 脚手架。 */
+  devSeed(input?: {
+    scenes?: number
+    beatsPerScene?: number
+    extraChapters?: number
+  }): Promise<IpcResult<MemoryState>>
+}
+
 export interface NorythBridge {
   project: ProjectApi
   dialog: DialogApi
@@ -236,6 +281,7 @@ export interface NorythBridge {
   plan: PlanApi
   write: WriteApi
   review: ReviewApi
+  memory: MemoryApi
   app: AppApi
   events: EventApi
 }

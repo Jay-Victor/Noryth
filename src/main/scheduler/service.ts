@@ -16,6 +16,7 @@ import type { Repos } from '../db/repos'
 import type { BeatRecord } from '../db/repos/beat'
 import type { ChapterRecord } from '../db/repos/chapter'
 import type { RegistrySnapshot } from '../tools/registry'
+import type { Embedder } from '../memory/embed/types'
 import type { ChatToolCall } from '../model/adapter'
 import { confirmBeat, editBeat, parseGrounding } from '../doc/beats'
 import { publishPendingMirrors } from '../doc/publish'
@@ -65,6 +66,8 @@ export interface WriteServiceDeps {
   settings: () => Settings
   allowFakeModel: boolean
   gateSecret: string
+  /** 记忆检索的嵌入器（阶段 09）；缺省时角色检索降级为关键词。 */
+  embedder?: Embedder
   send: (event: WriteEvent) => void
   fakeChunkDelayMs?: number
   log?: (message: string, details?: Record<string, unknown>) => void
@@ -647,6 +650,7 @@ export class WriteService {
         registry: this.deps.registry,
         adapter,
         gateSecret: this.deps.gateSecret,
+        ...(this.deps.embedder === undefined ? {} : { embedder: this.deps.embedder }),
         allowTools: this.modelCapabilities(binding).tools !== false,
         hooks: {
           onText: (_delta, full) => {
@@ -783,6 +787,7 @@ export class WriteService {
         registry: this.deps.registry,
         adapterFor: (binding) => this.models.adapter(binding),
         gateSecret: this.deps.gateSecret,
+        ...(this.deps.embedder === undefined ? {} : { embedder: this.deps.embedder }),
         mode,
         capabilitiesLookup: this.models.capabilitiesLookup(),
         attempt: `${Date.now()}-${(this.attemptSeq += 1)}`,
