@@ -31,6 +31,7 @@ export const IPC = {
   settingsBindingsRollback: 'settings.bindings.rollback',
   settingsBindingsAudit: 'settings.bindings.audit',
   diagnosticsExport: 'diagnostics.export',
+  exportRun: 'export.run',
   // 开发切片（PHASE-05）：只在未打包构建注册
   sliceSeed: 'slice.seed',
   sliceState: 'slice.state',

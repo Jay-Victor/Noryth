@@ -1,0 +1,7 @@
+{
+  "match": { "model": "deepseek-flash", "contains": "本拍意图：" },
+  "response": {
+    "stream": ["{\"body\":\"雨声压下来，她把账本推过桌面。\",\"grounding\":[]}"],
+    "usage": { "in": 900, "out": 60 }
+  }
+}

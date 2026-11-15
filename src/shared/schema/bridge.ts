@@ -1,4 +1,5 @@
 import type { IpcResult } from './ipc'
+import type { ExportInput, ExportResult } from './export'
 import type {
   AppearancePatch,
   BindingAuditEntry,
@@ -119,6 +120,11 @@ export interface SettingsApi {
 
 export interface DiagnosticsApi {
   export(): Promise<IpcResult<{ path: string }>>
+}
+
+/** 稿件导出（PRD §5.5）：Markdown / TXT，可选附带审批批注。 */
+export interface ManuscriptApi {
+  export(input: ExportInput): Promise<IpcResult<ExportResult>>
 }
 
 /**
@@ -298,6 +304,7 @@ export interface NorythBridge {
   dialog: DialogApi
   settings: SettingsApi
   diagnostics: DiagnosticsApi
+  manuscript: ManuscriptApi
   slice: SliceApi
   plan: PlanApi
   write: WriteApi

@@ -149,7 +149,9 @@ export const BindingMatrixSchema = z.strictObject({
       label: z.string(),
       enabled: z.boolean(),
       keyConfigured: z.boolean(),
-      connected: z.boolean()
+      connected: z.boolean(),
+      /** 可选模型清单：绑定表的下拉只在这里取值，避免出现空模型。 */
+      models: z.array(z.string())
     })
   ),
   /** 项目默认 + 六个 Agent（不含角色实例）。 */

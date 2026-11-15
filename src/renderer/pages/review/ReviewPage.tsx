@@ -3,6 +3,7 @@ import { GRID, type LayoutMode } from '../../../shared/layout/grid'
 import { DIMENSION_LABELS, VERDICT_LABELS } from '../../../shared/schema/report'
 import { REVIEW_STATUS_LABELS } from '../../../shared/schema/review'
 import { Icon } from '../../components/Icon'
+import { getBridge } from '../../lib/bridge'
 import { useApp } from '../../stores/app'
 import { useReview, type ReviewTab } from '../../stores/review'
 import { DiffView } from './DiffView'
@@ -325,6 +326,37 @@ export function ReviewPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           <span className="pane-header__meta">
             {state.chapterStatus === 'finalized' ? '已定稿 · 只读' : state.readOnly ? '只读' : ''}
           </span>
+          {/* 导出只读：不改 revision；只读锁下仍可用（PRD §5.5）。 */}
+          <button
+            type="button"
+            className="plan-btn"
+            data-testid="review-export"
+            disabled={!state.chapterId}
+            title="导出本章 Markdown 到项目 exports/"
+            onClick={() => {
+              void (async () => {
+                const bridge = getBridge()
+                if (!bridge) return
+                const result = await bridge.manuscript.export({
+                  chapterId: state.chapterId,
+                  format: 'md',
+                  includeNotes: false
+                })
+                if (!result.ok) {
+                  useApp.getState().toast({ tone: 'error', title: result.error.message, detail: result.error.code })
+                  return
+                }
+                useApp.getState().toast({
+                  tone: 'success',
+                  title: `已导出 ${result.data.words} 字`,
+                  detail: result.data.path,
+                  key: 'export-chapter'
+                })
+              })()
+            }}
+          >
+            导出 Markdown
+          </button>
           {/* G6 只在审批台预览 header；无快捷键，创作台不出现。 */}
           <button
             type="button"

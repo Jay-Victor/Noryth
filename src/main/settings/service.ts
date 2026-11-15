@@ -254,12 +254,15 @@ export class SettingsService {
       defaultPreset: asPreset(project.defaultPreset, 'deepseek'),
       providers: PROVIDER_PRESETS.map((preset) => {
         const snapshot = settings.providers[preset.preset]
+        const models = preset.models.map((model) => model.id)
+        if (snapshot?.model && !models.includes(snapshot.model)) models.push(snapshot.model)
         return {
           preset: preset.preset,
           label: preset.label,
           enabled: settings.providersEnabled[preset.preset] ?? true,
           keyConfigured: this.deps.secrets.status(preset.preset).configured,
-          connected: Boolean(snapshot?.capabilities && snapshot.checkedAt)
+          connected: Boolean(snapshot?.capabilities && snapshot.checkedAt),
+          models
         }
       }),
       rows,

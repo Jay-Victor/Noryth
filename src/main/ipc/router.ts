@@ -23,6 +23,8 @@ import {
   ProviderTestInputSchema
 } from '../../shared/schema/settings'
 import { PresetSchema } from "../../shared/schema/model"
+import { ExportInputSchema } from '../../shared/schema/export'
+import { exportManuscript } from '../doc/export'
 import {
   PlanAddOutlineInputSchema,
   PlanCharacterAddInputSchema,
@@ -316,6 +318,15 @@ export function registerIpc(deps: IpcDeps): void {
   register(IPC.settingsBindingsAudit, {
     schema: BindingProjectInputSchema,
     handler: (payload) => deps.settingsCenter.audit(payload.projectId)
+  })
+
+  register(IPC.exportRun, {
+    schema: ExportInputSchema,
+    handler: (payload) => {
+      const host = deps.project.currentHandle()
+      if (!host) throw new AppError('project_not_found', '没有打开的项目')
+      return exportManuscript(host.repos, host.dir, payload)
+    }
   })
 
   register(IPC.diagnosticsExport, {

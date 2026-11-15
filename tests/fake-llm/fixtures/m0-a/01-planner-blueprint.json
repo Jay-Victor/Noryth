@@ -1,0 +1,17 @@
+{
+  "match": { "agent": "planner", "beat": "plan.blueprint", "model": "deepseek-flash" },
+  "response": {
+    "stream": ["我先给出一版可执行的蓝图草案。\n", "主线：一封遗书牵出账本，账本牵出祠堂。\n"],
+    "tool_calls": [
+      {
+        "tool": "blueprint.propose_patch",
+        "args": {
+          "ops": [
+            { "op": "add", "parent_id": null, "ref": "vol1", "kind": "volume", "ord": 0, "title": "第一卷 · 黑漆匣子" }
+          ]
+        }
+      }
+    ],
+    "usage": { "in": 1800, "out": 420 }
+  }
+}

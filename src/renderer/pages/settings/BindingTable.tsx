@@ -40,8 +40,9 @@ export function BindingTable(): React.JSX.Element {
   const modelOptions = useMemo(() => {
     const map = new Map<string, string[]>()
     for (const provider of bindings?.providers ?? []) {
-      map.set(provider.preset, [])
+      map.set(provider.preset, [...provider.models])
     }
+    // 已绑定但不在预设清单里的模型（例如作者手测过的模型）也要能显示。
     for (const row of [...rows, ...(bindings?.characters ?? []).map((entry) => entry.effective)]) {
       const list = map.get(row.provider) ?? []
       if (!list.includes(row.model)) list.push(row.model)

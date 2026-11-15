@@ -1,0 +1,7 @@
+{
+  "match": { "model": "qwen-plus", "contains": "审批" },
+  "response": {
+    "error": { "status": 429, "body": "{\"error\":{\"message\":\"rate limited\"}}" }
+  },
+  "repeat": false
+}
