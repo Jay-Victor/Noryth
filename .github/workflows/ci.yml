@@ -25,7 +25,15 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm depcruise
-      - run: pnpm test:unit
+      - name: unit tests
+        run: |
+          set -o pipefail
+          pnpm test:unit 2>&1 | tee unit-test.log
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: unit-test-log
+          path: unit-test.log
       - run: pnpm test:chaos
       - run: python docs/scripts/check_ui_spec.py
       - run: python docs/scripts/check_tool_spec.py --tools docs/tools --prd docs/PRD.md
