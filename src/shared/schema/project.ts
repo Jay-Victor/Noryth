@@ -117,10 +117,22 @@ export const SettingsSchema = z.strictObject({
 })
 export type Settings = z.infer<typeof SettingsSchema>
 
-/** 外观走浅合并，其余键保持整体替换语义（与阶段 01 一致）。 */
-export const SettingsPatchSchema = SettingsSchema.partial().extend({
-  appearance: AppearancePatchSchema.optional()
-})
+/**
+ * 补丁 schema 必须显式写、且**不带 default**。
+ *
+ * `SettingsSchema.partial()` 仍会对缺省键套用 default：一次 `{lastOpenedProjectId}`
+ * 的写入会顺手把 `providers` 覆盖成 `{}`，把探测快照与绑定可用性全部清空。
+ * 这个坑在实际流程里很难复现（要先探测、再打开别的项目），所以锁在这里并加回归测试。
+ */
+export const SettingsPatchSchema = z
+  .strictObject({
+    theme: z.enum(['light', 'dark', 'system']).optional(),
+    lastOpenedProjectId: z.string().nullable().optional(),
+    providers: z.record(z.string(), ProviderSettingsSchema).optional(),
+    tokenCalibration: z.record(z.string(), z.number()).optional(),
+    providersEnabled: z.record(z.string(), z.boolean()).optional(),
+    appearance: AppearancePatchSchema.optional()
+  })
 export type SettingsPatch = z.infer<typeof SettingsPatchSchema>
 
 export const AppInfoSchema = z.strictObject({

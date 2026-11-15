@@ -33,7 +33,13 @@ export const AppearanceSchema = z.strictObject({
   lineHeight: z.union([z.literal(1.6), z.literal(1.8), z.literal(2.0)]).default(1.8)
 })
 export type Appearance = z.infer<typeof AppearanceSchema>
-export const AppearancePatchSchema = AppearanceSchema.partial()
+/** 外观补丁同样不能带 default：否则改主题会把强调色打回默认（与 settings 补丁同一类坑）。 */
+export const AppearancePatchSchema = z.strictObject({
+  theme: z.enum(['light', 'dark', 'system']).optional(),
+  accent: z.enum(ACCENT_KEYS).optional(),
+  fontScale: z.enum(['small', 'standard', 'large']).optional(),
+  lineHeight: z.union([z.literal(1.6), z.literal(1.8), z.literal(2.0)]).optional()
+})
 export type AppearancePatch = z.infer<typeof AppearancePatchSchema>
 
 /** Key 状态：不返回明文，只返回是否配置与末 4 位。 */

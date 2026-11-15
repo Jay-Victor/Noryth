@@ -12,7 +12,7 @@ import type { ChatAdapter, ChatRequest, ChatResult, ChatToolCall, StreamHooks } 
  */
 
 const BEAT_LINE = /^\[(bt_[A-Za-z0-9_-]+)\]\s*([^：\n]+)：(.*)$/
-const CHARACTER_LINE = /^- (chr_[A-Za-z0-9_-]+)「([^」]+)」卡：/
+const CHARACTER_LINE = /^- ([A-Za-z][A-Za-z0-9_-]*)「([^」]+)」卡：/
 
 interface BeatLine {
   beatId: string
