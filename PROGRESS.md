@@ -109,6 +109,7 @@
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T23 输出 schema 扩展、DraftScene 允许空拍 → T27/T34 清单变化） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
 | CI | GitHub Actions run `43707502797`（`374578b`） | verify 2m14（lint/typecheck/depcruise/unit 646/chaos 7/spec/gen/build）+ e2e 2m31，均绿；package 按规则跳过（非 `v*` tag） |
+| CI（文档提交） | GitHub Actions run `43707982690`（`e86a69e`） | verify + e2e 均绿 |
 | 阶段标签 | `phase-12-done` → `374578b` | 已推送 origin |
 
 ## 当前可运行命令
