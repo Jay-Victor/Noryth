@@ -53,7 +53,9 @@ export function RelationshipGraph({ state }: { state: MemoryState }): React.JSX.
 
   useEffect(() => {
     setSelectedId(null)
-  }, [graph?.asOf, graph?.chapterId])
+    // 换章后回到该章的默认水位（滑杆不会停在别的章的位置）。
+    setAsOf(null)
+  }, [graph?.chapterId])
 
   const selected = useMemo(
     () => graph?.edges.find((edge) => edge.id === selectedId) ?? null,

@@ -971,6 +971,11 @@ export class MemoryService {
         latest.status === 'interrupted' ||
         latest.status === 'failed' ||
         latest.status === 'paused')
+    // 代次取「已有 job 数 + 1」，并跳过已存在的键（listRecent 有上限，别撞唯一索引）。
+    let generation = recent.length + 1
+    while (host.repos.job.findByIdempotency(project.id, reindexJobKey(project.id, generation)) !== null) {
+      generation += 1
+    }
     const job =
       resumable && latest !== null
         ? latest
@@ -980,7 +985,7 @@ export class MemoryService {
             status: 'running',
             expectedRevision: null,
             epoch: project.writeEpoch,
-            idempotencyKey: reindexJobKey(project.id, recent.length + 1),
+            idempotencyKey: reindexJobKey(project.id, generation),
             payloadJson: JSON.stringify({ model: this.deps.embedder.model, actor: 'author' })
           })
 
