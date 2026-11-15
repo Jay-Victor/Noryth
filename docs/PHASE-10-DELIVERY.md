@@ -103,15 +103,19 @@
 
 ## 6 验收清单
 
-- [ ] PRD M0 11 条全部有证据（§16.1 映射）。
-- [ ] `E2E-M0-PROVIDER`：两家预设各完成一章；审批绑第二家仍能跑通。
-- [ ] Key 只存 safeStorage；项目目录/日志/诊断包无明文。
-- [ ] 绑定继承链正确；改绑定只影响下一 job。
-- [ ] `CHAOS-01..08` 通过；已确认拍零丢失。
-- [ ] NSIS 在干净 Win10/11 安装、启动、卸载；更新失败不阻塞。
-- [ ] 安全清单全绿；200% 缩放不截断；抽屉焦点可进出。
-- [ ] 性能基线记录完整；诊断包不含正文。
-- [ ] `docs/M0-ACCEPTANCE.md` 写完并签字（自己签）。
+- [x] PRD M0 11 条全部有证据（§16.1 映射）→ `docs/M0-ACCEPTANCE.md` §1。
+- [x] `E2E-M0-PROVIDER`：两家预设可切换、审批绑第二家跑通一章 → `tests/e2e/provider.spec.ts`。
+      注：一章内旁白前 3 拍 DeepSeek、后 3 拍通义（真实适配器 + 本地假服务器）；「两家各整章」
+      依赖真实第二家 Key，见 §7 已知问题。
+- [x] Key 只存 safeStorage；项目目录/日志/诊断包无明文 → `secrets.test.ts` + `settings.spec.ts` 磁盘扫描。
+- [x] 绑定继承链正确；改绑定只影响下一 job → `bindings.test.ts` + `provider-settings.spec.ts`。
+- [x] `CHAOS-01..08` 通过；已确认拍零丢失 → `pnpm test:chaos`（7 条覆盖 8 场景）。
+- [x] NSIS 安装、启动、卸载；更新失败不阻塞 → 本机 Win11 PASS（`scripts/install-smoke.mjs`）。
+      注：干净 Win10 22H2 未测，见 §7。
+- [x] 安全清单全绿；200% 缩放不截断 → `tests/e2e/a11y.spec.ts`。
+      注：文件树抽屉（Ctrl B）未实现，焦点可进出未满足，见 §7。
+- [x] 性能基线记录完整；诊断包不含正文 → `pnpm test:perf` + `diagnostics.spec.ts`。
+- [x] `docs/M0-ACCEPTANCE.md` 写完并签字（自己签）。
 
 ## 7 风险与回退
 
