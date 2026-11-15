@@ -520,7 +520,7 @@ M0–M2 **不开放**第三方工具安装、Agent 自建工具、MCP 外接。�
 | T19 | `manuscript.search_final` | `(query, filters?, limit≤8)` → 定稿 beat 级引用 | 编排 / 审批 / 记忆 | 读 | 只检索 `kind = final`；初稿不进；返回 `chapter_id + beat_id + quote` |
 | T20 | `manuscript.get_final_chapter` | `(chapter_id)` → 定稿全文 | 编排 / 审批 / 记忆 | 读 | 只读 final revision；无定稿返回空，不回退到草稿 |
 | T21 | `draft.get_chapter` | `(revision_id)` → 初稿正文 | 审批 | 读 | 只读；revision 必须属于本项目当前章；不可写、不可改 |
-| T22 | `foreshadow.list_open` | `(as_of?)` → 未回收伏笔 + 埋设章（P1） | 编排 / 审批 / 记忆 | 读 | 只报节奏，不报逻辑错误；伏笔不设时间衰减 |
+| T22 | `foreshadow.list_open` | `(chapter_id?)` → 未回收伏笔 + 埋设章 + 当前章距离（M1） | 编排 / 审批 / 记忆 | 读 | 只报节奏（「已 N 章未回收」），不报逻辑错误；伏笔不设时间衰减；不产生审批阻断 |
 | T23 | `timeline.query` | `(chapter_id?, as_of?)` → `story_start/end`、`idx`、`timeline`（M1） | 编排 / 审批 / 记忆 | 读 | 三轴分开返回；闪回不折算成主线时间 |
 
 #### 4.10.3 校验与度量（T24–T30）
@@ -529,17 +529,17 @@ M0–M2 **不开放**第三方工具安装、Agent 自建工具、MCP 外接。�
 |---|---|---|---|---|---|
 | T24 | `consistency.check` | `(revision_id)` → 确定性 issue 列表：引用不存在、时间轴单调、单值槽冲突、生死 / 身份冲突、出口状态、泄漏候选 | 审批 | 校验 | 只报可判定项；语义问题标 `candidate`，不冒充结论 |
 | T25 | `voice.metrics` | `(scene_id)` → 句长分布 √JSD、口头禅与问句率、两两区分度（M2） | 审批 | 校验 | 阈值 0.18 需中文语料重标（§11）；只出指标，不自动判 fail |
-| T26 | `coverage.check` | `(scope)` → 卷纲关键事件无落点、角色无出场动机、主线断档、章纲与角色卡冲突（P1） | 规划 | 校验 | 结果是建议项，不阻断 G1 |
+| T26 | `coverage.check` | `(scope)` → `gaps[{code, severity, node_id, message}]`：关键事件无落点、角色无出场章、主线断档、章纲 POV 冲突（M1） | 规划 | 校验 | 只有 `severity=error` 才阻断 G1，`warn` 只计数；项目内开关可关；`meta_json` 空只给建议 |
 | T27 | `storyboard.validate` | `(draft)` → 发言人不在场、意图与卡冲突、出口不可判定、拍数超限 | 编排 | 校验 | 提交前自动跑；硬冲突拒绝提交，软冲突返回告警 |
 | T28 | `exit_dsl.validate` | `(expr)` → `{valid, machine_decidable, reasons}` | 编排 | 校验 | 只接受 DSL（fact / rel / beats / all / any / not）；自然语言出口直接拒绝 |
-| T29 | `impact.analyze` | `(change)` → 受影响章节、记忆条目、关系边（P1） | 规划 | 校验 | 蓝图变更前必须跑，结果进变更记录 |
+| T29 | `impact.analyze` | `(proposal_id? / ops? / character_id + character_card?)` → `{change_id, chapters[], memory_entries[], relationships[], counts}`（M1） | 规划 | 提案 | 蓝图变更前必须跑；写 `blueprint_change(status=proposed)`，不直接改大纲；未分析的变更应用一律 `invalid_args` |
 | T30 | `report.get_latest` | `(chapter_id)` → 最近报告摘要（verdict、阻断数、issue_refs） | 编排 / 审批 / 记忆 | 读 | 只给摘要；全文在审批台，不进上下文 |
 
 #### 4.10.4 提案与执行（T31–T41）
 
 | 编号 | 工具 | 作用与关键参数 → 返回 | 允许调用 | 类 | 约束 / 降级 |
 |---|---|---|---|---|---|
-| T31 | `blueprint.propose_patch` | `(ops[])` → `{proposal_id, diff_summary}` | 规划 | 提案 | 只写草案；G1 后需变更流程 + 影响分析；不直接改 `outline_node` |
+| T31 | `blueprint.propose_patch` | `(ops[])` → `{proposal_id, requires_change, diff_summary}`；ops 含结构化纲要素（`key_events` / `character_ids` / `mainline` / `pov_character_id`） | 规划 | 提案 | 只写草案；G1 后 `requires_change=true`：必须走变更流程 + 影响分析，不能直接应用；不直接改 `outline_node` |
 | T32 | `character.propose_card` | `(character_id?, card)` → `{card_draft_id, card_version}` | 规划 | 提案 | 不换 `character_id`；改版列出受影响章节与记忆 |
 | T33 | `roster.propose` | `(roster)` → `{roster_id, characters[], initial_facts[]}` | 规划 | 提案 | G1 后交记忆管理建库；规划不建库、不写向量 |
 | T34 | `storyboard.propose` | `(chapter_id, scenes[])` → `{storyboard_rev, conflicts[]}` | 编排 | 提案 | 提交前跑 T27；不改正文；`notes` 字段不进任何上下文 |
@@ -602,7 +602,7 @@ M0–M2 **不开放**第三方工具安装、Agent 自建工具、MCP 外接。�
 **关键交互**：
 
 - 左侧对话，右侧结构化编辑器：大纲、主线、卷纲、章纲、角色卡。对话改的是草案，编辑器改的是字段，两者双向同步。
-- **覆盖检查**（P1）：卷纲的关键事件是否在章纲有落点；每个主要角色是否有出场动机；主线是否每 3–5 章推进一次；章纲是否与角色卡的能力/关系冲突。
+- **覆盖检查**（M1）：卷纲的关键事件是否在章纲有落点；每个主要角色是否有出场章；主线是否每 5 章内推进一次；章纲 POV 是否与角色表冲突。检查只读 `outline_node.meta_json` 的结构化标注，不解析自然语言；关键事件无落点、角色无出场章、POV 不存在或已归档才阻断 G1，节奏类只给建议，项目内可关掉阻断。
 - **角色卡必填字段**：身份、外貌、说话方式（句长、口头禅、称呼习惯）、欲望、恐惧、禁忌、初始关系、初始已知/未知。
 - **G1 一次确认**：确认后不允许「边写边改蓝图」；改蓝图要走变更流程，并触发影响分析。
 
@@ -875,6 +875,8 @@ G6 定稿
 | `gate_record` | id、gate_id、entity_type、entity_id、decision、actor、payload_json、created_at | 闸门审计；G0–G7 每次决策可追溯 |
 | `job` | id、type、status、expected_revision、epoch、idempotency_key、payload_json | 生成/固化/导出任务；幂等与恢复 |
 | `tool_call` | id、job_id、turn_id、tool、tool_version、actor_id、scope_json、args_hash、result_ids_json、status、error_code、latency_ms、degraded | 工具调用审计；`scope_json` 只存 ID 与 `as_of`；不存 `args` 原文，只存 hash；与 `trace_ref` 互为索引 |
+| `foreshadow` | id、project_id、text、planted_chapter_id、planned_payoff_chapter_id、payoff_chapter_id、status | 作者标注的伏笔；只报节奏，不自动回收、不进检索 |
+| `blueprint_change` | id、project_id、proposal_id、ops_json、impact_json、status、actor、applied_at | G1 后的蓝图变更记录；未跑影响分析不能应用 |
 
 **世界状态不是一张表**，而是 `world_fact` + `character_belief` + `relationship_edge` 在某个 `as_of` 上的投影视图。不要建一张可变的 `world_state` 大表：它会把「当前」焊死，回退和按章审稿都做不了。
 
@@ -1423,6 +1425,7 @@ G6 定稿
 
 ## 变更记录
 
+- **v0.7**：阶段 15 契约收口：`coverage.check`（T26）输出改为可定位的 `gaps[{code, severity, node_id, message}]`，明确「`error` 才阻断 G1、`warn` 只计数、项目开关可关」；`impact.analyze`（T29）改为「`proposal_id` / `ops` / `character_card` 三选一」并把结果写入 `blueprint_change(status=proposed)`（因此类从「校验」改为「提案」）；`foreshadow.list_open`（T22）输入改 `chapter_id?`、输出补埋设章与当前章距离；`blueprint.propose_patch`（T31）ops 允许结构化纲要素并在 G1 后返回 `requires_change`。新增实体 `foreshadow` / `blueprint_change`，`outline_node.meta_json` 与 `chapter.invalidated_at/reason` 两列。
 - **v0.6**：补工具层设计：工具与 Agent 解耦（注册表、清单契约、白名单解析、运行时注入身份、提案/提交分离、错误码与契约测试）；新增 42 个 Agent 可调用工具与 8 个系统能力的清单、授权摘要、`tool_call` 审计实体；`grounding` 收紧为工具返回引用的子集。同步修订权限矩阵（规划公共设定读、角色脱敏目标、审批 patch 为建议型）、拍状态机（`waiting_for_human` / `author_edited` / `interrupted`）、失败退化表与风险表。
 - **v0.5**：补页面设计（`docs/UI-DESIGN.md`）：六页布局、四分区折叠规则、逐拍确认条、闸门行动条、状态矩阵与验收清单；界面形态由「三栏 + tab」改为「四分区 + 断点折叠」，保留 1440 px 不做四栅的结论。
 - **v0.4**：模型选择定为设置中逐 Agent 绑定 provider + model；自动更新定为 GitHub Releases；新增设置页、`model_binding`、逐 Agent 成本归因与更新可达性风险。

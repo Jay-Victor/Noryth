@@ -286,6 +286,13 @@ contextBridge.exposeInMainWorld('noryth', {
 | plan | `send` | sessionId、文本、引用 chips | `{jobId}` | — |
 | plan | `confirmG1` | 蓝图版本、角色清单 | `{registered, setupState}` | G1 |
 | plan | `applySuggestion` | 建议 id | `{draftVersion}` | — |
+| plan | `coverage`（M1-11） | — | `{gate, locked, errorCount, warnCount, gaps[]}`；与 G1 阻断同一份规则 | — |
+| plan | `coverageGate`（M1-11） | enabled | `{...coverage}`；关掉后阻断项不再禁 G1（G1 前有效） | — |
+| plan | `impact`（M1-8） | `proposalId` / `ops` / `characterCard` 三选一 | `{change: BlueprintChangeView}`；写 `blueprint_change(status=proposed)` | — |
+| plan | `changes`（M1-8） | — | `BlueprintChangeView[]`；最近 20 条 | — |
+| plan | `change.apply`（M1-8） | changeId、markChapters? | `{change, blueprintVersion, invalidatedChapters[]}`；未分析 → `invalid_args` | — |
+| plan | `change.reject`（M1-8） | changeId | `{change}`；只改状态 | — |
+| plan | `chapter.dismiss`（M1-8） | chapterId | `{dismissed}`；清 `invalidated_at`，不动正文 | — |
 | write | `start` | chapterId、mode（beat/auto） | `{jobId}` | G2 |
 | write | `pause` / `resume` | jobId | `{status}` | — |
 | write | `confirmBeat` | beatId、expectedRevision | `{revisionId, nextBeatId?}` | G3 |
@@ -303,6 +310,8 @@ contextBridge.exposeInMainWorld('noryth', {
 | world | `relations`（M1-5） | chapterId?、asOf?、focusId? | `{asOf, seqHead, nodes[], edges[], counts{}}`；节点坐标是主进程算好的确定性圆环，只读、不含记忆正文 | — |
 | world | `fact.add`（M1-18） | subject/predicate/object、truth、visibility、knownBy?、revealSeq?、validFromSeq? | `{projection, factId, detail}`；`source_type='author'`，单值槽先关旧值 | 作者权限（非闸门） |
 | world | `fact.close`（M1-18） | factId、reason? | `{projection, factId, detail}`；只写 `valid_to_seq`，不删除 | 作者权限（非闸门） |
+| world | `foreshadow.list`（M1-10） | chapterId? | `{items[], chapters[], openCount, closedCount}`；距离按基准章算 | — |
+| world | `foreshadow.create/update/close/reopen/remove`（M1-10） | text、plantedChapterId、plannedPayoffChapterId? / payoffChapterId | `{state, item}`；只做标注，不产生阻断 | — |
 | review | `run` | chapterId、revisionId | `{jobId}` | G4 |
 | review | `authorizePatches` | reportId | `{jobId}` | G5 |
 | review | `decidePatch` | patchId、accept/reject | `{revisionId?}` | G5 |
@@ -1143,6 +1152,48 @@ CREATE INDEX scene_timeline ON scene(project_id, timeline, ord);
 - **章↔场景多对多**：`chapter_scene` 仍是章内顺序的唯一真相；规划期空场景可链接多章，演出后只有演出章持有拍；别的章是只读引用，演出前必须 fork（`scheduler/scene-library.ts`）。
 - **verify 扩展**：`(beat.chapter_id, beat.scene_id)` 必在 `chapter_scene` 中（`beat_scene_unlinked`）；一个场景的 live 拍跨章 → `scene_cross_chapter_beats`。
 
+### 5.18 覆盖 / 变更 / 伏笔（迁移 0009）
+
+```sql
+ALTER TABLE outline_node ADD COLUMN meta_json TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE chapter ADD COLUMN invalidated_at TEXT;
+ALTER TABLE chapter ADD COLUMN invalidated_reason TEXT;
+
+CREATE TABLE foreshadow (
+  id                        TEXT PRIMARY KEY,
+  project_id                TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  text                      TEXT NOT NULL,
+  planted_chapter_id        TEXT REFERENCES chapter(id),
+  planned_payoff_chapter_id TEXT REFERENCES chapter(id),
+  payoff_chapter_id         TEXT REFERENCES chapter(id),
+  status                    TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+  created_at                TEXT NOT NULL,
+  updated_at                TEXT NOT NULL
+);
+CREATE INDEX foreshadow_by_status ON foreshadow(project_id, status);
+
+CREATE TABLE blueprint_change (
+  id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  proposal_id TEXT,
+  ops_json    TEXT NOT NULL,
+  impact_json TEXT NOT NULL DEFAULT '{}',
+  status      TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed', 'applied', 'rejected')),
+  actor       TEXT NOT NULL,
+  created_at  TEXT NOT NULL,
+  applied_at  TEXT
+);
+CREATE INDEX blueprint_change_by_project ON blueprint_change(project_id, created_at);
+```
+
+规则（PHASE-15 / M1-8、M1-10、M1-11）：
+
+- **`meta_json` 是覆盖检查的唯一输入**：形状固定为 `{key_events?, character_ids?, pov_character_id?, mainline?}`，未知字段丢弃；旧行默认 `{}`，只给「未标注」建议，不阻断 G1（老项目升级不被卡）。
+- **阻断与建议分界**：关键事件无章落点、卷纲角色无出场章、章纲 POV 不存在或已归档 → `error`（禁 G1）；主线推进间隔与未标注 → `warn`（只计数）。项目开关 `metadata_json.coverage_gate` 默认开。
+- **`invalidated_at` 不改章状态**：蓝图变更只标两列 + 写一条 `write_message` 系统提示；不建 revision、不改正文、不自动重跑；已定稿章同样只标脏。
+- **变更必须可追溯**：`impact_json` 至少含 `analyzed:true` 与章/记忆/边数组；应用前校验它存在，否则 `invalid_args`（不能「假装没影响」）。同一条变更只能应用一次。
+- **伏笔不设时间衰减**：作者标注埋设章与计划回收章，T22 只报「已 N 章未回收」；不自动回收、不进检索、不产生审批阻断。
+
 ---
 
 ## 6 工具层
@@ -1437,14 +1488,14 @@ export function contractSuite(manifest: ToolManifest, fixtures: ToolFixtures) {
 | T19 | `manuscript.search_final` | `manuscript/search` | ✅ | 只搜 `kind=final` |
 | T20 | `manuscript.get_final_chapter` | `manuscript` | ✅ | 无定稿返回空，不回退草稿 |
 | T21 | `draft.get_chapter` | `manuscript` | ✅ | 只读；revision 必须属于当前章 |
-| T22 | `foreshadow.list_open` | — | P1 | 先定契约，M0 不注册实现 |
+| T22 | `foreshadow.list_open` | `world/foreshadow` | M1 ✅ | `chapter_id?` 只影响距离口径；只读、不阻断（阶段 15） |
 | T23 | `timeline.query` | `world/timeline`（`tools/support/timeline.ts`） | M1 ✅ | 三轴分开返回；as_of 不越章水位（阶段 12） |
 | T24 | `consistency.check` | `validator/deterministic` | ✅ | 只报可判定项；语义标 candidate |
 | T25 | `voice.metrics` | — | M2 | 阈值需中文语料重标 |
-| T26 | `coverage.check` | — | P1 | 建议项，不阻断 G1 |
+| T26 | `coverage.check` | `plan/coverage` | M1 ✅ | 4 类确定性规则；`error` 才阻断 G1（阶段 15） |
 | T27 | `storyboard.validate` | `storyboard/validator` | ✅ | 硬冲突拒绝提交，软冲突告警 |
 | T28 | `exit_dsl.validate` | `scheduler/dsl` | ✅ | 只接受 DSL AST |
-| T29 | `impact.analyze` | — | P1 | 蓝图变更前必须跑 |
+| T29 | `impact.analyze` | `plan/impact` + `plan/change` | M1 ✅ | 蓝图变更前必须跑；写 `blueprint_change`（side_effect=propose，阶段 15） |
 | T30 | `report.get_latest` | `repos/review` | ✅ | 只给摘要，全文不进上下文 |
 | T31 | `blueprint.propose_patch` | `proposal/blueprint` | ✅ | 只写草案；G1 后走变更流程 |
 | T32 | `character.propose_card` | `proposal/character` | ✅ | 不换 ID；改版列受影响章节 |
@@ -1461,7 +1512,7 @@ export function contractSuite(manifest: ToolManifest, fixtures: ToolFixtures) {
 
 **M0 注册 36 个，6 个按里程碑开关。** 每个 Agent 在 M0 的有效工具数（`generated/allowlist.ts` 的断言值）：
 
-> 阶段 12 起 `timeline.query`（T23）已打开：编排 / 审批 / 记忆各 +1（17 / 18 / 14）。`M0_TOOL_COUNTS` 仍保留 PRD §4.11 的 36 个基线，`TOOL_COUNTS` 记录当前生效数量；`check_tool_spec.py` 只数 `m0=true`，仍是 36。
+> 阶段 12 起 `timeline.query`（T23）已打开；阶段 14 打开 `memory.rebuild`（T40）；阶段 15 打开 `coverage.check`（T26）、`impact.analyze`（T29）、`foreshadow.list_open`（T22）。当前生效：规划 10 / 编排 18 / 角色 9 / 旁白 5 / 审批 19 / 记忆 16。`M0_TOOL_COUNTS` 仍保留 PRD §4.11 的 36 个基线，`TOOL_COUNTS` 记录当前生效数量；`check_tool_spec.py` 只数 `m0=true`，仍是 36。
 
 | Agent | PRD 全集 | M0 有效 | 差额 |
 |---|---:|---:|---|
@@ -2237,6 +2288,15 @@ type EmbedRes =
 - **来源面板**：只给 `source_type` / `source_id` 与「章 · 记忆 / 拍」标签；**不显示私有记忆正文**（`sourceLabel` 由服务层解析，来源失效时显示「来源已失效」）。
 - **聚焦**：`focusId` 只保留该角色与直接相邻角色；>50 角色时用聚焦而不是 canvas。
 - **UI**：记忆台第五个 tab（提案 / 角色记忆 / 世界状态 / 关系图 / 审计）；as_of 滑杆与聚焦下拉；只读。
+
+### 10.12 覆盖检查、影响分析与伏笔（阶段 15，M1-8 / M1-10 / M1-11）
+
+- **覆盖检查只有一份实现**：`plan/coverage.ts` 的纯函数（节点 + 角色 → gaps）。G1 阻断（`g1Blockers`）、规划台面板、T26 都调它，避免三处规则漂移。
+- **影响分析是两条路径的并集**：outline 子树 → 章 → `memory_entry.source_chapter_id`；角色卡 → 该角色发言的 live 拍 → 章 / 记忆 → 以记忆为来源的关系边。`plan/impact.ts` 是纯函数，服务层只负责取数。
+- **变更流程不可绕**：`applyChange` 要求 `blueprint_change.impact_json.analyzed === true`；G1 前直接拒绝（作者走「应用建议」）；G1 后 `applyProposal` 对蓝图提案一律拒绝，只能走变更。
+- **应用只碰四件事**：outline 节点 / 角色卡、`blueprint_change.status`、`chapter.invalidated_at`、一条 `write_message` 系统提示。正文、revision、章状态都不动。
+- **作者可以忽略标脏**：`plan.chapter.dismiss` 只清两列；标脏是提示，不是闸门（G2/G4 都不因它禁用）。
+- **伏笔只报节奏**：`world/foreshadow.ts` 计算距离与超期；T22 与面板同口径；不自动回收、不进检索、不产生阻断。
 
 ---
 

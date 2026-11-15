@@ -133,13 +133,19 @@ CREATE TABLE blueprint_change (
 
 ## 6 验收清单
 
-- [ ] 覆盖检查 4 类规则各有通过 / 失败用例；阻断项让 G1 禁用并显示第一条原因。
-- [ ] `E2E-M1-BLUEPRINT-01`：G1 后改主线 → T29 列出受影响章 / 记忆 → 确认应用 → ch3 / ch7 `invalidated_at` 非空 → G2/G4 提示 → 作者忽略后继续。
-- [ ] 未跑 T29 直接应用变更 → `invalid_args`，DB 不变。
-- [ ] 伏笔：标注 3 条 → T22 返回 open 3；回收 1 → 2；距离正确；无阻断。
-- [ ] 0009 迁移旧项目：`meta_json='{}'`；coverage 不阻断；`db.verify()` 绿。
-- [ ] T22/T26/T29 allowlist 与 PRD 一致；`gen:check` 0 diff。
-- [ ] 跨章标脏不改正文、不自动重跑；已定稿章也保留。
+- [x] 覆盖检查 4 类规则各有通过 / 失败用例；阻断项让 G1 禁用并显示第一条原因（`tests/unit/plan/coverage.test.ts` 8 条：4 类规则各自通过与失败、`meta_unannotated` 只建议、scope 过滤、meta 归一化；`tests/unit/plan/g1.test.ts`：`character_uncast` + `pov_missing` 让 `g1Blockers` 非空、`confirmG1` 抛 `invalid_args` 且蓝图未锁，关掉开关后可确认）。
+- [x] `E2E-M1-BLUEPRINT-01`：G1 后改主线 → T29 列出受影响章 / 记忆 → 确认应用 → ch3 / ch7 `invalidated_at` 非空 → G2/G4 提示 → 作者忽略后继续（`tests/e2e/blueprint.spec.ts`：`write.devSeed` 3 章 → 改主线标题 → 变更卡片「受影响：3 章」→ 应用 → DB 3 章 `invalidated_at` 非空、正文与 revision 逐条不变 → 创作台横幅 + 审批台横幅 → 忽略后 1 章清空、正文不变）。**偏差**：E2E 用 3 章而不是 ch3/ch7（devSeed 只铺 3 章）；「记忆」在多章项目里由 `tests/unit/plan/impact.test.ts` 与 `tests/integration/blueprint-change.spec.ts` 覆盖。
+- [x] 未跑 T29 直接应用变更 → `invalid_args`，DB 不变（`tests/unit/plan/change.test.ts`：手工插入无 `impact_json` 的变更行 → `invalid_args`，outline 版本与标题、章标记都不动；`tests/integration/blueprint-change.spec.ts` 同口径）。
+- [x] 伏笔：标注 3 条 → T22 返回 open 3；回收 1 → 2；距离正确；无阻断（`tests/unit/world/foreshadow.test.ts` 6 条：3 → 2、距离 1/1/0、超期只标「已 N 章未回收（超计划）」、重开、清空计划章、无章不崩；`tests/e2e/blueprint.spec.ts` E2E-M1-FORESHADOW-01：UI 标注 3 条 → 基准第 3 章 距离 [2,2,1]、超期文案、回收 1 → 未回收 2）。
+- [x] 0009 迁移旧项目：`meta_json='{}'`；coverage 不阻断；`db.verify()` 绿（`tests/unit/migrator.test.ts`：0001→…→0009、旧行 `meta_json='{}'`、`invalidated_*` NULL、两表两索引存在、`status` CHECK 生效、迁后 `verifyDatabase` 无 error）。
+- [x] T22/T26/T29 allowlist 与 PRD 一致；`gen:check` 0 diff（`tests/contract/registry.test.ts`：41 个已启用、注册表 49；`tests/unit/catalog.test.ts` 计数 10/18/9/5/19/16；`check_tool_spec.py` PASS：PRD 42 / 清单 50 / M0 36）。
+- [x] 跨章标脏不改正文、不自动重跑；已定稿章也保留（`tests/unit/plan/change.test.ts`：应用后 `current_revision_id` / `body` 不变、无新 revision；已定稿章 `status='finalized'` 与 `final_revision_id` 保留且 `invalidated_at` 非空；`dismissInvalidation` 只清两列）。
+
+**与计划的差异（记录，不隐藏）**
+
+- `impact.analyze`（T29）的 `side_effect` 从 `none` 改为 `propose`：结果必须进 `blueprint_change` 才可追溯，PRD §4.10 的「类」同步改为提案（v0.7 变更记录）。
+- 「影响分析」允许在 G1 前预演（只写变更记录）；**应用**仍要求蓝图已锁定。
+- 覆盖检查的开关落在 `project.metadata_json.coverage_gate`（项目级，G1 前有效），不是全局设置。
 
 ## 7 风险与回退
 
