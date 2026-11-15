@@ -175,6 +175,24 @@
   color: var(--muted);
 }
 
+/* 带说明的开关（启动行为）：说明折到第二行，200% 缩放不挤成一列。 */
+.settings-toggle--stacked {
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.settings-toggle--stacked > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.5;
+}
+
+.settings-toggle--stacked small {
+  font-size: 10.5px;
+  color: var(--faint);
+}
+
 .settings-keyrow {
   display: flex;
   gap: 6px;

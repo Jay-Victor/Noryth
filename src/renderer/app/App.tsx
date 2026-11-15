@@ -5,6 +5,8 @@ import { useLayoutMode } from '../hooks'
 import { useApp } from '../stores/app'
 import { CommandPalette } from './CommandPalette'
 import { ConfirmRemoveDialog } from './ConfirmRemoveDialog'
+import { SwitchProjectDialog } from './SwitchProjectDialog'
+import { FileTreeDrawer } from './FileTreeDrawer'
 import { NavRail } from './NavRail'
 import { NewProjectDialog } from './NewProjectDialog'
 import { StatusBar } from './StatusBar'
@@ -113,13 +115,14 @@ export function App(): React.JSX.Element {
         const bridge = getBridge()
         if (!bridge) return
         void bridge.dialog.pickProject().then((picked) => {
-          if (picked.ok && picked.data.path) void useApp.getState().openProject(picked.data.path)
+          if (picked.ok && picked.data.path) void useApp.getState().requestSwitch(picked.data.path)
         })
       } else if (event.key === 'Escape') {
         const state = useApp.getState()
         if (state.paletteOpen) state.setPalette(false)
         if (state.newProjectOpen) state.setNewProjectOpen(false)
         if (state.confirmRemoveId) state.setConfirmRemove(null)
+        if (state.pendingSwitch) state.cancelSwitch()
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -195,6 +198,8 @@ export function App(): React.JSX.Element {
       <CommandPalette />
       <NewProjectDialog />
       <ConfirmRemoveDialog />
+      <SwitchProjectDialog />
+      <FileTreeDrawer />
       <Toasts />
     </div>
   )

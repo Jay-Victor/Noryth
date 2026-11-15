@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { GRID, type LayoutMode } from '../../../shared/layout/grid'
 import { WRITE_CHAPTER_STATUS_LABELS } from '../../../shared/schema/write'
 import { Icon } from '../../components/Icon'
+import { VirtualList } from '../../components/VirtualList'
+import { TreeRailTrigger } from '../../app/TreeRailTrigger'
 import { useApp } from '../../stores/app'
 import { useWrite } from '../../stores/write'
 import { ConfirmBar } from './ConfirmBar'
@@ -156,21 +158,33 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           <span>章节</span>
           <span className="pane-header__meta">{state.chapters.length}</span>
         </div>
-        <div className="pane-body write-chapters">
-          {state.chapters.map((chapter) => (
-            <button
-              key={chapter.id}
-              type="button"
-              className={`write-chapter-row${chapter.id === state.chapterId ? ' is-active' : ''}`}
-              data-testid={`write-chapter-${chapter.id}`}
-              onClick={() => void useWrite.getState().setChapter(chapter.id)}
-            >
-              <span className="write-chapter-title">{chapter.title}</span>
-              <span className="write-chapter-status" data-status={chapter.status} data-testid={`write-chapter-status-${chapter.id}`}>
-                {WRITE_CHAPTER_STATUS_LABELS[chapter.status] ?? chapter.status}
-              </span>
-            </button>
-          ))}
+        <div className="pane-body write-sessions">
+          <VirtualList
+            items={state.chapters}
+            activeIndex={state.chapters.findIndex((chapter) => chapter.id === state.chapterId)}
+            ariaLabel="章节"
+            testId="write-chapter-list"
+            className="vlist--chapters"
+            onActivate={(index) => {
+              const chapter = state.chapters[index]
+              if (chapter && chapter.id !== state.chapterId) void useWrite.getState().setChapter(chapter.id)
+            }}
+            renderRow={(chapter, _index, active) => (
+              <button
+                type="button"
+                className={`write-chapter-row${active ? ' is-active' : ''}`}
+                data-testid={`write-chapter-${chapter.id}`}
+                onClick={() => {
+                  if (chapter.id !== state.chapterId) void useWrite.getState().setChapter(chapter.id)
+                }}
+              >
+                <span className="write-chapter-title">{chapter.title}</span>
+                <span className="write-chapter-status" data-status={chapter.status} data-testid={`write-chapter-status-${chapter.id}`}>
+                  {WRITE_CHAPTER_STATUS_LABELS[chapter.status] ?? chapter.status}
+                </span>
+              </button>
+            )}
+          />
 
           <div className="write-scene-progress" data-testid="write-scene-progress">
             <div className="write-subhead">
@@ -416,6 +430,7 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           </>
         ) : (
           <div className="rail">
+            <TreeRailTrigger />
             <span className="rail-item is-active" title="章节">
               <Icon name="write" size={13} />
             </span>

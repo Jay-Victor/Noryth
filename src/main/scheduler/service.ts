@@ -109,20 +109,17 @@ export class WriteService {
 
   chapters(): WriteChapterSummary[] {
     const host = this.requireHost()
-    return host.repos.chapter.listByProject(host.repos.project.get()!.id).map((chapter) => {
-      const title = host.repos.outline.get(chapter.outlineNodeId)?.title ?? `第 ${chapter.ord} 章`
-      const scenes = host.repos.scene.listByChapter(chapter.id)
-      const beats = host.repos.beat.listLiveByChapter(chapter.id)
-      return {
-        id: chapter.id,
-        ord: chapter.ord,
-        title,
-        status: chapter.status,
-        sceneCount: scenes.length,
-        beatCount: beats.length,
-        confirmedCount: beats.filter((beat) => beat.status === 'confirmed' || beat.status === 'author_edited').length
-      }
-    })
+    // 列表只取摘要：30 章时不再逐章读取 14 万字正文（PHASE-11 M1-9）。
+    return host.repos.chapter.listSummaries(host.repos.project.get()!.id).map((chapter) => ({
+      id: chapter.id,
+      ord: chapter.ord,
+      title: chapter.title,
+      status: chapter.status,
+      sceneCount: chapter.sceneCount,
+      beatCount: chapter.beatCount,
+      confirmedCount: chapter.confirmedCount,
+      wordCount: chapter.wordCount
+    }))
   }
 
   state(chapterId?: string): WriteState {
@@ -275,7 +272,7 @@ export class WriteService {
    * 未打包构建的 E2E 脚手架：建一章 + 3×8 分镜草案（不经过 G1）。
    * 生产包不注册该通道；只用于 `tests/e2e/write.spec.ts`。
    */
-  devSeed(input: { scenes?: number; beatsPerScene?: number; exit?: string } = {}): WriteState {
+  devSeed(input: { scenes?: number; beatsPerScene?: number; chapters?: number; exit?: string } = {}): WriteState {
     const host = this.requireWritable()
     const project = host.repos.project.get()
     if (!project) throw new AppError('project_not_found', 'no project in database')
@@ -284,6 +281,7 @@ export class WriteService {
     }
     const sceneCount = input.scenes ?? 3
     const beatsPerScene = input.beatsPerScene ?? 8
+    const chapterCount = input.chapters ?? 1
     const exit = input.exit ?? `all(fact("black_box","location"), beats(${beatsPerScene}))`
 
     // 脚手架等价于「G1 已完成」的状态，否则导航会禁用创作台。
@@ -324,6 +322,24 @@ export class WriteService {
       ord: 1,
       status: 'planned'
     })
+    // 性能/文件树 E2E：额外章只有节点与章行，不带分镜（devSeed 仍然只演第一章）。
+    for (let ord = 2; ord <= chapterCount; ord += 1) {
+      const extra = host.repos.outline.insert({
+        projectId: project.id,
+        parentId: root.id,
+        kind: 'chapter',
+        ord,
+        title: `第 ${ord} 章`,
+        content: '',
+        status: 'draft'
+      })
+      host.repos.chapter.insert({
+        projectId: project.id,
+        outlineNodeId: extra.id,
+        ord,
+        status: 'planned'
+      })
+    }
     host.repos.world.insert({
       projectId: project.id,
       subject: 'black_box',
@@ -619,6 +635,30 @@ export class WriteService {
       })
     }
     return { state: this.state(chapterId), detail: '已取消；迟到结果会被 revision 校验拒绝' }
+  }
+
+  isBusy(): boolean {
+    return this.running || this.autoRunning
+  }
+
+  /**
+   * 项目切换/关闭前调用（PHASE-11 §5.1）：中止在跑的任务并等它退出。
+   *
+   * 必须先等：`project.open` 会关闭 SQLite 连接，异步任务的 finally 还在写库。
+   * 超时不强行关闭——返回 false 让调用方决定是拒绝切换还是继续（并记日志）。
+   */
+  async abortAllAndWait(timeoutMs = 2_000): Promise<boolean> {
+    if (!this.isBusy()) return true
+    for (const session of this.sessions.values()) {
+      session.cancelRequested = true
+      session.pauseRequested = true
+    }
+    this.abort?.abort()
+    const started = Date.now()
+    while (this.isBusy() && Date.now() - started < timeoutMs) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    return !this.isBusy()
   }
 
   // ── 编排对话（UI-DESIGN §5.3）：只改分镜草案，不写正文 ────────────────

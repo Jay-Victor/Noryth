@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { AppError, isAppError } from '../../shared/domain/app-error'
@@ -12,7 +12,8 @@ import {
   SettingsPatchSchema,
   UpdateProjectMetaInputSchema,
   ValidatePathInputSchema,
-  type AppInfo
+  type AppInfo,
+  type ProjectBusyState
 } from '../../shared/schema/project'
 import {
   AppearancePatchSchema,
@@ -23,7 +24,7 @@ import {
   ProviderTestInputSchema
 } from '../../shared/schema/settings'
 import { PresetSchema } from "../../shared/schema/model"
-import { ExportInputSchema } from '../../shared/schema/export'
+import { DiagnosticsExportInputSchema, ExportInputSchema } from '../../shared/schema/export'
 import { exportManuscript } from '../doc/export'
 import { isBusyError } from '../db/busy'
 import {
@@ -83,7 +84,7 @@ import {
   MemoryStateInputSchema
 } from '../../shared/schema/memory'
 import type { Logger } from '../observability/logger'
-import { exportDiagnostics } from '../observability/diagnostics'
+import { defaultDiagnosticsName, exportDiagnosticsZip, type DiagnosticsJobSummary } from '../observability/diagnostics'
 import type { MemoryService } from '../memory/service'
 import type { PlanService } from '../plan/service'
 import type { ProjectService } from '../project/service'
@@ -126,9 +127,11 @@ function windowOf(event: Electron.IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender)
 }
 
-/** 规划会话生成中不允许切换/关闭项目：DB 连接会关闭，异步写入没有落点。 */
-function assertPlanIdle(plan: PlanService): void {
-  if (plan.isBusy()) throw new AppError('invalid_args', '规划会话生成中，请先停止再切换项目')
+/** 任务类型 → 域：write 可取消；审批/记忆/patch 只能等它跑完。 */
+function jobDomain(type: string): 'write' | 'review' | 'memory' {
+  if (type.startsWith('beat')) return 'write'
+  if (type.startsWith('memory')) return 'memory'
+  return 'review'
 }
 
 export function registerIpc(deps: IpcDeps): void {
@@ -170,11 +173,62 @@ export function registerIpc(deps: IpcDeps): void {
     })
   }
 
+  // ── 项目切换守卫（PHASE-11 §5.1）────────────────────────────────────────
+
+  const runningJobs = (): Array<{ type: string }> => {
+    const host = deps.project.currentHandle()
+    if (!host) return []
+    try {
+      const project = host.repos.project.get()
+      return project ? host.repos.job.listByStatus(project.id, 'running') : []
+    } catch {
+      return []
+    }
+  }
+
+  const busyState = (): ProjectBusyState => {
+    const jobs = runningJobs()
+    const domains: Array<'write' | 'plan'> = []
+    if (deps.write.isBusy() || jobs.some((job) => jobDomain(job.type) === 'write')) domains.push('write')
+    if (deps.plan.isBusy()) domains.push('plan')
+    return {
+      projectId: deps.project.currentResult()?.project.id ?? null,
+      domains,
+      busy: domains.length > 0 || jobs.length > 0
+    }
+  }
+
+  /** 审批/记忆任务不可中断：切换与关闭一律拒绝，等它跑完，避免半条事务。 */
+  const assertNoBlockingJobs = (): void => {
+    const blocking = runningJobs().filter((job) => jobDomain(job.type) !== 'write')
+    if (blocking.length === 0) return
+    throw new AppError('project_busy', '审批或记忆任务在跑，等它结束再切换项目', {
+      jobs: blocking.map((job) => job.type)
+    })
+  }
+
+  /** 切换/关闭前收尾：取消在跑的生成与规划，并等它们真正退出再关库。 */
+  const settleRunningWork = async (): Promise<void> => {
+    assertNoBlockingJobs()
+    const [writeIdle, planIdle] = await Promise.all([deps.write.abortAllAndWait(), deps.plan.abortAllAndWait()])
+    if (!writeIdle || !planIdle) {
+      deps.logger.warn({ event: 'project_switch_timeout', writeIdle, planIdle }, 'running work did not stop in time')
+      throw new AppError('project_busy', '任务没有在 2 秒内停下，请稍后再切换')
+    }
+    deps.logger.info({ event: 'project_switch_cancelled' }, 'running work cancelled before switching project')
+  }
+
   register(IPC.appInfo, { schema: EmptySchema, handler: () => deps.appInfo() })
 
   register(IPC.projectList, { schema: EmptySchema, handler: () => deps.project.list() })
 
   register(IPC.projectCurrent, { schema: EmptySchema, handler: () => deps.project.currentResult() })
+
+  register(IPC.projectBusy, { schema: EmptySchema, handler: () => busyState() })
+
+  register(IPC.projectAutoOpen, { schema: EmptySchema, handler: () => deps.project.autoOpen() })
+
+  register(IPC.projectTree, { schema: EmptySchema, handler: () => deps.project.tree() })
 
   register(IPC.projectValidatePath, {
     schema: ValidatePathInputSchema,
@@ -183,8 +237,8 @@ export function registerIpc(deps: IpcDeps): void {
 
   register(IPC.projectCreate, {
     schema: CreateProjectInputSchema,
-    handler: (payload) => {
-      assertPlanIdle(deps.plan)
+    handler: async (payload) => {
+      if (busyState().busy) await settleRunningWork()
       const result = deps.project.create(payload)
       deps.settings.write({ lastOpenedProjectId: result.projectId })
       return result
@@ -193,8 +247,15 @@ export function registerIpc(deps: IpcDeps): void {
 
   register(IPC.projectOpen, {
     schema: OpenProjectInputSchema,
-    handler: (payload) => {
-      assertPlanIdle(deps.plan)
+    handler: async (payload) => {
+      const busy = busyState()
+      if (busy.busy) {
+        // 没有作者确认就换库 = 静默丢当前生成，main 侧直接拒绝。
+        if (payload.cancelRunning !== true) {
+          throw new AppError('project_busy', messageFor('project_busy'), { domains: busy.domains })
+        }
+        await settleRunningWork()
+      }
       const result = deps.project.open(payload)
       deps.settings.write({ lastOpenedProjectId: result.project.id })
       return result
@@ -203,24 +264,30 @@ export function registerIpc(deps: IpcDeps): void {
 
   register(IPC.projectClose, {
     schema: ProjectIdInputSchema,
-    handler: (payload) => {
-      assertPlanIdle(deps.plan)
-      return { closed: deps.project.close(payload.projectId) }
+    handler: async (payload) => {
+      if (busyState().busy) await settleRunningWork()
+      const closed = deps.project.close(payload.projectId)
+      // 作者显式关闭后不再自动打开（PHASE-11 M1-24）。
+      if (closed) deps.settings.write({ lastOpenedProjectId: null })
+      return { closed }
     }
   })
 
   register(IPC.projectRemoveFromList, {
     schema: ProjectIdInputSchema,
-    handler: (payload) => {
-      assertPlanIdle(deps.plan)
-      return { removed: deps.project.removeFromList(payload.projectId) }
+    handler: async (payload) => {
+      if (busyState().busy) await settleRunningWork()
+      const wasCurrent = deps.project.currentResult()?.project.id === payload.projectId
+      const removed = deps.project.removeFromList(payload.projectId)
+      if (removed && wasCurrent) deps.settings.write({ lastOpenedProjectId: null })
+      return { removed }
     }
   })
 
   register(IPC.projectRelocate, {
     schema: RelocateProjectInputSchema,
-    handler: (payload) => {
-      assertPlanIdle(deps.plan)
+    handler: async (payload) => {
+      if (busyState().busy) await settleRunningWork()
       return deps.project.relocate(payload)
     }
   })
@@ -335,16 +402,54 @@ export function registerIpc(deps: IpcDeps): void {
   })
 
   register(IPC.diagnosticsExport, {
-    schema: EmptySchema,
-    handler: () => {
-      const path = exportDiagnostics({
-        userDataDir: deps.userDataDir,
-        appInfo: deps.appInfo(),
-        settings: deps.settings.read(),
-        projects: deps.project.list(),
-        logPath: deps.logPath
-      })
-      return { path }
+    schema: DiagnosticsExportInputSchema,
+    handler: async (payload, event) => {
+      const host = deps.project.currentHandle()
+      const project = host ? host.repos.project.get() : null
+      const jobs: DiagnosticsJobSummary[] = project
+        ? host!.repos.job.listRecent(project.id, 20).map((job) => ({
+            id: job.id,
+            type: job.type,
+            status: job.status,
+            errorCode: job.errorCode,
+            createdAt: job.createdAt,
+            updatedAt: job.updatedAt
+          }))
+        : []
+
+      let target = payload.path ?? null
+      if (!target) {
+        const win = windowOf(event)
+        const options = {
+          title: '导出诊断包',
+          defaultPath: join(app.getPath('downloads'), defaultDiagnosticsName()),
+          filters: [{ name: 'ZIP', extensions: ['zip'] }]
+        }
+        const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
+        if (picked.canceled || !picked.filePath) {
+          return { path: null, bytes: 0, entries: [], cancelled: true }
+        }
+        target = picked.filePath
+      }
+
+      const exported = exportDiagnosticsZip(
+        {
+          userDataDir: deps.userDataDir,
+          appInfo: deps.appInfo(),
+          settings: deps.settings.read(),
+          projects: deps.project.list(),
+          logPath: deps.logPath
+        },
+        target,
+        {
+          projectTitle: project?.title ?? null,
+          schemaVersion: deps.appInfo().schemaVersion,
+          jobs,
+          verify: deps.project.verifySnapshot()
+        }
+      )
+      deps.logger.info({ event: 'diagnostics_exported', bytes: exported.bytes, entries: exported.entries.length }, 'diagnostics exported')
+      return { ...exported, cancelled: false }
     }
   })
 

@@ -59,6 +59,7 @@ describe('IPC schema', () => {
     expect(SettingsSchema.parse({})).toEqual({
       theme: 'system',
       lastOpenedProjectId: null,
+      openLastProject: true,
       providers: {},
       tokenCalibration: {},
       providersEnabled: {},

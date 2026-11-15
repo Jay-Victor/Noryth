@@ -89,7 +89,9 @@ export const SettingsViewSchema = z.strictObject({
   secureStorage: z.boolean(),
   settingsPath: z.string(),
   secretsPath: z.string(),
-  lastOpenedProjectId: z.string().nullable()
+  lastOpenedProjectId: z.string().nullable(),
+  /** 启动自动打开上次项目（PHASE-11 M1-24）。 */
+  openLastProject: z.boolean()
 })
 export type SettingsView = z.infer<typeof SettingsViewSchema>
 

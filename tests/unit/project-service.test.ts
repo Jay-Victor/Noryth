@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
 import { AppError } from '../../src/shared/domain/app-error'
-import { LOCK_FILE } from '../../src/main/lock'
+import { LOCK_FILE, startLock } from '../../src/main/lock'
 import { LATEST_SCHEMA_VERSION } from '../../src/main/db/migrations'
 import { validateNewProjectPath } from '../../src/main/project/paths'
 import { makeService, tempDir } from './helpers'
@@ -274,6 +274,74 @@ describe('path validation', () => {
         (name) => !name.endsWith('.db-wal') && !name.endsWith('.db-shm')
       )
       expect(entries.sort()).toEqual(['assets', 'backups', 'exports', 'logs', 'manuscript', 'noryth.db', '.noryth.lock'].sort())
+    } finally {
+      service.dispose()
+    }
+  })
+
+  // ── PHASE-11 M1-24：启动自动打开 ──────────────────────────────────────────
+
+  it('probeAutoOpen：路径缺失 / 锁占用 / 可用三种结论，不改库不建锁', () => {
+    const { userData, parent } = setup()
+    const { service } = makeService(userData)
+    try {
+      expect(service.probeAutoOpen(join(parent, '不存在'))).toEqual({ ok: false, reason: 'missing' })
+
+      const created = service.create(input(parent, '探针'))
+      // 当前窗口持有锁 → 不能自动打开（避免双窗口）
+      expect(service.probeAutoOpen(created.path)).toEqual({ ok: false, reason: 'locked' })
+      service.close(created.projectId)
+      expect(service.probeAutoOpen(created.path)).toEqual({ ok: true })
+    } finally {
+      service.dispose()
+    }
+  })
+
+  it('autoOpen：关闭 / 无记录 / 条目失效 / 正常四条路径（PHASE-11 M1-24）', () => {
+    const { userData, parent } = setup()
+    const { service, settings } = makeService(userData)
+    try {
+      settings.openLastProject = false
+      expect(service.autoOpen()).toMatchObject({ opened: null, reason: 'disabled' })
+
+      settings.openLastProject = true
+      settings.lastOpenedProjectId = null
+      expect(service.autoOpen()).toMatchObject({ opened: null, reason: 'no_last_project' })
+
+      settings.lastOpenedProjectId = 'prj_missing'
+      expect(service.autoOpen()).toMatchObject({ opened: null, reason: 'missing' })
+
+      const created = service.create(input(parent, '自动打开'))
+      service.close(created.projectId)
+      settings.lastOpenedProjectId = created.projectId
+      const result = service.autoOpen()
+      expect(result.reason).toBe('ok')
+      expect(result.opened?.project.id).toBe(created.projectId)
+      expect(result.opened?.readOnly).toBe(false)
+      expect(result.elapsedMs).toBeGreaterThanOrEqual(0)
+    } finally {
+      service.dispose()
+    }
+  })
+
+  it('autoOpen：上次项目被别的窗口锁住时回首页，不自动只读打开', () => {
+    const { userData, parent } = setup()
+    const { service, settings } = makeService(userData)
+    try {
+      const created = service.create(input(parent, '被占用'))
+      service.close(created.projectId)
+
+      // 另一个窗口（同进程、不同 windowId）持锁：pid 存活 → 锁有效。
+      const other = startLock(created.path, { windowId: 'win_other', appVersion: '0.1.0' })
+      expect(other).not.toBeNull()
+      try {
+        settings.lastOpenedProjectId = created.projectId
+        expect(service.autoOpen()).toMatchObject({ opened: null, reason: 'locked' })
+        // 关键不变量：没有替作者把项目开成只读
+        expect(service.currentResult()).toBeNull()
+      } finally {
+        other?.release()
+      }
     } finally {
       service.dispose()
     }

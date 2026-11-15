@@ -67,7 +67,12 @@ export type CreateProjectResult = z.infer<typeof CreateProjectResultSchema>
 export const OpenProjectInputSchema = z.strictObject({
   path: z.string().min(1),
   /** 强制只读打开（列表里「以只读打开」）；锁仍会被当前窗口持有为只读。 */
-  readOnly: z.boolean().optional()
+  readOnly: z.boolean().optional(),
+  /**
+   * 切换项目：先取消并等待在跑的任务（作者已确认），再关旧库开新库。
+   * 不带这个字段时，main 侧遇到运行中的任务直接返回 `project_busy`，不静默丢稿。
+   */
+  cancelRunning: z.boolean().optional()
 })
 export type OpenProjectInput = z.infer<typeof OpenProjectInputSchema>
 
@@ -85,6 +90,66 @@ export const OpenProjectResultSchema = z.strictObject({
     .nullable()
 })
 export type OpenProjectResult = z.infer<typeof OpenProjectResultSchema>
+
+/**
+ * 启动自动打开上次项目（PHASE-11 M1-24）。
+ *
+ * 失败一律「回首页 + 可读提示」，不是错误：renderer 不把它当异常处理，
+ * 也绝不因为上次项目被占用就自动只读打开（会把锁问题放大成双窗口）。
+ */
+export const AUTO_OPEN_REASONS = [
+  'disabled',
+  'no_last_project',
+  'missing',
+  'locked',
+  'schema_newer',
+  'failed',
+  'ok'
+] as const
+export const AutoOpenReasonSchema = z.enum(AUTO_OPEN_REASONS)
+export type AutoOpenReason = z.infer<typeof AutoOpenReasonSchema>
+
+export const AutoOpenResultSchema = z.strictObject({
+  opened: OpenProjectResultSchema.nullable(),
+  reason: AutoOpenReasonSchema,
+  elapsedMs: z.number().int().nonnegative()
+})
+export type AutoOpenResult = z.infer<typeof AutoOpenResultSchema>
+
+/** 切换项目前的运行态探测：有任务就不静默切库（PHASE-11 §5.1）。 */
+export const ProjectBusyStateSchema = z.strictObject({
+  projectId: z.string().nullable(),
+  /** write=生成/自动模式在跑；plan=规划会话在等模型或工具。 */
+  domains: z.array(z.enum(['write', 'plan'])),
+  busy: z.boolean()
+})
+export type ProjectBusyState = z.infer<typeof ProjectBusyStateSchema>
+
+/**
+ * 文件树抽屉的数据源（PHASE-11 M1-16 / UI-DESIGN §2.6）。
+ *
+ * 抽屉是「临时选择器」：节点只描述「点它会去哪」，不携带正文。
+ * 结构与数据库视图混在同一棵树里，和 W1 常驻树同源。
+ */
+export const ProjectTreeNodeSchema = z.strictObject({
+  id: z.string().min(1),
+  label: z.string(),
+  kind: z.enum(['group', 'file']),
+  depth: z.number().int().min(0).max(2),
+  /** 选中后跳转的页面；group 为 null。 */
+  page: z.enum(['plan', 'write', 'review', 'memory']).nullable(),
+  chapterId: z.string().nullable(),
+  /** 状态徽标文案（章状态 / 计数），没有就 null。 */
+  status: z.string().nullable()
+})
+export type ProjectTreeNode = z.infer<typeof ProjectTreeNodeSchema>
+
+export const ProjectTreeSchema = z.strictObject({
+  projectId: z.string(),
+  projectTitle: z.string(),
+  nodes: z.array(ProjectTreeNodeSchema)
+})
+export type ProjectTree = z.infer<typeof ProjectTreeSchema>
 
 export const UpdateProjectMetaInputSchema = z.strictObject({
   projectId: z.string().min(1),
@@ -106,6 +171,8 @@ export type ProjectIdInput = z.infer<typeof ProjectIdInputSchema>
 export const SettingsSchema = z.strictObject({
   theme: z.enum(['light', 'dark', 'system']).default('system'),
   lastOpenedProjectId: z.string().nullable().default(null),
+  /** 启动自动打开上次项目（PHASE-11 M1-24）；关掉后启动停在首页。 */
+  openLastProject: z.boolean().default(true),
   /** 能力探测快照（PHASE-04 D2）：按预设保存，Key 不在其中。 */
   providers: z.record(z.string(), ProviderSettingsSchema).default({}),
   /** token 估算校准系数（DEV-PLAN §7.4）：按 provider 取中位数，clamp [0.7, 1.6]。 */
@@ -128,6 +195,7 @@ export const SettingsPatchSchema = z
   .strictObject({
     theme: z.enum(['light', 'dark', 'system']).optional(),
     lastOpenedProjectId: z.string().nullable().optional(),
+    openLastProject: z.boolean().optional(),
     providers: z.record(z.string(), ProviderSettingsSchema).optional(),
     tokenCalibration: z.record(z.string(), z.number()).optional(),
     providersEnabled: z.record(z.string(), z.boolean()).optional(),

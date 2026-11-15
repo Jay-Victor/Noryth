@@ -72,4 +72,17 @@ describe('settings.json 写入（I1 / I4）', () => {
     const settings = new SettingsStore(file)
     expect(settings.read().appearance.theme).toBe('light')
   })
+
+  it('启动自动打开开关：默认 true，可关闭且不影响其他键（PHASE-11 M1-24）', () => {
+    const settings = store()
+    expect(settings.read().openLastProject).toBe(true)
+
+    settings.write({ lastOpenedProjectId: 'prj_1', providersEnabled: { tongyi: false } })
+    settings.write({ openLastProject: false })
+
+    const next = settings.read()
+    expect(next.openLastProject).toBe(false)
+    expect(next.lastOpenedProjectId).toBe('prj_1')
+    expect(next.providersEnabled.tongyi).toBe(false)
+  })
 })

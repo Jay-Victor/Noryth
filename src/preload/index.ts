@@ -34,6 +34,9 @@ const bridge: NorythBridge = {
   project: {
     list: () => invoke(IPC.projectList, {}),
     current: () => invoke(IPC.projectCurrent, {}),
+    autoOpen: () => invoke(IPC.projectAutoOpen, {}),
+    busy: () => invoke(IPC.projectBusy, {}),
+    tree: () => invoke(IPC.projectTree, {}),
     validatePath: (input) => invoke(IPC.projectValidatePath, input),
     create: (input) => invoke(IPC.projectCreate, input),
     open: (input) => invoke(IPC.projectOpen, input),
@@ -62,7 +65,7 @@ const bridge: NorythBridge = {
     bindingAudit: (projectId) => invoke(IPC.settingsBindingsAudit, { projectId })
   },
   diagnostics: {
-    export: () => invoke(IPC.diagnosticsExport, {})
+    export: (input) => invoke(IPC.diagnosticsExport, input ?? {})
   },
   manuscript: {
     export: (input: ExportInput) => invoke(IPC.exportRun, input)

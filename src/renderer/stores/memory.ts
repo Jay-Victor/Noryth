@@ -282,7 +282,7 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
 
     applyEvent(event) {
       const state = get().state
-      if (!state || event.chapterId !== state.chapterId) return
+      if (!state || event.projectId !== state.projectId || event.chapterId !== state.chapterId) return
       if (event.phase === 'delta') {
         set({ streaming: event.full ?? '' })
         return

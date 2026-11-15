@@ -11,6 +11,7 @@ export function GeneralSection(): React.JSX.Element {
   const appInfo = useApp((state) => state.appInfo)
   const exportDiagnostics = useApp((state) => state.exportDiagnostics)
   const view = useSettings((state) => state.view)
+  const setOpenLastProject = useSettings((state) => state.setOpenLastProject)
 
   return (
     <>
@@ -59,8 +60,26 @@ export function GeneralSection(): React.JSX.Element {
       </section>
 
       <section className="side-card">
+        <h2>启动与窗口</h2>
+        <label className="settings-toggle settings-toggle--stacked">
+          <input
+            type="checkbox"
+            data-testid="open-last-project"
+            checked={view?.openLastProject ?? true}
+            onChange={(event) => void setOpenLastProject(event.target.checked)}
+          />
+          <span>
+            启动时自动打开上次项目
+            <small>关掉后启动停在首页。上次项目被占用或路径失效时不会自动打开，也不会自动只读打开。</small>
+          </span>
+        </label>
+      </section>
+
+      <section className="side-card">
         <h2>诊断</h2>
-        <p>诊断包只含应用版本、项目摘要与日志尾部；导出前会再次扫描 Key 形态并脱敏。不含正文。</p>
+        <p>
+          诊断包是 zip：只含应用版本、schema 版本、项目摘要、当前项目最近任务与日志尾部；导出前会再次扫描 Key 形态并脱敏。不含正文。
+        </p>
         <div style={{ marginTop: 12 }}>
           <button type="button" className="button" onClick={() => void exportDiagnostics()}>
             导出诊断包

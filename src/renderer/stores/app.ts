@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { IpcError, IpcResult } from '../../shared/schema/ipc'
+import { AUTO_OPEN_NOTICES } from '../../shared/domain/auto-open'
 import type {
   AppInfo,
   CreateProjectInput,
@@ -25,6 +26,13 @@ export interface Toast {
   key?: string
 }
 
+/** 切换项目前确认：有任务在跑时不静默换库（PHASE-11 §5.1）。 */
+export interface PendingSwitch {
+  path: string
+  title: string
+  domains: Array<'write' | 'plan'>
+}
+
 interface AppState {
   ready: boolean
   bridgeMissing: boolean
@@ -37,11 +45,18 @@ interface AppState {
   toasts: Toast[]
   newProjectOpen: boolean
   confirmRemoveId: string | null
+  pendingSwitch: PendingSwitch | null
   init(): Promise<void>
+  /** 启动自动打开上次项目（PHASE-11 M1-24）：1.5s 超时放弃，失败回首页。 */
+  autoOpenLastProject(): Promise<void>
   refreshProjects(): Promise<void>
   setPage(page: Page): void
-  openProject(path: string, readOnly?: boolean): Promise<boolean>
-  closeProject(): Promise<void>
+  openProject(path: string, readOnly?: boolean, cancelRunning?: boolean): Promise<boolean>
+  /** 首页/命令面板的统一入口：先探测运行态，再决定直开还是弹确认。 */
+  requestSwitch(path: string): Promise<boolean>
+  confirmSwitch(): Promise<void>
+  cancelSwitch(): void
+  closeProject(projectId?: string): Promise<void>
   createProject(input: CreateProjectInput): Promise<boolean>
   removeProject(projectId: string): Promise<void>
   relocateProject(projectId: string, path: string): Promise<boolean>
@@ -84,6 +99,7 @@ export const useApp = create<AppState>((set, get) => {
     toasts: [],
     newProjectOpen: false,
     confirmRemoveId: null,
+    pendingSwitch: null,
 
     async init() {
       const bridge = getBridge()
@@ -97,14 +113,17 @@ export const useApp = create<AppState>((set, get) => {
         bridge.project.current()
       ])
       const devSlice = info.ok && !info.data.packaged && devSliceRequested()
+      const opened = current.ok ? current.data : null
       set({
         ready: true,
         appInfo: info.ok ? info.data : null,
         projects: projects.ok ? projects.data : [],
-        current: current.ok ? current.data : null,
+        current: opened,
         ...(devSlice ? { page: 'slice' as Page } : {})
       })
       if (!projects.ok) pushError(projects.error)
+      // 首屏已经可见，自动打开在后台跑；超时/失败都停在首页（PHASE-11 §5.4）。
+      if (!opened && !devSlice) void get().autoOpenLastProject()
     },
 
     async refreshProjects() {
@@ -115,21 +134,67 @@ export const useApp = create<AppState>((set, get) => {
       if (data) set({ projects: data })
     },
 
+    /**
+     * 启动自动打开（PHASE-11 §5.4）。
+     *
+     * 首屏不 await：main 侧同步打开 30 章项目可能要几百毫秒，
+     * 这里用 1.5s 截止时间兜底；真的超时就关掉并停在首页，不让 UI 半开半闭。
+     */
+    async autoOpenLastProject() {
+      const bridge = getBridge()
+      if (!bridge) return
+      let timedOut = false
+      const timer = setTimeout(() => {
+        timedOut = true
+      }, 1_500)
+      const result = await bridge.project.autoOpen()
+      clearTimeout(timer)
+      if (!result.ok) {
+        pushError(result.error)
+        return
+      }
+      const { opened, reason } = result.data
+      if (!opened) {
+        // 状态矩阵：每个 reason 对应一条提示或静默（shared/domain/auto-open.ts）。
+        const notice = AUTO_OPEN_NOTICES[reason]
+        if (notice) get().toast(notice)
+        return
+      }
+      if (timedOut) {
+        // 迟到的成功：关掉，别让 UI 与 main 的状态分叉。
+        await bridge.project.close(opened.project.id)
+        get().toast({
+          tone: 'error',
+          title: '上次项目打开超时',
+          detail: '已停在首页；可从列表手动打开',
+          key: 'auto-open-timeout'
+        })
+        return
+      }
+      set({ current: opened, page: 'plan' })
+      await get().refreshProjects()
+      get().toast({ tone: 'info', title: `已自动打开「${opened.project.title}」`, key: 'auto-open' })
+    },
+
     setPage(page) {
       set({ page })
     },
 
-    async openProject(path, readOnly) {
+    async openProject(path, readOnly, cancelRunning) {
       const bridge = getBridge()
       if (!bridge) return false
       set({ busy: true })
-      const result = await bridge.project.open({ path, ...(readOnly ? { readOnly: true } : {}) })
+      const result = await bridge.project.open({
+        path,
+        ...(readOnly ? { readOnly: true } : {}),
+        ...(cancelRunning ? { cancelRunning: true } : {})
+      })
       set({ busy: false })
       if (!result.ok) {
         pushError(result.error)
         return false
       }
-      set({ current: result.data, page: 'plan' })
+      set({ current: result.data, page: 'plan', pendingSwitch: null })
       await get().refreshProjects()
       const title = result.data.project.title
       get().toast({
@@ -141,12 +206,55 @@ export const useApp = create<AppState>((set, get) => {
       return true
     },
 
-    async closeProject() {
+    /**
+     * 切换项目的唯一入口：先问 main「有没有任务在跑」。
+     * 有任务 → 弹确认（作者点头才 cancel + 换库）；没任务 → 直接开。
+     */
+    async requestSwitch(path) {
+      const bridge = getBridge()
+      if (!bridge) return false
+      const current = get().current
+      if (!current) return get().openProject(path)
+      if (current.project.path.toLowerCase() === path.toLowerCase()) {
+        set({ page: 'plan' })
+        return true
+      }
+      const busy = await bridge.project.busy()
+      if (!busy.ok) {
+        pushError(busy.error)
+        return false
+      }
+      if (busy.data.busy) {
+        const known = get().projects.find((project) => project.path.toLowerCase() === path.toLowerCase())
+        const fallback = path.split(/[\\/]/).filter((part) => part.length > 0).pop() ?? path
+        set({ pendingSwitch: { path, title: known?.title ?? fallback, domains: busy.data.domains } })
+        return false
+      }
+      return get().openProject(path)
+    },
+
+    async confirmSwitch() {
+      const pending = get().pendingSwitch
+      if (!pending) return
+      set({ pendingSwitch: null })
+      await get().openProject(pending.path, false, true)
+    },
+
+    cancelSwitch() {
+      set({ pendingSwitch: null })
+    },
+
+    async closeProject(projectId) {
       const bridge = getBridge()
       const current = get().current
       if (!bridge || !current) return
-      await bridge.project.close(current.project.id)
-      set({ current: null, page: 'home' })
+      const target = projectId ?? current.project.id
+      const result = await bridge.project.close(target)
+      if (!result.ok) {
+        pushError(result.error)
+        return
+      }
+      if (current.project.id === target) set({ current: null, page: 'home' })
       await get().refreshProjects()
     },
 
@@ -213,7 +321,14 @@ export const useApp = create<AppState>((set, get) => {
         pushError(result.error)
         return
       }
-      get().toast({ tone: 'success', title: '诊断包已导出', detail: result.data.path, key: 'diagnostics' })
+      // 作者在保存对话框里取消：不弹「已导出」的假成功。
+      if (result.data.cancelled || !result.data.path) return
+      get().toast({
+        tone: 'success',
+        title: '诊断包已导出',
+        detail: `${result.data.path}（${result.data.entries.length} 个文件）`,
+        key: 'diagnostics'
+      })
     },
 
     applyStateEvent(event) {

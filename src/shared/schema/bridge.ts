@@ -1,5 +1,5 @@
 import type { IpcResult } from './ipc'
-import type { ExportInput, ExportResult } from './export'
+import type { DiagnosticsExportInput, DiagnosticsExportResult, ExportInput, ExportResult } from './export'
 import type {
   AppearancePatch,
   BindingAuditEntry,
@@ -65,13 +65,16 @@ import type {
 } from './write'
 import type {
   AppInfo,
+  AutoOpenResult,
   CreateProjectInput,
   CreateProjectResult,
   OpenProjectInput,
   OpenProjectResult,
   PathCheck,
+  ProjectBusyState,
   ProjectStateEvent,
   ProjectSummary,
+  ProjectTree,
   RelocateProjectInput,
   Settings,
   SettingsPatch,
@@ -86,6 +89,12 @@ import type {
 export interface ProjectApi {
   list(): Promise<IpcResult<ProjectSummary[]>>
   current(): Promise<IpcResult<OpenProjectResult | null>>
+  /** 启动自动打开上次项目（PHASE-11 M1-24）：失败回首页，不自动只读打开。 */
+  autoOpen(): Promise<IpcResult<AutoOpenResult>>
+  /** 切换前的运行态探测（PHASE-11 §5.1）。 */
+  busy(): Promise<IpcResult<ProjectBusyState>>
+  /** 文件树抽屉的数据源（结构 + 数据库视图，不含正文）。 */
+  tree(): Promise<IpcResult<ProjectTree>>
   validatePath(input: ValidatePathInput): Promise<IpcResult<PathCheck>>
   create(input: CreateProjectInput): Promise<IpcResult<CreateProjectResult>>
   open(input: OpenProjectInput): Promise<IpcResult<OpenProjectResult>>
@@ -119,7 +128,8 @@ export interface SettingsApi {
 }
 
 export interface DiagnosticsApi {
-  export(): Promise<IpcResult<{ path: string }>>
+  /** 导出 zip（PHASE-11 M1-24）：不含正文与 Key；作者取消保存时 cancelled=true。 */
+  export(input?: DiagnosticsExportInput): Promise<IpcResult<DiagnosticsExportResult>>
 }
 
 /** 稿件导出（PRD §5.5）：Markdown / TXT，可选附带审批批注。 */
@@ -223,7 +233,7 @@ export interface WriteApi {
   cancel(chapterId: string): Promise<IpcResult<WriteActionResult>>
   send(input: { chapterId: string; text: string }): Promise<IpcResult<WriteSendResult>>
   /** 仅未打包构建：E2E 脚手架，生产包调用返回 invalid_args。 */
-  devSeed(input?: { scenes?: number; beatsPerScene?: number; exit?: string }): Promise<IpcResult<WriteState>>
+  devSeed(input?: { scenes?: number; beatsPerScene?: number; chapters?: number; exit?: string }): Promise<IpcResult<WriteState>>
 }
 
 /** 审批台 API（PHASE-08）。G5/G6 的令牌都在主进程签发，renderer 只持有一次性 token。 */

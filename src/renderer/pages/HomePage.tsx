@@ -16,7 +16,8 @@ export function HomePage(): React.JSX.Element {
   const projects = useApp((state) => state.projects)
   const current = useApp((state) => state.current)
   const busy = useApp((state) => state.busy)
-  const openProject = useApp((state) => state.openProject)
+  const requestSwitch = useApp((state) => state.requestSwitch)
+  const closeProject = useApp((state) => state.closeProject)
   const setNewProjectOpen = useApp((state) => state.setNewProjectOpen)
   const revealProject = useApp((state) => state.revealProject)
   const setConfirmRemove = useApp((state) => state.setConfirmRemove)
@@ -55,7 +56,7 @@ export function HomePage(): React.JSX.Element {
       return
     }
     if (!picked.data.path) return
-    await openProject(picked.data.path)
+    await requestSwitch(picked.data.path)
   }
 
   const relocate = async (project: ProjectSummary): Promise<void> => {
@@ -79,11 +80,11 @@ export function HomePage(): React.JSX.Element {
         aria-label={`项目 ${project.title}`}
         onClick={() => setSelected(project.id)}
         onDoubleClick={() => {
-          if (project.available) void openProject(project.path)
+          if (project.available) void requestSwitch(project.path)
           else toast({ tone: 'error', title: '路径不可用', detail: '请用「重新定位」指向项目文件夹' })
         }}
         onKeyDown={(event) => {
-          if (event.key === 'Enter' && project.available) void openProject(project.path)
+          if (event.key === 'Enter' && project.available) void requestSwitch(project.path)
           if (event.key === 'Delete') setConfirmRemove(project.id)
         }}
       >
@@ -92,6 +93,7 @@ export function HomePage(): React.JSX.Element {
           <div className="project-name">
             <span className="name">{project.title}</span>
             <span className={`badge ${badge.tone}`}>{badge.label}</span>
+            {isOpen && !current?.readOnly ? <span className="badge is-live">当前打开</span> : null}
             {isOpen && current?.readOnly ? <span className="badge is-warn">只读 · 已开窗</span> : null}
           </div>
           <div className="project-desc">
@@ -119,6 +121,19 @@ export function HomePage(): React.JSX.Element {
         </button>
         {menuFor === project.id ? (
           <div className="project-menu" role="menu" ref={menuRef} onClick={(event) => event.stopPropagation()}>
+            {isOpen ? (
+              <button
+                type="button"
+                role="menuitem"
+                data-testid={`project-close-${project.id}`}
+                onClick={() => {
+                  setMenuFor(null)
+                  void closeProject(project.id)
+                }}
+              >
+                关闭项目
+              </button>
+            ) : null}
             <button
               type="button"
               role="menuitem"

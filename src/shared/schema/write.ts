@@ -168,7 +168,9 @@ export const WriteChapterSummarySchema = z.strictObject({
   status: z.string(),
   sceneCount: z.number().int().nonnegative(),
   beatCount: z.number().int().nonnegative(),
-  confirmedCount: z.number().int().nonnegative()
+  confirmedCount: z.number().int().nonnegative(),
+  /** 章内正文合计字数（不含 superseded），列表不发正文（PHASE-11 M1-9）。 */
+  wordCount: z.number().int().nonnegative()
 })
 export type WriteChapterSummary = z.infer<typeof WriteChapterSummarySchema>
 
@@ -252,6 +254,8 @@ export const WriteSendInputSchema = z.strictObject({
 export const WriteDevSeedInputSchema = z.strictObject({
   scenes: z.number().int().min(1).max(10).optional(),
   beatsPerScene: z.number().int().min(1).max(20).optional(),
+  /** 只给性能/文件树 E2E 用：一次铺 N 章（只有第一章带分镜）。 */
+  chapters: z.number().int().min(1).max(40).optional(),
   exit: z.string().min(1).max(500).optional()
 })
 

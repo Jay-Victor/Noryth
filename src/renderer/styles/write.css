@@ -9,6 +9,24 @@
   gap: 2px;
 }
 
+/*
+ * 章节列表走虚拟列表（PHASE-11 M1-9）：列表自己滚，进度区不抢高度。
+ * 30 章时 DOM 只有可视区 + overscan 行，滚动不掉帧。
+ */
+.write-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.write-sessions .write-scene-progress {
+  flex: 0 1 auto;
+  max-height: 46%;
+  overflow: auto;
+  margin-top: 6px;
+}
+
 .write-chapter-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

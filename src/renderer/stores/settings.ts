@@ -31,6 +31,8 @@ interface SettingsState {
   load(): Promise<void>
   loadProject(projectId: string): Promise<void>
   appearance(patch: AppearancePatch): Promise<void>
+  /** 启动行为（PHASE-11 M1-24）：是否自动打开上次项目。 */
+  setOpenLastProject(enabled: boolean): Promise<void>
   setKey(preset: Preset, apiKey: string): Promise<boolean>
   clearKey(preset: Preset): Promise<void>
   setProviderEnabled(preset: Preset, enabled: boolean): Promise<void>
@@ -92,6 +94,17 @@ export const useSettings = create<SettingsState>((set, get) => {
         return
       }
       set({ view: result.data })
+    },
+
+    async setOpenLastProject(enabled) {
+      const bridge = getBridge()
+      if (!bridge) return
+      const result = await bridge.settings.set({ openLastProject: enabled })
+      if (!result.ok) {
+        notify(result.error)
+        return
+      }
+      await get().load()
     },
 
     async setKey(preset, apiKey) {

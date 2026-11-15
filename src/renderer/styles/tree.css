@@ -1,0 +1,189 @@
+/*
+ * 虚拟列表与文件树抽屉（PHASE-11 M1-9 / M1-16）。
+ *
+ * 抽屉是 overlay：position: fixed，不参与栅格，因此开抽屉不会改变正文列宽
+ * （UI-DESIGN §11「1440×900 打开文件树抽屉不改变正文列宽」）。
+ */
+
+.vlist {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  outline: none;
+}
+
+.vlist__spacer {
+  position: relative;
+  width: 100%;
+}
+
+.vlist__row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid transparent;
+}
+
+.vlist__row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ── 抽屉 ──────────────────────────────────────────────────────────────── */
+
+.tree-drawer-layer {
+  position: fixed;
+  top: var(--titlebar);
+  right: 0;
+  bottom: var(--statusbar);
+  width: 320px;
+  display: flex;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.tree-drawer {
+  pointer-events: auto;
+  width: 320px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border-left: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-pop);
+}
+
+.tree-drawer__head {
+  height: 34px;
+  flex: 0 0 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tree-drawer__title {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-drawer__close {
+  margin-left: auto;
+  min-width: 32px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tree-drawer__close:hover {
+  border-color: var(--border-strong);
+  color: var(--fg);
+}
+
+.tree-drawer__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0 12px;
+  overflow: hidden;
+}
+
+.tree-drawer__note {
+  margin: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tree-drawer__group {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+
+.tree-drawer__file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding-right: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-soft);
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tree-drawer__file:hover {
+  background: var(--accent-weak);
+}
+
+.tree-drawer__file.is-active {
+  background: var(--accent-weak);
+  color: var(--accent-strong);
+}
+
+.tree-drawer__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-drawer__meta {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--faint);
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 抽屉之外的点击区：关闭抽屉；透明，不画遮罩（临时选择器，不是模态）。 */
+.tree-drawer__scrim {
+  pointer-events: auto;
+  position: fixed;
+  top: var(--titlebar);
+  right: 320px;
+  bottom: var(--statusbar);
+  left: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+/* 章节列表（创作台左栏）走虚拟列表：行高固定 32。 */
+.vlist--chapters {
+  padding: 0 8px;
+}
+
+.vlist--chapters .write-chapter-row {
+  width: 100%;
+  height: 100%;
+}

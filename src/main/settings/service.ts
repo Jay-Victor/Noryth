@@ -109,7 +109,8 @@ export class SettingsService {
       secureStorage: this.deps.secrets.available(),
       settingsPath: this.deps.paths?.settings ?? 'settings.json',
       secretsPath: this.deps.paths?.secrets ?? 'secrets.bin',
-      lastOpenedProjectId: settings.lastOpenedProjectId
+      lastOpenedProjectId: settings.lastOpenedProjectId,
+      openLastProject: settings.openLastProject
     }
   }
 

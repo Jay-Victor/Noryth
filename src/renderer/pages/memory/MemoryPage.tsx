@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { GRID, type LayoutMode } from '../../../shared/layout/grid'
 import { MEMORY_JOB_LABELS, MEMORY_KIND_LABELS, type MemoryState } from '../../../shared/schema/memory'
 import { Icon } from '../../components/Icon'
+import { TreeRailTrigger } from '../../app/TreeRailTrigger'
 import { useApp } from '../../stores/app'
 import { useMemory, type MemoryTab } from '../../stores/memory'
 import { AuditList } from './AuditList'
@@ -390,6 +391,7 @@ export function MemoryPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           </>
         ) : (
           <div className="rail">
+            <TreeRailTrigger />
             <span className="rail-item is-active" title={`提案 ${state.proposals.length}`}>
               <Icon name="memory" size={13} />
             </span>

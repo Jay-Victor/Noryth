@@ -312,6 +312,20 @@ export class PlanService {
     return this.running.size > 0
   }
 
+  /** 项目切换前：停掉所有会话的生成并等它们退出（PHASE-11 §5.1）。 */
+  async abortAllAndWait(timeoutMs = 2_000): Promise<boolean> {
+    if (this.running.size === 0) return true
+    for (const [sessionId, run] of this.running) {
+      this.resolveChoices(sessionId)
+      run.controller.abort()
+    }
+    const started = Date.now()
+    while (this.running.size > 0 && Date.now() - started < timeoutMs) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    return this.running.size === 0
+  }
+
   retry(input: { messageId: string }): PlanSendResult {
     const host = this.requireWritable()
     const message = host.repos.planMessage.get(input.messageId)

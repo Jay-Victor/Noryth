@@ -1,5 +1,6 @@
 import type { Capabilities } from '../../shared/schema/model'
 import type { ChatAdapter, ChatRequest, ChatResult, StreamHooks } from '../model/adapter'
+import { ModelError } from '../model/adapter'
 
 /**
  * 创作台的假模型适配器（E2E-WRITE / 集成测试）。
@@ -91,10 +92,17 @@ export class FakeWriteModelAdapter implements ChatAdapter {
     let full = ''
     let firstTokenMs: number | null = null
     for (const chunk of body.match(/[\s\S]{1,4}/g) ?? []) {
+      // 与真实适配器同契约：取消（AbortSignal）后立即停止，不再提交结果。
+      if (request.signal?.aborted) {
+        throw new ModelError('model_error', 'aborted', { aborted: true })
+      }
       if (this.chunkDelayMs > 0) await sleep(this.chunkDelayMs)
       full += chunk
       if (firstTokenMs === null) firstTokenMs = Date.now() - started
       hooks.onText?.(chunk, full)
+    }
+    if (request.signal?.aborted) {
+      throw new ModelError('model_error', 'aborted', { aborted: true })
     }
 
     return {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { GRID, type LayoutMode } from '../../../shared/layout/grid'
 import { Icon } from '../../components/Icon'
+import { TreeRailTrigger } from '../../app/TreeRailTrigger'
 import { useApp } from '../../stores/app'
 import { usePlan, type PlanTab } from '../../stores/plan'
 import { BlueprintPane } from './BlueprintPane'
@@ -364,6 +365,7 @@ export function PlanPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           </>
         ) : (
           <div className="rail">
+            <TreeRailTrigger />
             <span className="rail-item is-active" title="项目结构">
               <Icon name="plan" size={13} />
             </span>

@@ -11,6 +11,7 @@ export type IconName =
   | 'arrow'
   | 'more'
   | 'palette'
+  | 'tree'
 
 const PATHS: Record<IconName, string> = {
   home: 'M3 9.5 10 3l7 6.5V17h-5v-4H8v4H3z',
@@ -23,7 +24,8 @@ const PATHS: Record<IconName, string> = {
   lock: 'M5 9h10v7H5zM7 9V7a3 3 0 0 1 6 0v2',
   arrow: 'M4 10h11M11 6l4 4-4 4',
   more: 'M5 10h.01M10 10h.01M15 10h.01',
-  palette: 'M10 3a7 7 0 1 0 0 14h1.2a1.8 1.8 0 0 0 0-3.6h-.6a1.3 1.3 0 0 1 0-2.6H14A3 3 0 0 0 17 7.9 5 5 0 0 0 10 3Z'
+  palette: 'M10 3a7 7 0 1 0 0 14h1.2a1.8 1.8 0 0 0 0-3.6h-.6a1.3 1.3 0 0 1 0-2.6H14A3 3 0 0 0 17 7.9 5 5 0 0 0 10 3Z',
+  tree: 'M3 3h5v4H3zM3 13h5v4H3zM9 5h8M9 15h8M8 5v10'
 }
 
 export function Icon({ name, size = 20, ...rest }: { name: IconName; size?: number } & SVGProps<SVGSVGElement>) {

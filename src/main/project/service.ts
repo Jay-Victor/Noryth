@@ -3,13 +3,16 @@ import { join, resolve } from 'node:path'
 import { AppError } from '../../shared/domain/app-error'
 import type {
   AppInfo,
+  AutoOpenResult,
   CreateProjectInput,
   CreateProjectResult,
   OpenProjectInput,
   OpenProjectResult,
   ProjectStateEvent,
   ProjectSummary,
+  ProjectTree,
   RelocateProjectInput,
+  Settings,
   UpdateProjectMetaInput
 } from '../../shared/schema/project'
 import type { Logger } from '../observability/logger'
@@ -24,6 +27,7 @@ import { isLockStale, readLock, startLock, type LockHandle, type LockInfo } from
 import { recoverInterrupted } from '../doc/recovery'
 import { publishPendingMirrors } from '../doc/publish'
 import { projectDbFile, PROJECT_SUBDIRS, resolveProjectDir, validateNewProjectPath } from './paths'
+import { buildProjectTree } from './tree'
 import type { ProjectRegistry, RegistryEntry } from './registry'
 
 interface CurrentProject {
@@ -46,6 +50,8 @@ export interface ProjectServiceDeps {
   vecExtension: string | null
   emit: (event: ProjectStateEvent) => void
   appInfo: () => AppInfo
+  /** 应用设置（openLastProject / lastOpenedProjectId），自动打开用。 */
+  readSettings: () => Settings
 }
 
 export class ProjectService {
@@ -86,6 +92,101 @@ export class ProjectService {
 
   isReadOnly(): boolean {
     return this.current?.readOnly === true
+  }
+
+  /** 项目库条目（自动打开与首页提示用）。 */
+  entry(projectId: string): RegistryEntry | null {
+    return this.deps.registry.find(projectId)
+  }
+
+  /**
+   * 启动自动打开前的只读探测（PHASE-11 M1-24）。
+   *
+   * 只做「能不能安全打开」的判断，不建锁、不迁移、不改库：
+   * 路径失效 / 锁被占用 / schema 更新 / quick_check 失败 都回首页，
+   * 不把错误放大成半开状态（尤其是 schema_newer 与只读锁）。
+   */
+  probeAutoOpen(path: string): { ok: true } | { ok: false; reason: 'missing' | 'locked' | 'schema_newer' | 'failed' } {
+    let dir: string
+    try {
+      dir = resolveProjectDir(path)
+    } catch {
+      return { ok: false, reason: 'missing' }
+    }
+    const file = projectDbFile(dir)
+    if (!existsSync(file)) return { ok: false, reason: 'missing' }
+    const holder = readLock(dir)
+    if (holder && !isLockStale(holder)) return { ok: false, reason: 'locked' }
+
+    let db: Db | null = null
+    try {
+      db = openDatabase(file, { readonly: true })
+      if (currentVersion(db) > LATEST_SCHEMA_VERSION) return { ok: false, reason: 'schema_newer' }
+      const check = db.pragma('quick_check', { simple: true })
+      if (check !== 'ok') return { ok: false, reason: 'failed' }
+      if (!createRepos(db).project.get()) return { ok: false, reason: 'failed' }
+      return { ok: true }
+    } catch {
+      return { ok: false, reason: 'failed' }
+    } finally {
+      try {
+        db?.close()
+      } catch {
+        // 探测用连接，关闭失败不影响结论
+      }
+    }
+  }
+
+  /**
+   * 启动自动打开上次项目。三个「不自动打开」：设置关闭、条目失效、被占用。
+   * 任何失败都返回 reason，让 renderer 停在首页并给可读提示。
+   */
+  autoOpen(): AutoOpenResult {
+    const started = Date.now()
+    const settings = this.deps.readSettings()
+    if (!settings.openLastProject) {
+      return { opened: null, reason: 'disabled', elapsedMs: 0 }
+    }
+    const lastId = settings.lastOpenedProjectId
+    if (!lastId) return { opened: null, reason: 'no_last_project', elapsedMs: Date.now() - started }
+    const entry = this.deps.registry.find(lastId)
+    if (!entry) return { opened: null, reason: 'missing', elapsedMs: Date.now() - started }
+
+    const probe = this.probeAutoOpen(entry.path)
+    if (!probe.ok) {
+      return { opened: null, reason: probe.reason, elapsedMs: Date.now() - started }
+    }
+    try {
+      const opened = this.open({ path: entry.path })
+      if (opened.readOnly) {
+        // 探测通过但打开变成只读（锁竞态 / schema 竞态）：不自动只读打开。
+        this.close(opened.project.id)
+        return {
+          opened: null,
+          reason: opened.readOnlyReason === 'schema_newer' ? 'schema_newer' : 'locked',
+          elapsedMs: Date.now() - started
+        }
+      }
+      return { opened, reason: 'ok', elapsedMs: Date.now() - started }
+    } catch (error) {
+      this.deps.logger.warn(
+        { event: 'auto_open_failed', error: error instanceof Error ? error.message : String(error) },
+        'auto open failed'
+      )
+      return { opened: null, reason: 'failed', elapsedMs: Date.now() - started }
+    }
+  }
+
+  /** 文件树抽屉（PHASE-11 M1-16）：结构 + 数据库视图，不含正文。 */
+  tree(): ProjectTree {
+    const current = this.current
+    if (!current) throw new AppError('project_not_found', '没有打开的项目')
+    return buildProjectTree(current.repos, current.summary.id)
+  }
+
+  /** 最近打开的 project 摘要（诊断包用，不重跑 verify）。 */
+  verifySnapshot(): VerifyReport | null {
+    return this.current?.verify ?? null
   }
 
   validatePath(input: { parentDir: string; folderName: string }) {

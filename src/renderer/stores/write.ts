@@ -338,7 +338,8 @@ export const useWrite = create<WriteStoreState>((set, get) => {
 
     applyEvent(event) {
       const state = get().state
-      if (!state || event.chapterId !== state.chapterId) return
+      // 跨项目事件一律丢弃（PHASE-11 §5.1）：切库后迟到的 delta 不能写进新项目。
+      if (!state || event.projectId !== state.projectId || event.chapterId !== state.chapterId) return
       if (event.phase === 'delta') {
         if (event.beatId) {
           pending.set(event.beatId, event.full ?? '')

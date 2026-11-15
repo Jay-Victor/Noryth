@@ -144,7 +144,8 @@ async function bootstrap(): Promise<void> {
     logger,
     vecExtension,
     emit,
-    appInfo: buildAppInfo
+    appInfo: buildAppInfo,
+    readSettings: () => settings.read()
   })
   projectService = projectServiceInstance
 

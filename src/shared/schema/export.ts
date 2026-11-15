@@ -22,3 +22,22 @@ export const ExportResultSchema = z.strictObject({
   revisionIds: z.array(z.string())
 })
 export type ExportResult = z.infer<typeof ExportResultSchema>
+
+/**
+ * 诊断包导出（PHASE-11 M1-24）。
+ * `path` 只在调用方已经选定路径时给出（E2E / 复跑脚本）；正常路径走保存对话框。
+ */
+export const DiagnosticsExportInputSchema = z.strictObject({
+  path: z.string().min(1).max(400).optional()
+})
+export type DiagnosticsExportInput = z.infer<typeof DiagnosticsExportInputSchema>
+
+export const DiagnosticsExportResultSchema = z.strictObject({
+  /** 作者取消保存对话框时为 null。 */
+  path: z.string().nullable(),
+  bytes: z.number().int().nonnegative(),
+  entries: z.array(z.string()),
+  cancelled: z.boolean()
+})
+export type DiagnosticsExportResult = z.infer<typeof DiagnosticsExportResultSchema>
+

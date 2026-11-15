@@ -4,7 +4,8 @@ import { join, resolve } from 'node:path'
 import pino from 'pino'
 import { ProjectRegistry } from '../../src/main/project/registry'
 import { ProjectService } from '../../src/main/project/service'
-import type { AppInfo } from '../../src/shared/schema/project'
+import type { AppInfo, Settings } from '../../src/shared/schema/project'
+import { SettingsSchema } from '../../src/shared/schema/project'
 
 export function tempDir(prefix = 'noryth-test-'): { path: string; cleanup: () => void } {
   const path = mkdtempSync(join(tmpdir(), prefix))
@@ -36,13 +37,18 @@ export function appInfo(): AppInfo {
   }
 }
 
-export function makeService(userDataDir: string): {
+export function makeService(
+  userDataDir: string,
+  options: { settings?: Partial<Settings> } = {}
+): {
   service: ProjectService
   registry: ProjectRegistry
   events: Array<{ projectId: string; readOnly: boolean }>
+  settings: Settings
 } {
   const registry = new ProjectRegistry(join(userDataDir, 'projects.json'))
   const events: Array<{ projectId: string; readOnly: boolean }> = []
+  const settings: Settings = { ...SettingsSchema.parse({}), ...options.settings }
   const service = new ProjectService({
     registry,
     appVersion: '0.1.0',
@@ -50,7 +56,8 @@ export function makeService(userDataDir: string): {
     logger: silentLogger(),
     vecExtension: vecExtensionPath(),
     emit: (event) => events.push({ projectId: event.projectId, readOnly: event.readOnly }),
-    appInfo
+    appInfo,
+    readSettings: () => settings
   })
-  return { service, registry, events }
+  return { service, registry, events, settings }
 }

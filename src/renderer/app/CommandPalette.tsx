@@ -55,7 +55,7 @@ export function CommandPalette(): React.JSX.Element | null {
           const bridge = getBridge()
           if (!bridge) return
           const picked = await bridge.dialog.pickProject()
-          if (picked.ok && picked.data.path) await useApp.getState().openProject(picked.data.path)
+          if (picked.ok && picked.data.path) await useApp.getState().requestSwitch(picked.data.path)
         }
       }
     ]

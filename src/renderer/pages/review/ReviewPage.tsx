@@ -3,6 +3,7 @@ import { GRID, type LayoutMode } from '../../../shared/layout/grid'
 import { DIMENSION_LABELS, VERDICT_LABELS } from '../../../shared/schema/report'
 import { REVIEW_STATUS_LABELS } from '../../../shared/schema/review'
 import { Icon } from '../../components/Icon'
+import { TreeRailTrigger } from '../../app/TreeRailTrigger'
 import { getBridge } from '../../lib/bridge'
 import { useApp } from '../../stores/app'
 import { useReview, type ReviewTab } from '../../stores/review'
@@ -419,6 +420,7 @@ export function ReviewPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           </>
         ) : (
           <div className="rail">
+            <TreeRailTrigger />
             <span className="rail-item is-active" title="报告">
               <Icon name="review" size={13} />
             </span>
