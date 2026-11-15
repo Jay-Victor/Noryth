@@ -14,7 +14,15 @@ import {
   ValidatePathInputSchema,
   type AppInfo
 } from '../../shared/schema/project'
-import { ProviderProbeInputSchema } from '../../shared/schema/model'
+import {
+  AppearancePatchSchema,
+  BindingProjectInputSchema,
+  BindingSetInputSchema,
+  ProviderClearInputSchema,
+  ProviderKeySetInputSchema,
+  ProviderTestInputSchema
+} from '../../shared/schema/settings'
+import { PresetSchema } from "../../shared/schema/model"
 import {
   PlanAddOutlineInputSchema,
   PlanCharacterAddInputSchema,
@@ -71,7 +79,6 @@ import {
   MemorySendInputSchema,
   MemoryStateInputSchema
 } from '../../shared/schema/memory'
-import { probeProvider } from '../model/probe'
 import type { Logger } from '../observability/logger'
 import { exportDiagnostics } from '../observability/diagnostics'
 import type { MemoryService } from '../memory/service'
@@ -79,6 +86,7 @@ import type { PlanService } from '../plan/service'
 import type { ProjectService } from '../project/service'
 import type { ReviewService } from '../review/service'
 import type { SettingsStore } from '../settings/store'
+import type { SettingsService } from '../settings/service'
 import type { SliceService } from '../slice/service'
 import type { WriteService } from '../scheduler/service'
 
@@ -88,6 +96,8 @@ const EmptySchema = z.strictObject({})
 export interface IpcDeps {
   project: ProjectService
   settings: SettingsStore
+  /** 设置中心（Key/绑定/外观）；与低层 settings store 分工：它管契约，store 管文件。 */
+  settingsCenter: SettingsService
   logger: Logger
   logPath: string
   userDataDir: string
@@ -257,14 +267,55 @@ export function registerIpc(deps: IpcDeps): void {
   })
 
   register(IPC.settingsProbeProvider, {
-    schema: ProviderProbeInputSchema,
-    handler: (payload) =>
-      probeProvider(payload, {
-        save: (preset, snapshot) => {
-          const current = deps.settings.read()
-          deps.settings.write({ providers: { ...current.providers, [preset]: snapshot } })
-        }
-      })
+    schema: ProviderTestInputSchema,
+    handler: (payload) => deps.settingsCenter.test(payload)
+  })
+
+  register(IPC.settingsView, {
+    schema: EmptySchema,
+    handler: () => deps.settingsCenter.view()
+  })
+
+  register(IPC.settingsAppearance, {
+    schema: AppearancePatchSchema,
+    handler: (payload) => deps.settingsCenter.appearance(payload)
+  })
+
+  register(IPC.settingsProviderKey, {
+    schema: ProviderKeySetInputSchema,
+    handler: (payload) => deps.settingsCenter.setKey(payload)
+  })
+
+  register(IPC.settingsProviderKeyClear, {
+    schema: ProviderClearInputSchema,
+    handler: (payload) => deps.settingsCenter.clearKey(payload)
+  })
+
+  register(IPC.settingsProviderEnabled, {
+    schema: z.strictObject({ preset: PresetSchema, enabled: z.boolean() }),
+    handler: (payload) => deps.settingsCenter.setProviderEnabled(payload.preset, payload.enabled)
+  })
+
+  register(IPC.settingsBindings, {
+    schema: BindingProjectInputSchema,
+    handler: (payload) => deps.settingsCenter.bindings(payload.projectId)
+  })
+
+  register(IPC.settingsBindingsSet, {
+    schema: BindingSetInputSchema,
+    mutation: true,
+    handler: (payload) => deps.settingsCenter.setBindings(payload)
+  })
+
+  register(IPC.settingsBindingsRollback, {
+    schema: BindingProjectInputSchema,
+    mutation: true,
+    handler: (payload) => deps.settingsCenter.rollback(payload.projectId)
+  })
+
+  register(IPC.settingsBindingsAudit, {
+    schema: BindingProjectInputSchema,
+    handler: (payload) => deps.settingsCenter.audit(payload.projectId)
   })
 
   register(IPC.diagnosticsExport, {

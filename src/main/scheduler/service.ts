@@ -42,6 +42,7 @@ import { runOrchestratorTurn } from './orchestrator'
 import { WriteModelFactory } from './model'
 import { resolveBinding } from '../model/bindings'
 import { beatTransition, chapterTransition, sceneTransition } from './transitions'
+import type { ApiKeyLookup } from '../model/keys'
 
 /**
  * 创作台服务（PHASE-07 F1–F7）。
@@ -72,6 +73,8 @@ export interface WriteServiceDeps {
   fakeChunkDelayMs?: number
   log?: (message: string, details?: Record<string, unknown>) => void
   env?: NodeJS.ProcessEnv
+  /** 设置页注入的 Key 解析（safeStorage 优先）；省略时只用环境变量。 */
+  apiKeyFor?: ApiKeyLookup
 }
 
 interface ChapterSession {
@@ -97,7 +100,8 @@ export class WriteService {
       allowFake: deps.allowFakeModel,
       getSettings: deps.settings,
       ...(deps.env === undefined ? {} : { env: deps.env }),
-      ...(deps.fakeChunkDelayMs === undefined ? {} : { fakeChunkDelayMs: deps.fakeChunkDelayMs })
+      ...(deps.fakeChunkDelayMs === undefined ? {} : { fakeChunkDelayMs: deps.fakeChunkDelayMs }),
+      ...(deps.apiKeyFor === undefined ? {} : { apiKeyFor: deps.apiKeyFor })
     })
   }
 

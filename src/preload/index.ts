@@ -49,7 +49,16 @@ const bridge: NorythBridge = {
   settings: {
     get: () => invoke(IPC.settingsGet, {}),
     set: (patch) => invoke(IPC.settingsSet, patch),
-    probeProvider: (input) => invoke(IPC.settingsProbeProvider, input)
+    view: () => invoke(IPC.settingsView, {}),
+    appearance: (patch) => invoke(IPC.settingsAppearance, patch),
+    setProviderKey: (input) => invoke(IPC.settingsProviderKey, input),
+    clearProviderKey: (input) => invoke(IPC.settingsProviderKeyClear, input),
+    setProviderEnabled: (input) => invoke(IPC.settingsProviderEnabled, input),
+    testProvider: (input) => invoke(IPC.settingsProbeProvider, input),
+    bindings: (projectId) => invoke(IPC.settingsBindings, { projectId }),
+    setBindings: (input) => invoke(IPC.settingsBindingsSet, input),
+    rollbackBindings: (projectId) => invoke(IPC.settingsBindingsRollback, { projectId }),
+    bindingAudit: (projectId) => invoke(IPC.settingsBindingsAudit, { projectId })
   },
   diagnostics: {
     export: () => invoke(IPC.diagnosticsExport, {})

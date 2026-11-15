@@ -60,7 +60,9 @@ describe('IPC schema', () => {
       theme: 'system',
       lastOpenedProjectId: null,
       providers: {},
-      tokenCalibration: {}
+      tokenCalibration: {},
+      providersEnabled: {},
+      appearance: { theme: 'light', accent: 'clay', fontScale: 'standard', lineHeight: 1.8 }
     })
     const summary = ProjectSummarySchema.safeParse({
       id: 'prj_1',

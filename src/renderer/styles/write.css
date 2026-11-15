@@ -270,8 +270,8 @@
   flex: 1;
   min-height: 0;
   font-family: var(--font-display);
-  font-size: 15px;
-  line-height: 1.8;
+  font-size: var(--prose-size);
+  line-height: var(--prose-leading);
 }
 
 .write-scene {
@@ -422,8 +422,8 @@
   width: 100%;
   resize: vertical;
   font-family: var(--font-display);
-  font-size: 15px;
-  line-height: 1.8;
+  font-size: var(--prose-size);
+  line-height: var(--prose-leading);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 6px 8px;

@@ -32,6 +32,7 @@ import type { PlanMessageRecord, PlanSessionRecord } from '../db/repos/plan'
 import type { ChoiceOption, ChoiceResolver } from '../tools/types'
 import { ModelError } from '../model/adapter'
 import type { RegistrySnapshot } from '../tools/registry'
+import type { ApiKeyLookup } from '../model/keys'
 import { addPlanCharacter, addPlanFact, removeOutlineNode, removePlanCharacter, removePlanFact, saveCharacterCard, saveOutlineNode, addOutlineNode, savePlanFact } from './draft'
 import { confirmG1, g1Preview, retrySetup } from './g1'
 import { plannerModel, plannerModelStatus, type PlannerModel } from './model'
@@ -65,6 +66,8 @@ export interface PlanServiceDeps {
   onStateChange?: () => void
   /** 测试注入：覆盖模型装配（默认走 plannerModel）。 */
   model?: (host: PlanHost, settings: Settings) => PlannerModel
+  /** 设置页注入的 Key 解析；省略时只用环境变量（测试/旧行为）。 */
+  apiKeyFor?: ApiKeyLookup
   log?: (message: string, details?: Record<string, unknown>) => void
 }
 
@@ -530,9 +533,12 @@ export class PlanService {
     try {
       const model =
         this.deps.model?.(host, this.deps.settings()) ??
-        plannerModel(host.repos, this.deps.settings(), { allowFake: this.deps.allowFakeModel })
+        plannerModel(host.repos, this.deps.settings(), {
+          allowFake: this.deps.allowFakeModel,
+          ...(this.deps.apiKeyFor === undefined ? {} : { apiKeyFor: this.deps.apiKeyFor })
+        })
       if (!model.status.ready) {
-        throw new AppError('model_auth', '未配置规划 Agent 的 API Key；阶段 10 在设置页接入')
+        throw new AppError('model_auth', '规划 Agent 还没有可用的 API Key，请到设置里填写')
       }
       const outcome = await runPlanMessage(
         {

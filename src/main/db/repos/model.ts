@@ -34,6 +34,13 @@ export interface ModelBindingAuditRecord {
   newJson: string
   actor: string
   createdAt: string
+  batchId: string | null
+}
+
+export interface BindingBatchRecord {
+  batchId: string
+  createdAt: string
+  entries: number
 }
 
 export interface TurnMetricInput {
@@ -85,7 +92,8 @@ function mapAudit(row: BindingAuditRow): ModelBindingAuditRecord {
     oldJson: row.old_json,
     newJson: row.new_json,
     actor: row.actor,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    batchId: row.batch_id
   }
 }
 
@@ -141,7 +149,7 @@ export class ModelBindingRepo extends BaseRepo {
   }
 
   /** 同 (project, agent) 只保留一行；版本号单调递增，写审计旧/新。 */
-  upsert(input: ModelBindingInput, actor: string): ModelBindingRecord {
+  upsert(input: ModelBindingInput, actor: string, batchId?: string): ModelBindingRecord {
     const at = this.now()
     const previous = this.get(input.projectId, input.agentKey)
     const paramsJson = input.paramsJson ?? previous?.paramsJson ?? '{}'
@@ -181,9 +189,21 @@ export class ModelBindingRepo extends BaseRepo {
       oldJson: previous ? JSON.stringify(previous) : null,
       newJson: JSON.stringify(next),
       actor,
-      createdAt: at
+      createdAt: at,
+      ...(batchId === undefined ? {} : { batchId })
     })
     return next
+  }
+
+  /** 回滚到「从未绑定」的状态时用它；审计由调用方在同一次回滚里写。 */
+  delete(projectId: string, agentKey: string): void {
+    runStatement(
+      this.runner,
+      this.runner.db
+        .deleteFrom('model_binding')
+        .where('project_id', '=', projectId)
+        .where('agent_key', '=', agentKey)
+    )
   }
 
   recordAudit(input: {
@@ -193,6 +213,7 @@ export class ModelBindingRepo extends BaseRepo {
     newJson: string
     actor: string
     createdAt?: string
+    batchId?: string | null
   }): ModelBindingAuditRecord {
     const id = newId('mba')
     runStatement(
@@ -204,7 +225,8 @@ export class ModelBindingRepo extends BaseRepo {
         old_json: input.oldJson,
         new_json: input.newJson,
         actor: input.actor,
-        created_at: input.createdAt ?? this.now()
+        created_at: input.createdAt ?? this.now(),
+        batch_id: input.batchId ?? null
       })
     )
     const row = firstRow<BindingAuditRow>(
@@ -224,6 +246,81 @@ export class ModelBindingRepo extends BaseRepo {
         .orderBy('created_at')
     )
     return rows.map(mapAudit)
+  }
+
+  /** 按批汇总（新的在前）：设置页「回滚上一套」用最近一批。 */
+  listBatches(projectId: string): BindingBatchRecord[] {
+    const rows = allRows<{ batch_id: string | null; created_at: string; entries: number }>(
+      this.runner,
+      this.runner.db
+        .selectFrom('model_binding_audit')
+        .select([
+          'batch_id',
+          (eb) => eb.fn.max<string>('created_at').as('created_at'),
+          (eb) => eb.fn.countAll<number>().as('entries')
+        ])
+        .where('project_id', '=', projectId)
+        .where('batch_id', 'is not', null)
+        .groupBy('batch_id')
+        .orderBy('created_at', 'desc')
+    )
+    return rows
+      .filter((row): row is { batch_id: string; created_at: string; entries: number } => row.batch_id !== null)
+      .map((row) => ({ batchId: row.batch_id, createdAt: row.created_at, entries: row.entries }))
+  }
+
+  listBatchEntries(projectId: string, batchId: string): ModelBindingAuditRecord[] {
+    const rows = allRows<BindingAuditRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('model_binding_audit')
+        .selectAll()
+        .where('project_id', '=', projectId)
+        .where('batch_id', '=', batchId)
+        .orderBy('created_at')
+    )
+    return rows.map(mapAudit)
+  }
+
+  /** 已被回滚过的批 id；再次回滚同一批会撞唯一索引，这里提前给出提示。 */
+  rolledBackBatches(projectId: string): string[] {
+    const rows = allRows<{ batch_id: string }>(
+      this.runner,
+      this.runner.db.selectFrom('binding_rollback').select('batch_id').where('project_id', '=', projectId)
+    )
+    return rows.map((row) => row.batch_id)
+  }
+
+  /** 回滚自己写出的审计批 id：它们不能再作为回滚候选，否则撤销栈退不干净。 */
+  rollbackAuditBatches(projectId: string): string[] {
+    const rows = allRows<{ audit_batch_id: string }>(
+      this.runner,
+      this.runner.db
+        .selectFrom('binding_rollback')
+        .select('audit_batch_id')
+        .where('project_id', '=', projectId)
+    )
+    return rows.map((row) => row.audit_batch_id)
+  }
+
+  recordRollback(input: {
+    projectId: string
+    batchId: string
+    auditBatchId: string
+    actor: string
+    createdAt?: string
+  }): void {
+    runStatement(
+      this.runner,
+      this.runner.db.insertInto('binding_rollback').values({
+        id: newId('mbr'),
+        project_id: input.projectId,
+        batch_id: input.batchId,
+        audit_batch_id: input.auditBatchId,
+        actor: input.actor,
+        created_at: input.createdAt ?? this.now()
+      })
+    )
   }
 }
 
@@ -301,6 +398,32 @@ export class TurnMetricRepo extends BaseRepo {
         .orderBy('created_at')
     )
     return rows.map(mapMetric)
+  }
+
+  /**
+   * 每个 Agent 最近一次真实调用的时间与模型（设置页「最近使用」列）。
+   * 只读聚合，不写任何东西；没有调用过就不出现。
+   */
+  lastUsedByAgent(projectId: string): Record<string, { at: string; provider: string; model: string }> {
+    const rows = allRows<{ agent_key: string; at: string; provider: string; model: string }>(
+      this.runner,
+      this.runner.db
+        .selectFrom('turn_metric')
+        .select([
+          'agent_key',
+          'provider',
+          'model',
+          (eb) => eb.fn.max<string>('created_at').as('at')
+        ])
+        .where('project_id', '=', projectId)
+        .groupBy(['agent_key', 'provider', 'model'])
+        .orderBy('at', 'desc')
+    )
+    const out: Record<string, { at: string; provider: string; model: string }> = {}
+    for (const row of rows) {
+      if (!out[row.agent_key]) out[row.agent_key] = { at: row.at, provider: row.provider, model: row.model }
+    }
+    return out
   }
 
   /**

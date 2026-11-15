@@ -15,7 +15,7 @@ import { HomePage } from '../pages/HomePage'
 import { PlanPage } from '../pages/plan/PlanPage'
 import { MemoryPage } from '../pages/memory/MemoryPage'
 import { ReviewPage } from '../pages/review/ReviewPage'
-import { SettingsPage } from '../pages/SettingsPage'
+import { SettingsPage } from '../pages/settings/SettingsPage'
 import { WorkbenchPage } from '../pages/WorkbenchPage'
 import { WritePage } from '../pages/write/WritePage'
 import { usePlan } from '../stores/plan'
@@ -23,6 +23,8 @@ import { useMemory } from '../stores/memory'
 import { useReview } from '../stores/review'
 import { useSlice } from '../stores/slice'
 import { useWrite } from '../stores/write'
+import { useSettings } from '../stores/settings'
+import { applyAppearance, watchSystemTheme } from '../lib/theme'
 
 export function App(): React.JSX.Element {
   const ready = useApp((state) => state.ready)
@@ -34,7 +36,17 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     void init()
+    // 外观在启动时就生效，不必先打开设置页（PHASE-10 I4）。
+    void useSettings.getState().load()
   }, [init])
+
+  const appearance = useSettings((state) => state.view?.appearance ?? null)
+  useEffect(() => {
+    if (!appearance) return
+    applyAppearance(appearance)
+    if (appearance.theme !== 'system') return
+    return watchSystemTheme(() => applyAppearance(appearance))
+  }, [appearance])
 
   useEffect(() => {
     const bridge = getBridge()

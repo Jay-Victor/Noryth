@@ -30,4 +30,81 @@
     sans-serif;
   --font-display: "Iowan Old Style", "Source Han Serif SC", "Noto Serif SC", "Songti SC", "SimSun", serif;
   --font-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+
+  /* 正文排版偏好（PHASE-10 I4 / UI-DESIGN §8.3）：设置页只改这两个变量。 */
+  --prose-size: 15px;
+  --prose-leading: 1.8;
+}
+
+/**
+ * 暗色主题：只覆盖颜色 token，布局与语义色不动（UI-DESIGN §8.3）。
+ * 应用在 <html data-theme="dark">；system 由 renderer 按 prefers-color-scheme 解析。
+ */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #171410;
+  --bg-raised: #1f1b16;
+  --card: #242019;
+  --fg: #efe7da;
+  --fg-soft: #d6ccbd;
+  --muted: #a49a8b;
+  --faint: #7d7364;
+  --border: #38322a;
+  --border-strong: #4a4237;
+  --accent-weak: rgba(203, 118, 74, 0.16);
+  --warn-weak: rgba(196, 158, 70, 0.16);
+  --danger-weak: rgba(196, 92, 78, 0.18);
+  --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* 强调色预设：只改 accent 三件套，语义色（ok/warn/danger）不动。 */
+[data-accent='ink'] {
+  --accent: #3c5a7a;
+  --accent-strong: #2d4560;
+  --accent-weak: rgba(60, 90, 122, 0.12);
+}
+[data-accent='moss'] {
+  --accent: #4a6b4f;
+  --accent-strong: #38533c;
+  --accent-weak: rgba(74, 107, 79, 0.12);
+}
+[data-accent='plum'] {
+  --accent: #7a4468;
+  --accent-strong: #5f3352;
+  --accent-weak: rgba(122, 68, 104, 0.12);
+}
+[data-accent='slate'] {
+  --accent: #4c4a46;
+  --accent-strong: #3a3835;
+  --accent-weak: rgba(76, 74, 70, 0.12);
+}
+[data-theme='dark'][data-accent='clay'] {
+  --accent: #cb764a;
+  --accent-strong: #e08a5c;
+}
+[data-theme='dark'][data-accent='ink'] {
+  --accent: #7ea3c8;
+  --accent-strong: #9bbad8;
+}
+[data-theme='dark'][data-accent='moss'] {
+  --accent: #85a98a;
+  --accent-strong: #9dc0a1;
+}
+[data-theme='dark'][data-accent='plum'] {
+  --accent: #bd86ab;
+  --accent-strong: #d0a0c0;
+}
+[data-theme='dark'][data-accent='slate'] {
+  --accent: #b3ada2;
+  --accent-strong: #c9c3b8;
+}
+
+[data-prose='small'] {
+  --prose-size: 14px;
+}
+[data-prose='standard'] {
+  --prose-size: 15px;
+}
+[data-prose='large'] {
+  --prose-size: 16px;
 }

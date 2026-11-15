@@ -7,6 +7,7 @@
 export const ERROR_CODES = [
   'model_error',
   'model_auth',
+  'model_untested',
   'rate_limit',
   'content_filter',
   'memory_empty',
@@ -47,6 +48,7 @@ export type ErrorCode = (typeof ERROR_CODES)[number]
 export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   model_error: '模型超时或不可用，已重试 2 次',
   model_auth: 'API Key 无效或过期',
+  model_untested: '该模型还没有通过连接测试',
   rate_limit: '供应商限流，请稍后再试',
   content_filter: '供应商拒绝了本次生成',
   memory_empty: '没有检索到可用记忆，本拍依据不足',

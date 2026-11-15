@@ -4,6 +4,7 @@ import planningSql from './0003_planning.sql?raw'
 import writingSql from './0004_writing.sql?raw'
 import reviewSql from './0005_review.sql?raw'
 import memorySql from './0006_memory.sql?raw'
+import settingsSql from './0007_settings.sql?raw'
 import type { Migration } from '../migrator'
 
 /**
@@ -16,7 +17,8 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 3, name: 'planning', sql: planningSql },
   { version: 4, name: 'writing', sql: writingSql },
   { version: 5, name: 'review', sql: reviewSql },
-  { version: 6, name: 'memory', sql: memorySql }
+  { version: 6, name: 'memory', sql: memorySql },
+  { version: 7, name: 'settings', sql: settingsSql }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.version), 0)

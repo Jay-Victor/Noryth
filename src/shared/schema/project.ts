@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { ProviderSettingsSchema, PresetSchema } from './model'
+import { AppearanceSchema, AppearancePatchSchema } from './settings'
 
 export { PresetSchema }
 export type { Preset } from './model'
@@ -108,11 +109,18 @@ export const SettingsSchema = z.strictObject({
   /** 能力探测快照（PHASE-04 D2）：按预设保存，Key 不在其中。 */
   providers: z.record(z.string(), ProviderSettingsSchema).default({}),
   /** token 估算校准系数（DEV-PLAN §7.4）：按 provider 取中位数，clamp [0.7, 1.6]。 */
-  tokenCalibration: z.record(z.string(), z.number()).default({})
+  tokenCalibration: z.record(z.string(), z.number()).default({}),
+  /** 提供方启用开关（PHASE-10 I1）；缺省视为启用。 */
+  providersEnabled: z.record(z.string(), z.boolean()).default({}),
+  /** 外观与基础偏好（PHASE-10 I4）：只改 CSS 变量，不改导出。 */
+  appearance: AppearanceSchema.default(AppearanceSchema.parse({}))
 })
 export type Settings = z.infer<typeof SettingsSchema>
 
-export const SettingsPatchSchema = SettingsSchema.partial()
+/** 外观走浅合并，其余键保持整体替换语义（与阶段 01 一致）。 */
+export const SettingsPatchSchema = SettingsSchema.partial().extend({
+  appearance: AppearancePatchSchema.optional()
+})
 export type SettingsPatch = z.infer<typeof SettingsPatchSchema>
 
 export const AppInfoSchema = z.strictObject({

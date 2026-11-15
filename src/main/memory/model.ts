@@ -4,15 +4,15 @@ import type { Repos } from '../db/repos'
 import type { ChatAdapter } from '../model/adapter'
 import { resolveBinding, type CapabilitiesLookup } from '../model/bindings'
 import { createOpenAiCompatAdapter } from '../model/openai-compat'
+import { AGENT_KEY_FALLBACKS, envApiKeyLookup, type ApiKeyLookup } from '../model/keys'
 import { baseUrlFor, capabilitiesFor, findPreset } from '../model/presets'
 import { FakeMemoryModelAdapter } from './fake-adapter'
-import { memoryApiKeyFor } from './run'
 
 /**
- * 记忆台的模型装配（PHASE-09 H1）。
+ * 记忆台的模型装配（PHASE-09 H1 / PHASE-10 I1）。
  *
- * 与审批台同构：按项目绑定构造适配器；Key 只驻留内存（阶段 10 接设置页）。
- * `NORYTH_MEMORY_FAKE=1` 只在未打包构建生效。
+ * 与审批台同构：按项目绑定构造适配器；Key 由设置页经 safeStorage 保管，
+ * 环境变量兜底。`NORYTH_MEMORY_FAKE=1` 只在未打包构建生效。
  */
 
 export interface MemoryModelOptions {
@@ -20,6 +20,13 @@ export interface MemoryModelOptions {
   getSettings: () => Settings
   env?: NodeJS.ProcessEnv
   fakeChunkDelayMs?: number
+  apiKeyFor?: ApiKeyLookup
+}
+
+function apiKeyFor(provider: string, env: NodeJS.ProcessEnv): string | null {
+  return (
+    envApiKeyLookup(AGENT_KEY_FALLBACKS.memory, env)(provider)?.key ?? null
+  )
 }
 
 const fakeAdapters = new Map<string, FakeMemoryModelAdapter>()
@@ -49,7 +56,9 @@ export class MemoryModelFactory {
       return created
     }
     const env = this.env()
-    const apiKey = memoryApiKeyFor(binding.provider, env)
+    const apiKey = this.options.apiKeyFor
+      ? (this.options.apiKeyFor(binding.provider)?.key ?? null)
+      : apiKeyFor(binding.provider, env)
     if (apiKey === null) {
       throw new AppError('model_auth', `未配置 ${binding.provider} 的 API Key`, { provider: binding.provider })
     }
@@ -80,7 +89,9 @@ export class MemoryModelFactory {
     if (this.fakeEnabled()) {
       return { provider: binding.provider, model: 'memory-fake', label: '假模型 · E2E', ready: true }
     }
-    const ready = memoryApiKeyFor(binding.provider, this.env()) !== null
+    const ready = this.options.apiKeyFor
+      ? this.options.apiKeyFor(binding.provider) !== null
+      : apiKeyFor(binding.provider, this.env()) !== null
     const preset = findPreset(binding.provider)
     return {
       provider: binding.provider,

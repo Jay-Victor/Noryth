@@ -387,13 +387,7 @@ export async function runMemoryTurn(
   }
 }
 
-/** 与审批台同构的模型装配钩子（Key 只驻留内存，阶段 10 接设置页）。 */
-export function memoryApiKeyFor(provider: string, env: NodeJS.ProcessEnv): string | null {
-  const specific = env[`NORYTH_${provider.toUpperCase()}_API_KEY`]
-  if (specific && specific.trim().length > 0) return specific.trim()
-  for (const fallback of ['NORYTH_MEMORY_API_KEY', 'NORYTH_REVIEW_API_KEY', 'NORYTH_WRITE_API_KEY', 'NORYTH_PLAN_API_KEY']) {
-    const value = env[fallback]
-    if (value && value.trim().length > 0) return value.trim()
-  }
-  return null
-}
+/**
+ * Key 解析统一在 `model/keys.ts`（设置页 safeStorage 优先，环境变量兜底）；
+ * 记忆台不再维护第二份实现，避免两套口径。
+ */

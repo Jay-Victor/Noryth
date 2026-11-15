@@ -36,6 +36,7 @@ import type { MemoryApplyPort, MemoryApplyPortInput } from '../tools/types'
 import { MemoryModelFactory } from './model'
 import { invalidateRetrievalCache, retrieveOwn } from './retrieve'
 import { runMemoryTurn } from './run'
+import type { ApiKeyLookup } from '../model/keys'
 
 /**
  * 记忆台服务（PHASE-09 H1–H5）。
@@ -65,6 +66,8 @@ export interface MemoryServiceDeps {
   fakeChunkDelayMs?: number
   log?: (message: string, details?: Record<string, unknown>) => void
   env?: NodeJS.ProcessEnv
+  /** 设置页注入的 Key 解析（safeStorage 优先）；省略时只用环境变量。 */
+  apiKeyFor?: ApiKeyLookup
 }
 
 type JobStatusView = MemoryJobSummary['status']
@@ -118,7 +121,8 @@ export class MemoryService {
       allowFake: deps.allowFakeModel,
       getSettings: deps.settings,
       ...(deps.env === undefined ? {} : { env: deps.env }),
-      ...(deps.fakeChunkDelayMs === undefined ? {} : { fakeChunkDelayMs: deps.fakeChunkDelayMs })
+      ...(deps.fakeChunkDelayMs === undefined ? {} : { fakeChunkDelayMs: deps.fakeChunkDelayMs }),
+      ...(deps.apiKeyFor === undefined ? {} : { apiKeyFor: deps.apiKeyFor })
     })
   }
 

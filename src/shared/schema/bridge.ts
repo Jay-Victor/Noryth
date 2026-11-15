@@ -1,5 +1,16 @@
 import type { IpcResult } from './ipc'
-import type { ProviderProbeInput, ProviderProbeResult } from './model'
+import type {
+  AppearancePatch,
+  BindingAuditEntry,
+  BindingMatrix,
+  BindingSetInput,
+  ProviderClearInput,
+  ProviderKeySetInput,
+  ProviderKeyStatus,
+  ProviderTestInput,
+  ProviderTestResult,
+  SettingsView
+} from './settings'
 import type {
   PlanAddOutlineInput,
   PlanCharacterAddInput,
@@ -92,8 +103,18 @@ export interface DialogApi {
 export interface SettingsApi {
   get(): Promise<IpcResult<Settings>>
   set(patch: SettingsPatch): Promise<IpcResult<Settings>>
-  /** 测试连接（PHASE-04 D2）：Key 只用于本次探测，不写盘。 */
-  probeProvider(input: ProviderProbeInput): Promise<IpcResult<ProviderProbeResult>>
+  /** 设置中心视图：Key 只回末 4 位，绑定/提供方/外观一次取齐（PHASE-10 I1–I4）。 */
+  view(): Promise<IpcResult<SettingsView>>
+  appearance(patch: AppearancePatch): Promise<IpcResult<SettingsView>>
+  setProviderKey(input: ProviderKeySetInput): Promise<IpcResult<ProviderKeyStatus>>
+  clearProviderKey(input: ProviderClearInput): Promise<IpcResult<ProviderKeyStatus>>
+  setProviderEnabled(input: { preset: ProviderTestInput['preset']; enabled: boolean }): Promise<IpcResult<SettingsView>>
+  /** 测试连接：用 safeStorage 里的 Key（或本次临时 Key），返回延迟、模型与错误码。 */
+  testProvider(input: ProviderTestInput): Promise<IpcResult<ProviderTestResult>>
+  bindings(projectId: string): Promise<IpcResult<BindingMatrix>>
+  setBindings(input: BindingSetInput): Promise<IpcResult<BindingMatrix>>
+  rollbackBindings(projectId: string): Promise<IpcResult<BindingMatrix>>
+  bindingAudit(projectId: string): Promise<IpcResult<BindingAuditEntry[]>>
 }
 
 export interface DiagnosticsApi {

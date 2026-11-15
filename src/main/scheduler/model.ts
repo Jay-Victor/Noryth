@@ -5,14 +5,15 @@ import type { Repos } from '../db/repos'
 import type { ChatAdapter } from '../model/adapter'
 import { resolveBinding, type CapabilitiesLookup, type ResolvedBinding } from '../model/bindings'
 import { createOpenAiCompatAdapter } from '../model/openai-compat'
+import { AGENT_KEY_FALLBACKS, envApiKeyLookup, type ApiKeyLookup } from '../model/keys'
 import { baseUrlFor, capabilitiesFor, findPreset } from '../model/presets'
 import { FakeWriteModelAdapter } from './fake-adapter'
 
 /**
- * 创作台的模型装配（PHASE-07 F4）。
+ * 创作台的模型装配（PHASE-07 F4 / PHASE-10 I1）。
  *
- * 每个拍按 job 冻结的绑定构造适配器；Key 只驻留内存（阶段 10 接设置页前
- * 用环境变量）。`NORYTH_WRITE_FAKE=1` 只在未打包构建生效。
+ * 每个拍按 job 冻结的绑定构造适配器；Key 由设置页经 safeStorage 保管，
+ * 环境变量兜底。`NORYTH_WRITE_FAKE=1` 只在未打包构建生效。
  */
 
 export interface WriteModelOptions {
@@ -22,16 +23,11 @@ export interface WriteModelOptions {
   env?: NodeJS.ProcessEnv
   /** 假模型的分片延迟（E2E 用来观察流式）。 */
   fakeChunkDelayMs?: number
+  apiKeyFor?: ApiKeyLookup
 }
 
 function apiKeyFor(provider: string, env: NodeJS.ProcessEnv): string | null {
-  const specific = env[`NORYTH_${provider.toUpperCase()}_API_KEY`]
-  if (specific && specific.trim().length > 0) return specific.trim()
-  for (const fallback of ['NORYTH_WRITE_API_KEY', 'NORYTH_PLAN_API_KEY']) {
-    const value = env[fallback]
-    if (value && value.trim().length > 0) return value.trim()
-  }
-  return null
+  return envApiKeyLookup(AGENT_KEY_FALLBACKS.narrator, env)(provider)?.key ?? null
 }
 
 /** 同一 provider/model 复用假适配器，重生成才会换下一句（与切片一致）。 */
@@ -59,7 +55,9 @@ export class WriteModelFactory {
       return created
     }
     const env = this.options.env ?? process.env
-    const apiKey = apiKeyFor(binding.provider, env)
+    const apiKey = this.options.apiKeyFor
+      ? (this.options.apiKeyFor(binding.provider)?.key ?? null)
+      : apiKeyFor(binding.provider, env)
     if (apiKey === null) {
       throw new AppError('model_auth', `未配置 ${binding.provider} 的 API Key`, { provider: binding.provider })
     }
@@ -89,7 +87,9 @@ export class WriteModelFactory {
     if (this.fakeEnabled()) {
       return { provider: binding.provider, model: 'write-fake', label: '假模型 · E2E', ready: true }
     }
-    const ready = apiKeyFor(binding.provider, this.options.env ?? process.env) !== null
+    const ready = this.options.apiKeyFor
+      ? this.options.apiKeyFor(binding.provider) !== null
+      : apiKeyFor(binding.provider, this.options.env ?? process.env) !== null
     const preset = findPreset(binding.provider)
     return {
       provider: binding.provider,

@@ -308,6 +308,17 @@ export interface ModelBindingAuditTable {
   new_json: string
   actor: string
   created_at: string
+  batch_id: string | null
+}
+
+/** 一次「回滚上一套绑定」的记录：哪一批被回滚、回滚自己写了哪一批审计。 */
+export interface BindingRollbackTable {
+  id: string
+  project_id: string
+  batch_id: string
+  audit_batch_id: string
+  actor: string
+  created_at: string
 }
 
 export interface OutboxTable {
@@ -514,6 +525,7 @@ export interface Database {
   tool_call: ToolCallTable
   model_binding: ModelBindingTable
   model_binding_audit: ModelBindingAuditTable
+  binding_rollback: BindingRollbackTable
   outbox: OutboxTable
   turn_metric: TurnMetricTable
   memory_proposal_item: MemoryProposalItemTable

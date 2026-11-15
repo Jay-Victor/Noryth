@@ -40,6 +40,8 @@ export interface ChatRequestBody {
 export interface FakeLlmServer {
   baseUrl: string
   requests: ChatRequestBody[]
+  /** 每次 POST 带的 Authorization；用来证明 Key 来自设置而不是别处。 */
+  authorizations: Array<string | undefined>
   close: () => Promise<void>
 }
 
@@ -133,6 +135,7 @@ function jsonReply(response: ServerResponse, reply: FakeReply, model: string): v
 
 export async function startFakeLlm(reply: FakeReplyFactory, model = 'deepseek-flash'): Promise<FakeLlmServer> {
   const requests: ChatRequestBody[] = []
+  const authorizations: Array<string | undefined> = []
   let counter = 0
 
   const server: Server = createServer(async (request, response) => {
@@ -155,6 +158,7 @@ export async function startFakeLlm(reply: FakeReplyFactory, model = 'deepseek-fl
       return
     }
     requests.push(body)
+    authorizations.push(request.headers.authorization)
     const index = counter
     counter += 1
     const replyValue = await reply(body, index)
@@ -175,6 +179,7 @@ export async function startFakeLlm(reply: FakeReplyFactory, model = 'deepseek-fl
   return {
     baseUrl: `http://127.0.0.1:${address.port}/v1`,
     requests,
+    authorizations,
     close: () =>
       new Promise<void>((resolve, reject) => {
         server.closeAllConnections()

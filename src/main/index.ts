@@ -10,6 +10,10 @@ import { PlanService } from './plan/service'
 import { registerAppProtocol } from './protocol'
 import { devCsp, PROD_CSP } from './security'
 import { SettingsStore } from './settings/store'
+import { SettingsService } from './settings/service'
+import { SecretStore } from './settings/secrets'
+import { safeStorageCipher } from './settings/safe-storage'
+import { AGENT_KEY_FALLBACKS } from './model/keys'
 import { DevSliceService } from './slice/service'
 import { WriteService } from './scheduler/service'
 import { MemoryService } from './memory/service'
@@ -117,6 +121,13 @@ async function bootstrap(): Promise<void> {
 
   const window = mainWindow
   const settings = new SettingsStore(join(userDataDir, 'settings.json'))
+  const secrets = new SecretStore(join(userDataDir, 'secrets.bin'), safeStorageCipher())
+  if (!secrets.available()) {
+    logger.warn(
+      { event: 'secret_store_unavailable' },
+      'safeStorage 不可用：API Key 只在本次运行有效，不会写盘'
+    )
+  }
   const registry = new ProjectRegistry(join(userDataDir, 'projects.json'))
 
   const emit = (event: ProjectStateEvent): void => {
@@ -136,6 +147,18 @@ async function bootstrap(): Promise<void> {
   })
   projectService = projectServiceInstance
 
+  const settingsCenter = new SettingsService({
+    store: settings,
+    secrets,
+    host: () => projectServiceInstance.currentHandle(),
+    paths: { settings: join(userDataDir, 'settings.json'), secrets: join(userDataDir, 'secrets.bin') },
+    log: (message, details) => logger?.info({ event: message, ...details }, message)
+  })
+  const plannerKey = settingsCenter.apiKeyLookup(AGENT_KEY_FALLBACKS.planner)
+  const writeKey = settingsCenter.apiKeyLookup(AGENT_KEY_FALLBACKS.narrator)
+  const reviewKey = settingsCenter.apiKeyLookup(AGENT_KEY_FALLBACKS.reviewer)
+  const memoryKey = settingsCenter.apiKeyLookup(AGENT_KEY_FALLBACKS.memory)
+
   const toolRegistry = buildRegistry(ALL_MANIFESTS, { at: new Date().toISOString() })
 
   const planService = new PlanService({
@@ -143,6 +166,7 @@ async function bootstrap(): Promise<void> {
     registry: toolRegistry,
     settings: () => settings.read(),
     allowFakeModel: !app.isPackaged,
+    apiKeyFor: plannerKey,
     emit: (event) => {
       if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.planMessage, event)
     },
@@ -181,6 +205,7 @@ async function bootstrap(): Promise<void> {
     registry: toolRegistry,
     settings: () => settings.read(),
     allowFakeModel: !app.isPackaged,
+    apiKeyFor: writeKey,
     gateSecret: sha256Hex(`write-gate-${Date.now()}-${Math.random()}`),
     embedder,
     send: (event) => {
@@ -195,6 +220,7 @@ async function bootstrap(): Promise<void> {
     registry: toolRegistry,
     settings: () => settings.read(),
     allowFakeModel: !app.isPackaged,
+    apiKeyFor: reviewKey,
     gateSecret: sha256Hex(`review-gate-${Date.now()}-${Math.random()}`),
     send: (event) => {
       if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.reviewEvent, event)
@@ -208,6 +234,7 @@ async function bootstrap(): Promise<void> {
     registry: toolRegistry,
     settings: () => settings.read(),
     allowFakeModel: !app.isPackaged,
+    apiKeyFor: memoryKey,
     gateSecret: sha256Hex(`memory-gate-${Date.now()}-${Math.random()}`),
     send: (event) => {
       if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.memoryEvent, event)
@@ -224,6 +251,7 @@ async function bootstrap(): Promise<void> {
     review: reviewService,
     memory: memoryService,
     settings,
+    settingsCenter,
     logger,
     logPath: logFilePath(logDir),
     userDataDir,

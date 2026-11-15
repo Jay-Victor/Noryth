@@ -6,13 +6,14 @@ import type { ChatAdapter } from '../model/adapter'
 import type { CapabilitiesLookup, ResolvedBinding } from '../model/bindings'
 import { resolveBinding } from '../model/bindings'
 import { createOpenAiCompatAdapter } from '../model/openai-compat'
+import { AGENT_KEY_FALLBACKS, envApiKeyLookup, type ApiKeyLookup } from '../model/keys'
 import { baseUrlFor, capabilitiesFor, findPreset } from '../model/presets'
 import { FakePlannerAdapter } from './fake-adapter'
 
 /**
- * 规划 Agent 的模型装配（PHASE-06）。
+ * 规划 Agent 的模型装配（PHASE-06 / PHASE-10 I1）。
  *
- * 阶段 06 还没有 Key 管理 UI（阶段 10）；开发/作者环境用环境变量提供 Key：
+ * Key 由设置页经 safeStorage 保管，环境变量只做兜底：
  *   NORYTH_PLAN_API_KEY 或 NORYTH_<PROVIDER>_API_KEY
  * Key 只驻留内存，不写 settings、不写日志、不进项目目录。
  *
@@ -28,10 +29,7 @@ export function capabilitiesLookupFromSettings(settings: Settings): Capabilities
 }
 
 function apiKeyFor(provider: string, env: NodeJS.ProcessEnv): string | null {
-  const specific = env[`NORYTH_${provider.toUpperCase()}_API_KEY`]
-  if (specific && specific.trim().length > 0) return specific.trim()
-  const generic = env.NORYTH_PLAN_API_KEY
-  return generic && generic.trim().length > 0 ? generic.trim() : null
+  return envApiKeyLookup(AGENT_KEY_FALLBACKS.planner, env)(provider)?.key ?? null
 }
 
 export interface PlannerModel {
@@ -44,6 +42,8 @@ export interface PlannerModelOptions {
   /** 只有未打包构建才允许假适配器。 */
   allowFake: boolean
   env?: NodeJS.ProcessEnv
+  /** 设置页注入的 Key 解析（safeStorage 优先，环境变量兜底）。 */
+  apiKeyFor?: ApiKeyLookup
 }
 
 export function plannerModel(
@@ -63,7 +63,7 @@ export function plannerModel(
   const baseUrl = baseUrlFor(binding.provider, providerSnapshot?.baseUrl ?? null)
   const capabilities =
     providerSnapshot?.capabilities ?? capabilitiesFor(binding.provider, binding.model) ?? undefined
-  const apiKey = apiKeyFor(binding.provider, env)
+  const apiKey = options.apiKeyFor ? (options.apiKeyFor(binding.provider)?.key ?? null) : apiKeyFor(binding.provider, env)
   const label = `${preset?.label ?? binding.provider} · ${fakeEnabled ? 'planner-fake' : binding.model}`
 
   if (fakeEnabled) {
