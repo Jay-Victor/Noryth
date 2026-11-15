@@ -137,7 +137,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 提交 | `4c2ad26`（feat）、`b492928`（docs） | 本地 `dev`；尚未推送 |
 | CI | 待推送后跑 | 本地无 CI runner；推送后记录 run id |
+| 阶段标签 | 待 CI 绿后 `phase-13-done` | 本次会话未打标签 |
 
 ## 当前可运行命令
 
