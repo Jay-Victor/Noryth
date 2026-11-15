@@ -60,6 +60,22 @@ Spike 用 `utilityProcess.fork` 启动 worker，`env.allowRemoteModels=false`，
 - 推迟到 M1 的验收（写进 backlog）：权重随包 → 冷启动 < 1.5s、安装包 < 250MB → 按章重建（T40）
   → 空结果率 < 25%；不达标按下方回退换 q4/更小模型并全量重建。
 
+## 阶段 14 记录（2026-11-15）：权重随包 + 索引重建
+
+- **权重已交付**：`resources/models/bge-small-zh-v1.5/`（config + tokenizer + `onnx/model_quantized.onnx`，
+  24,010,842 B，q8，512 维）。来源 `Xenova/bge-small-zh-v1.5`（huggingface.co 直连仍超时，经镜像预置）。
+- **依赖**：`@huggingface/transformers` 从 devDependency 提升为 dependency；`onnxruntime-node` 随之进包。
+- **打包裁剪**：`electron-builder.yml` 的 `files` 排除 `onnxruntime-web`（140MB，浏览器/WebGPU 路径）、
+  `onnxruntime-node` 的 linux/darwin/arm64 与 win32 的 DirectML/dxcompiler/dxil（38MB）。
+  只带 win32-x64 的 CPU 运行时（`onnxruntime.dll` + `onnxruntime_binding.node`，28MB），
+  `asarUnpack` 覆盖 `onnxruntime-node`。
+- **实测**（本机 Windows 11 / CPU）：`pnpm verify:embed` → 冷启动 134ms、单条 6ms、8 条 15ms、512 维。
+  E2E-MEMORY-01 在 Electron 里跑的是真 bge（未设 `NORYTH_MEMORY_EMBED=hash`），utilityProcess 路径通过。
+- **安装包**：NSIS 157MB（上限 250MB）；`install-smoke` 断言 `resources/models/.../model_quantized.onnx` 存在、
+  运行日志 `embedder_ready` 为 `source=model` 且 `dim=512`，冒烟 PASS。
+- **换模型/首次启用**：`index.rebuild`（M1-20）分批 32 条重算，向量通道按 `embedding_model` 过滤；
+  旧行仍可按关键词召回。回退条件（>250MB 或冷启动 >1.5s）本机均未触发，不改 q4。
+
 ## 回退
 
 如果阶段 04 打包后冷启动 > 1.5s 或安装包 > 250MB：改用 q4 或更小模型，`embedding_dim` 变化必须全量重建索引，并更新本 ADR。

@@ -19,7 +19,7 @@
 | 11 | `docs/PHASE-11-SCALE.md` | done | M1-12 多项目切换（`project.busy` 探针 + `project_open.cancelRunning` + 切换确认框 + 事件按 projectId 丢弃）；M1-9 章节摘要查询（2 条聚合，不再逐章读正文）+ `VirtualList`（32/8/roving）+ `PERF-M1-01`；M1-16 文件树抽屉（320 overlay + 焦点陷阱 + `project.tree`）；M1-24 `openLastProject` + `project.autoOpen` 探测（失效/锁/schema/失败回首页）+ 诊断包 zip（纯 JS store、无 Key/正文）；`E2E-M1-SWITCH-01`、`E2E-M1-TREE-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 274 modules / unit 620 / integration 35 / chaos 7 / e2e 21 / build / gen:check / 规格脚本 / perf 2） | 真机 30 章冷启动尚未在安装包复跑（perf 走测试夹具）；W1 常驻树暂不支持 Ctrl+B 收起 |
 | 12 | `docs/PHASE-12-STORYBOARD-TIME.md` | done | M1-1 场景库（链接/解链/排序/fork/删除 + 只读引用 + 演出前 fork 守卫）、M1-2 时间三轴（`story_start/end`、`timeline`，`idx` 取章序）、T23 `timeline.query` 实现并打开（编排/审批/记忆各 +1）、verify `scene_cross_chapter_beats`、G2 物化回写 `scene_id`；`E2E-M1-TIME-01`、`E2E-M1-SCENE-01`；新增 `0008_story_time.sql`（`LATEST_SCHEMA_VERSION = 8`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 278 modules / unit 646 / integration 35 / chaos 7 / e2e 23 / build / gen:check / 规格脚本 / perf 2） | 故事时间仍是自由文本（M1 只展示，格式校验与自动推断 M2）；引用场在 G2 后统一排到草案场次之后（只读，不参与演出顺序）；场景库无批量操作；`tool_call` 审计面板仍缺（M1 阶段 18） |
 | 13 | `docs/PHASE-13-ASOF-WORLD.md` | done | M1-3 as-of 投影（`world/projection.ts` 纯函数）+ 世界时间线（章 + seq 滑杆、读者已知、`world.projection`）；M1-18 作者事实编辑器（`world/author-facts.ts` + `applyAuthorFact`/`closeAuthorFact`、`world.fact.add`/`world.fact.close`、source_type=author + 审计）；M1-17 上下文检查器（`turn_metric.context_json` 只读、预算条、`write.context`）；M1-19 审批/检索 as-of 边界（review 用 `covered_until_seq`、零水位拒绝复审、manuscript 按章截断）；`E2E-M1-ASOF-01`、`E2E-M1-CONTEXT-01`；未改 schema（`LATEST_SCHEMA_VERSION = 8`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 284 modules / unit 673 / integration 41 / chaos 7 / e2e 25 / build / gen:check / 规格脚本 / perf 2） | tool_call 审计面板仍缺（M1 阶段 18）；上下文检查器内嵌对话栅（<1600 未做模态变体）；世界状态无批量编辑 |
-| 14 | `docs/PHASE-14-REBUILD-GRAPH.md` | todo | — | — | — |
+| 14 | `docs/PHASE-14-REBUILD-GRAPH.md` | done | M1-4 按章重建（`memory/rebuild.ts` + `ApplyInput.rebuild` 同事务清旧 + `author_confirm` + T40 打开）、M1-5 关系图（`world/relations.ts` 确定性圆环 + as-of 回放 + 来源；记忆台第五 tab）、M1-20 bge 权重随包（q8/24MB，`pnpm verify:embed`）+ `index.rebuild`（32/批、可恢复、`author_confirm`）、记忆台按章重建按钮启用；`E2E-M1-REBUILD-01`、`CHAOS-09`；未改 schema（`LATEST_SCHEMA_VERSION = 8`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 288 modules / unit 693 / integration 41 / chaos 8 / e2e 26 / build / gen:check / 规格脚本）+ NSIS 157MB + 安装冒烟 PASS | 全量重建整个项目（M2）；关系图编辑（只读）；`tool_call` 审计面板仍在阶段 18；「重新打开定稿」后端仍属阶段 16（本阶段重建作用于当前 final revision） |
 | 15 | `docs/PHASE-15-COVERAGE-IMPACT.md` | todo | — | — | — |
 | 16 | `docs/PHASE-16-BRANCH-LONGFORM.md` | todo | — | — | — |
 | 17 | `docs/PHASE-17-DOCX-EXPORT.md` | todo | — | — | — |
@@ -143,13 +143,41 @@
 | CI（DEV-PLAN 文档提交） | GitHub Actions run `43715088328`（`bfd7731`） | verify + e2e 均绿；package 跳过 |
 | 阶段标签 | `phase-13-done` → `3f82a16` | 已推送 origin |
 
+## 验证记录（阶段 14，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 288 modules / 1408 deps，0 违规 |
+| Lint | `pnpm lint` | 通过（新增 `scripts/embed-smoke.mjs`、`probe` 清理） |
+| 单元 + 契约 | `pnpm test:unit` | 693 passed（新增 rebuild 5 / relations 6 / reindex 3 / T40 契约 6） |
+| 集成 | `pnpm vitest run tests/integration` | 41 passed |
+| 混沌 | `pnpm test:chaos` | 8 passed / CHAOS-01..09（新增 09：索引重建中途强杀，批事务回滚） |
+| E2E | `pnpm test:e2e` | 26 passed（新增 `E2E-M1-REBUILD-01`） |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→…→0008；未新增迁移，`LATEST_SCHEMA_VERSION = 8`（`memory.rebuild` / `index.rebuild` 的 job type 在 0001 CHECK 里） |
+| 按章重建 | `tests/unit/memory/rebuild.test.ts` | 旧 8 条 inactive + 新 8 条 active、id 不重叠；作者事实不失效；旧记忆事实 3 关闭 / 新 3 有效；旧边关闭 / 新边有效；旧信念 3 inactive；`memory_audit` 一条 `rebuild`（inactive 8 / rebuilt 8）+ 逐条 `invalidate`；重放 duplicate 不双写；bogus token 零写入；关系边 `from==to` 触发 CHECK → 整批回滚、旧条仍 active；`db.verify` 无 error |
+| 重建水位 | 同上 | `rebuildCloseAtSeq` = 本章 `covered_until_seq`（>0） |
+| 关系图 | `tests/unit/world/relations.test.ts` | 两个 as_of 边集/值不同；单向 `bidirectional=false`、反向边存在即双向；三轴计数；两次调用节点/边 deep-equal（布局确定性）；聚焦只留邻域；序列化不含记忆正文 |
+| 索引重建 | `tests/unit/memory/reindex.test.ts` | pending 8 → 分批 3 条中途失败：已提交 3 条、5 条仍旧模型、`memory_vec` 行数不变；用同一 job 续跑到 8/8；`pending=0` 时拒绝签发、`reindex` 返回「无需重建」 |
+| 契约夹具 | `tests/contract/tool-contracts.test.ts` | 38 个已启用工具 × 6 类 = 230；T40 夹具（author_confirm，chapter=ch_final）+ 端口注入 |
+| 注册与计数 | `tests/contract/registry.test.ts`、`tests/unit/catalog.test.ts` | 38 个 Agent 工具启用（M0 36 + T23 + T40）；memory 15（13 + T23 + T40）；4 个里程碑工具未注册 |
+| bge 冒烟 | `pnpm verify:embed` | `{"dim":512,"coldMs":134,"firstMs":6,"warmMs":2,"batch8Ms":15,"passed":true}`（门槛 1500/120ms） |
+| Electron 内真模型 | `E2E-MEMORY-01`（未设 `NORYTH_MEMORY_EMBED=hash`） | 通过：utilityProcess + onnxruntime 在 Electron 里完成 8 条向量与召回（E2E 全量第 11 条） |
+| 重建 E2E | `tests/e2e/memory-m1.spec.ts` | 14 提案 → 接受 → G7 应用 8 条 → 按章重建（二次确认）→ 旧 8 inactive / 新 8 active、摘要「旧条目 8 条失效」；关系图 as_of 0 无边、水位 1 条、点边看「章 · 记忆」、无「账本在祠堂」正文；两次 `world.relations` 坐标相等；索引改标 bge → 记忆台「索引待重建 8 / 8」→ 重建归零；DB：status 8/8、事实 1 author + 3 memory live + 3 closed、边 1 live + 1 closed、`rebuild` 审计 ≥2、`memory.rebuild`/`index.rebuild` job succeeded、`author_confirm` ≥2 已消费、`memory_vec` 16 |
+| 打包 | `pnpm dist` | `release/Noryth-0.1.0-setup.exe` 157MB（上限 250MB）；`app.asar` 35MB；`app.asar.unpacked` 75MB（onnxruntime 仅 win32-x64 CPU，28MB）；`resources/models` 24MB |
+| 安装冒烟 | `node scripts/install-smoke.mjs` | PASS：静默安装 → `packaged=true/schema=8` → 日志 `embedder_ready model=bge-small-zh-v1.5/source=model/dim=512` → 建项目 → `user_version=8` → 卸载清理（脚本顺手修了 schema 断言与卸载轮询） |
+| 构建 | `pnpm build` | 通过（`out/main/memory-embed-worker.js` 在 asar 内） |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T40 升 1.1.0、enabled、summary 变化） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+
 ## 当前可运行命令
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（673：unit+contract） / `pnpm vitest run tests/integration`（41）
+- `pnpm test:unit`（693：unit+contract） / `pnpm vitest run tests/integration`（41）
 - `pnpm test:perf`（PERF-01 + PERF-M1-01 基线；nightly，不进提交门）
-- `pnpm test:chaos`（7 条 / CHAOS-01..08） / `pnpm test:e2e`（25）
+- `pnpm test:chaos`（8 条 / CHAOS-01..09） / `pnpm test:e2e`（26）
+- `pnpm verify:embed`（bge 冷启动/单条/维度门槛；打包前手工跑）
 - `node scripts/install-smoke.mjs`（安装冒烟：装 → 建项 → 卸载）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
 - `python docs/scripts/check_ui_spec.py` / `python docs/scripts/check_tool_spec.py`
@@ -468,40 +496,47 @@
 | 作者事实 | 作者写入口只有 `world.fact.add` / `world.fact.close` → `applyAuthorFact`（单一事务 + 审计 actor=author）；单值槽按谓词登记表（`MULTI_VALUE_PREDICATES`），新值先关旧值，回填早于当前值被拒 | `src/main/world/author-facts.ts`、`memory/apply.ts` |
 | 定稿检索 | `manuscript.search_final` / `manuscript.get_final_chapter` 只返回 `chapter.ord ≤ 当前章` 的定稿；显式请求更晚章 → invalid_args（details 带 currentOrd） | `tools/manifests/knowledge.ts` |
 | 上下文检查器 | 数据源 `turn_metric.context_json`；`beat_id` 沿 supersedes 链查最近一条（生成记的是槽位拍）；只读、不回传被裁正文、显示估算 + 上次实际 ratio | `scheduler/service.ts`、`renderer/pages/write/ContextInspector.tsx` |
+| 按章重建 | `memory.rebuild(chapterId)` + `author_confirm`；重建专属抽取 job（幂等键与首次抽取分开）→ 单事务清旧 + 写新；旧条目 `inactive`、旧事实/边按来源关闭（`author` 不失效）、旧信念软失效；重放 duplicate | `memory/rebuild.ts`、`memory/apply.ts` |
+| 重建关闭序 | `min(本章 covered_until_seq, 新提案同槽位最早 seq)`；同槽位旧值在新值出现处结束，不再出现的旧值关在章末；事实来源是提案 id、边来源是记忆 id（两张映射表） | `memory/apply.ts` |
+| 关系图 | 数据源 `world/projection` 的边规则 + active 角色；纯函数确定性圆环（两位小数）；同轴反向边 = 双向（实线），否则虚线 + 箭头；来源只给「章 · 记忆/拍」，不显示正文；`focusId` 只留邻域 | `world/relations.ts`、`renderer/pages/memory/RelationshipGraph.tsx` |
+| 关系回放 | `relationship_edge` 必须读全量行（含已关闭）：`RelationshipRepo.listByProject`；阶段 13 的 projection 同步改用，否则滑杆回到过去时边消失 | `db/repos/world.ts`、`world/service.ts` |
+| 索引重建 | 只重算 active 且 `embedding_model != 当前模型`；32 条/批、每批事务（删旧向量 + 插新向量 + 改模型名）；job `result_json {total,rebuilt,done}` 作续跑点；令牌在收尾事务消费 | `memory/reindex.ts` |
+| bge 随包 | 权重 24MB（q8/512）进 `resources/models`；`@huggingface/transformers` 进 dependencies；打包排除 onnxruntime-web 与 linux/darwin/arm64、DirectML（只留 win32-x64 CPU 28MB）；冷启动 134ms | `electron-builder.yml`、`resources/models/`、`docs/adr/0004-embedding.md` |
 
 ## 当前阻塞
 
-- 无阻塞。阶段 13 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 284 modules / unit 673 / integration 41 / chaos 7 / e2e 25 / build / gen:check / 规格脚本 / perf 2）+ CI run `43713984247`（verify 与 e2e 均绿），`LATEST_SCHEMA_VERSION = 8`（本阶段未改 schema）。
+- 无阻塞。阶段 14 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 288 modules / unit 693 / integration 41 / chaos 8 / e2e 26 / build / gen:check / 规格脚本）+ NSIS 157MB + 安装冒烟 PASS，`LATEST_SCHEMA_VERSION = 8`（本阶段未改 schema）。
 - 遗留观察（不阻塞）：阶段 12 的文档提交 run `43708534963`（`37af4db`）e2e 在第 10 条（provider）之前中断：日志只有 `Downloading Electron binary...`，前 9 条已 `ok`，verify 全绿。形态与阶段 11 的 `43699407599` 一致（runner 上 `node_modules/electron/dist` 不可用），判断为环境偶发；复跑记录见「验证记录（阶段 12）」。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录（M1 阶段 18，M1-26）。
 - 已知缺口（不阻塞）：
-  - **bge 权重不随包（M1 阶段 14）**：`resources/models/` 已进 `extraResources` 与安装包（目录 + 说明），但权重未交付（本机 HuggingFace 超时、缓存只有 config/tokenizer），M0 用确定性 `hash-bigram-v1` 降级（每条 `memory_entry.embedding_model` 记录真实模型，向量通道按模型过滤）。放入权重即启用，无需改代码；按 ADR-0004 阶段 10 记录执行体积/冷启动门槛与 T40 重建。
+  - **bge 已随包**（阶段 14）：`resources/models/bge-small-zh-v1.5/`（q8 24MB）；`pnpm verify:embed` 冷启动 134ms、单条 6ms、512 维；安装包 157MB（<250MB）；`install-smoke` 断言运行日志 `source=model`。换模型或首次启用走记忆台「重建索引」（分批 32、可恢复）。权重通过 hf-mirror 预置（huggingface.co 直连仍超时），将来升级模型时沿用同一目录结构。
   - 文件树抽屉（Ctrl B）已在阶段 11 交付（W2/W3 overlay 320、焦点进出、200% 缩放）；W1 常驻树的 Ctrl+B 收起仍未做（不阻断验收）。
   - Windows 10 22H2 未单独做安装冒烟（本机 Win11 PASS）；发布前补一台 VM（M1 阶段 18）。
   - 自动更新：`src/main/update.ts` 后台检查 + electron-updater 下载，`NORYTH_UPDATE_FEED` 未配置时 `disabled`；首个 release tag 时填 feed（M1 阶段 18）。
-  - 按章重建（T40）与关系图是 M1（阶段 14）；记忆台的「按章重建」按钮禁用。as-of 时间线已在阶段 13 交付。
+  - 按章重建（T40）与关系图已在阶段 14 交付；「按章重建」作用于**当前 final revision**，「重新打开定稿」后端仍属 M1-21（阶段 16）。关系图只读、无编辑与自动识别关系变化（M2）。
   - 世界状态作者编辑器已在阶段 13 交付（新增/关闭事实、单值槽 supersede、审计）；批量编辑/导入/导出设定集是 M2。
   - `tool_call` 审计面板属 P1（工具调用指标面板），M0 未做；记忆台展示 `memory_audit` 动作链，`tool_call` 表已按 §9.5 落库（M1 阶段 18）。
   - 上下文检查器已在阶段 13 交付；<1600 宽度用对话栅内嵌（UI-DESIGN §2.6 的模态变体未做，未进验收）。M0 分支只有线性 revision（M1 阶段 16）；审批的异构复检在 M1（阶段 16）；「重新打开定稿」后端未接（DEV-PLAN §9.6，M1 阶段 16）。
   - 「预览 tab 上限 6」当前无对应界面：预览区只有正文/分镜两个视图 tab；多文档 tab 留给阶段 13 的上下文检查器与文件预览扩展。W1 常驻树的 Ctrl+B 收起同样后置（不阻断验收）。
+  - 关系图 >50 角色用「聚焦某角色邻域」而不是分页；未引入 canvas（SVG + memo，30 角色无压力，未做 50+ 专项 perf）。
 
 ## 下一阶段交接
 
-- 阶段 13 已 `done`（2026-11-15）。下一阶段从 `docs/PHASE-14-REBUILD-GRAPH.md` 开工（按章重建 + 关系图）。
-- 阶段 14 直接复用（阶段 13 新增）：
-  - **认知水位**：任何「某章能看见什么」一律走 `context/sources.resolveChapterAsOf`（write/review 两种模式）；不要再用 `project.seq_head` 作为章级水位。重建旧章必须回放到该章 `covered_until_seq`，否则重建会把未来事实写回旧章。
-  - **投影**：关系图的数据源是 `WorldService.projection({ asOf })` 的 `edges` + `characters`（含 `id/name`）；不要另写一份 edges 映射，也不要绕过 `valid_to_seq`。`readerKnown/pendingReveal` 的语义在 `world/projection.ts`。
-  - **作者写入口**：世界事实只有 `applyAuthorFact` / `closeAuthorFact`（`memory/apply.ts`）；重建（T40）也必须走 `MemoryExecutor` 单事务，旧条目 `status='inactive'`，不物理删除。
-  - **审批水位**：`review/run.ts` 的 `asOf` 已是本章 covered，`review.state.asOf` 对外可见；新增审批/检索工具时沿用同一边界，`manuscript.*` 只到当前章。
-  - **迁移**：0008 已应用，阶段 14 从 0009 起；迁移测试 `tests/unit/migrator.test.ts` 的 `applied` 列表要同步。
+- 阶段 14 已 `done`（2026-11-15）。下一阶段从 `docs/PHASE-15-COVERAGE-IMPACT.md` 开工（覆盖检查 + 影响分析 + 伏笔）。
+- 阶段 14 直接复用（阶段 15 会用到）：
+  - **关系图数据源**：`WorldService.relations({ chapterId, asOf, focusId })` 与 `WorldService.projection` 同口径；边必须读全量行（`RelationshipRepo.listByProject`），不要退回 `listActiveAll`。
+  - **按章重建**：`MemoryService.rebuild` / `rebuildFromTokenHash` 走 `memory/rebuild.ts` → `applyMemoryProposals` 的 `rebuild` 选项；任何「清旧 + 写新」都必须在**同一事务**里，失败整体回滚。
+  - **索引重建**：`reindexProject` 的续跑点是 job.result_json；新增嵌入相关工具时沿用 `embedding_model` 过滤，不要混模型召回。
+  - **打包**：`electron-builder.yml` 的 `files` 排除规则与 `asarUnpack` 是体积上限的关键；新增原生依赖前先测 `pnpm dist` 体积（上限 250MB）。
+  - **迁移**：0008 已应用，阶段 14 未新增；阶段 15 从 0009 起。迁移测试 `tests/unit/migrator.test.ts` 的 `applied` 列表要同步。
 - M1 的关键回归：
   1. `E2E-M1-TIME-01`（闪回不误报，阶段 12）✅
   2. `E2E-M1-ASOF-01`（第 3 章读不到第 20 章事实，阶段 13）✅
-  3. `E2E-M1-REBUILD-01`（按章重建旧记忆 inactive，阶段 14）。
+  3. `E2E-M1-REBUILD-01`（按章重建旧记忆 inactive + 关系图回放 + 索引重建，阶段 14）✅
   4. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）。
   5. `E2E-M1-A`（30 章连续创作，阶段 18 / nightly）。
-- 发布注意：首个 release tag 前配置 `NORYTH_UPDATE_FEED`（或 electron-builder publish），否则更新状态为 `disabled`；`latest.yml` 已随 `pnpm run dist` 生成。
+- 发布注意：首个 release tag 前配置 `NORYTH_UPDATE_FEED`（或 electron-builder publish），否则更新状态为 `disabled`；`latest.yml` 已随 `pnpm run dist` 生成。安装包 157MB（上限 250MB）。
 
 ## 更新规则
 

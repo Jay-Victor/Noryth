@@ -300,6 +300,7 @@ contextBridge.exposeInMainWorld('noryth', {
 | write | `timeline`（M1-2） | chapterId | `{idx, storyStart/End, scenes[], timeline[]}`；T23 的只读投影 | — |
 | write | `context`（M1-17） | beatId | `{blocks[], totalTokens, trimmed[], prefixHash, usage, estimate, budget}`；只读 `turn_metric.context_json`，不回传正文 | — |
 | world | `projection`（M1-3） | chapterId?、asOf? | `{asOf, facts[], beliefs[], edges[], counts{}}`；作者视图含秘密，读者已知用 `readerKnown` 标记 | — |
+| world | `relations`（M1-5） | chapterId?、asOf?、focusId? | `{asOf, seqHead, nodes[], edges[], counts{}}`；节点坐标是主进程算好的确定性圆环，只读、不含记忆正文 | — |
 | world | `fact.add`（M1-18） | subject/predicate/object、truth、visibility、knownBy?、revealSeq?、validFromSeq? | `{projection, factId, detail}`；`source_type='author'`，单值槽先关旧值 | 作者权限（非闸门） |
 | world | `fact.close`（M1-18） | factId、reason? | `{projection, factId, detail}`；只写 `valid_to_seq`，不删除 | 作者权限（非闸门） |
 | review | `run` | chapterId、revisionId | `{jobId}` | G4 |
@@ -308,7 +309,10 @@ contextBridge.exposeInMainWorld('noryth', {
 | review | `finalize` | chapterId、revisionId、ackUnreviewed | `{finalRevisionId, memoryJobId}` | G6 |
 | memory | `propose` | chapterId、revisionId | `{jobId}` | — |
 | memory | `apply` | jobId、decisions[] | `{appliedCount}` | G7 |
-| memory | `rebuild` | chapterId | `{jobId}` | author_confirm |
+| memory | `rebuild.issue`（M1-4） | chapterId? | `{token, expiresAt, preview{entryCount, factCount, edgeCount, blockers}}`；令牌 10 分钟、只存 hash | author_confirm |
+| memory | `rebuild`（M1-4） | chapterId、token | `{state, detail}`；旧条目 `inactive`，旧事实/边按来源关闭，重放返回首次结果 | author_confirm |
+| memory | `index.issue`（M1-20） | — | `{token, expiresAt, preview{targetModel, pendingCount}}` | author_confirm |
+| memory | `index.rebuild`（M1-20） | token | `{state, detail}`；32 条/批、可恢复、成功才消费令牌 | author_confirm |
 | settings | `setProvider` / `testProvider` | provider、key、baseUrl | `{status, models[], latencyMs}` | — |
 | settings | `bindAgent` | agentKey、provider、model、params | `{bindingVersion}` | — |
 | export | `run` | 范围、格式 | `{path}` | — |
@@ -2145,6 +2149,18 @@ type EmbedRes =
 | 失败 | 检索降级为 `facts_only`；抽取任务失败可重试；不阻塞正文生成 |
 | 版本 | `embedding_model` 写项目元数据；换模型必须全量重建索引（PRD §7.5） |
 
+**阶段 14 实现记录（2026-11-15）**
+
+- **权重随包**：`resources/models/bge-small-zh-v1.5/` 已交付（config + tokenizer + `onnx/model_quantized.onnx`，
+  q8，24.0MB）；`@huggingface/transformers` 从 devDependency 提升为 dependency。打包只带
+  win32-x64 CPU 运行时（排除 onnxruntime-node 的 linux/darwin/arm64、DirectML 三个 DLL、onnxruntime-web），
+  安装包体积见 `PROGRESS.md` 验证记录。
+- **实测（本机 CPU）**：`pnpm verify:embed` → 冷启动 134ms、单条 6ms、8 条 15ms、512 维；门槛 1.5s / 120ms。
+- **索引重建**：`memory/reindex.ts`，只重算 `status='active'` 且 `embedding_model != 当前模型` 的条目，
+  32 条/批、每批一个事务（`replaceVector` 先删后插 + 改模型名同成败）；job `result_json` 记
+  `{total, rebuilt, done}` 作为续跑点，重启后从剩余条目继续；令牌在收尾事务消费。IPC 见 §4.3。
+- **UI**：记忆台摘要显示「索引待重建 N / M 条」+「重建索引」按钮（`author_confirm`）；完成后 pending 归零。
+
 ### 10.6 按章重建（M1）
 
 1. `memory.rebuild(chapterId)` 需 `author_confirm` 令牌。
@@ -2152,6 +2168,26 @@ type EmbedRes =
 3. 以新 final revision 重新抽取 → 新 job → 逐条决策（可「全部接受」）→ apply。
 4. 关系边与事实：旧值 `valid_to_seq = 新 seq`，新值插入；不删历史。
 5. 审计记录：旧/新 revision、inactive 数、重建数、操作者。
+
+**阶段 14 实现记录（2026-11-15）**
+
+- **一个事务、一个写入者**：`memory/rebuild.ts` 只编排，真正落盘仍是 `apply.applyMemoryProposals`。
+  新增 `ApplyInput.rebuild` 选项：同一事务里先 `invalidateChapterDerivations`（清旧）再写新条目，
+  失败整体回滚——不存在「旧条目已失效但新条目没写」的中间态。
+- **清旧范围**：记忆条目（本章 active → inactive）、信念（来源提案属于本章 → inactive）、
+  事实/边按来源映射回本章。**`source_type='author'` 永不因重建失效**（作者手写优先）。
+  注意两处 source_id 口径不同：事实记提案条目 id，关系边记记忆条目 id——两张映射表都要建。
+- **关闭序**：`min(本章 covered_until_seq, 新提案里同槽位最早的叙事序)`。重建后同一槽位仍会出现时，
+  旧值在新值出现的那一刻结束（as_of 回放不会同时看到两个值）；不再出现的旧值关在章末。
+- **幂等键**：`memory.rebuild:<project>:<chapter>:<finalRevision>`；重建专属抽取 job 用
+  `sha256(project|memory.extract|rebuild|<rebuildKey>)`，与阶段 09 的首次抽取（`memory.extract:<revision>`）
+  分开——否则重放会被「已应用」挡住。重放同键 → 返回首次结果，不双写、不消费令牌。
+- **令牌**：作者点「按章重建」→ `memory.rebuild.issue` 签发 `author_confirm`（10 分钟、只存 hash），
+  确认后才执行；成功在 apply 事务里消费，失败可重试。T40（`memory.rebuild`）走同一条链路，
+  端口 `MemoryRebuildPort` 由 `MemoryService` 装配（流水线已校验令牌，端口只消费哈希）。
+- **抽取失败 ≠ 重建成功**：`schema_fallback` 直接让 job failed、旧条目保持 active；
+  已落库的提案条目下次重试复用，不重复调模型。
+- **不做**：全量重建整个项目（M2）、逐条审提案的重建（走阶段 09 流程）、物理删除。
 
 ### 10.7 隔离自检（T38）
 
@@ -2178,7 +2214,7 @@ type EmbedRes =
 - **检索**：`memory/retrieve.ts` 按 §10.4 实现（vec top30 + bigram top30 → RRF k=60、权重 1.0/0.7 → 绝对下限 → 头名 40% 截断 → 文本去重 → pinned ≤5）。可见性过滤全部在 SQL；缓存键含 `project + actor + character + as_of + model + query`，apply/invalidate 后清空。
 - **嵌入**：有 `resources/models/bge-small-zh-v1.5` 时用 utilityProcess + bge（512 维，q8）；否则降级为确定性 `hash-bigram-v1`（512 维，无模型无网络），**模型名写进每条 `memory_entry.embedding_model`**，检索的向量通道按模型名过滤，不与 bge 混用。bge 模型与 onnxruntime 随包属于阶段 10 的打包工作；本阶段不假装具备语义检索。
 - **隔离回归**：`MemoryService.isolationReport()` 用每个角色自己的记忆原文跑一次真实检索，命中集合必须全属于本人；跨角色命中即 `isolation_violation`。UI 在世界状态页提供「跑隔离回归」。
-- **M1 边界**：按章重建（T40）后端未接，UI 按钮禁用并标注 M1；as-of 滑块、关系图同属 M1。
+- **M1 边界**：按章重建（T40）与关系图在阶段 14 交付（见 §10.6 / §10.11）；as-of 滑块与作者事实在阶段 13 交付（§10.10）。
 
 ### 10.10 世界状态 as-of 与作者事实（阶段 13）
 
@@ -2190,6 +2226,17 @@ type EmbedRes =
 - **作者事实只有一个写入口**：`memory/apply.ts` 的 `applyAuthorFact` / `closeAuthorFact`（单事务 + `memory_audit(actor='author')`）。`world/author-facts.ts` 只做参数组装与校验。谓词登记表在代码（`MULTI_VALUE_PREDICATES`）：多值谓词换宾语并存；其余按单值槽 `single_value=1`，新值先关旧值（`valid_to_seq = 新 valid_from_seq`），回填早于当前值被拒。作者可新增 `claim`，但台词仍不能自动产生 `objective`（阶段 09 的抽取规则不变）。
 - **定稿检索按章截断**：`manuscript.search_final` / `manuscript.get_final_chapter` 只返回 `chapter.ord ≤ 当前章` 的定稿；显式请求更晚章 → `invalid_args`（details 带 `currentOrd`）。`memory.retrieve_audit` 的 as_of 仍受运行时水位约束，审批不能借审计通道看未来记忆。
 - **上下文检查器只读**：数据源 `turn_metric.context_json`；生成时 `beat_id` 记的是**槽位拍**，检查器沿 `supersedes` 链取最近一条。展示块 id/层/角色/priority/tokens、裁剪 id、prefix hash、预算条与「估算 + 上次实际 ratio」；不提供改预算入口，不回传被裁正文。
+
+### 10.11 关系图（阶段 14，M1-5）
+
+- **数据源只有一处**：`world/projection.ts` 的边规则（`since_seq ≤ as_of < valid_to_seq`）+ active 角色；
+  `world/relations.ts` 是纯函数，只做布局与单向判定，不读正文。
+- **回放要求全量边**：`RelationshipRepo.listByProject`（含已关闭行）——只用 `listActiveAll` 会让滑杆回到过去时边凭空消失。阶段 13 的 `projection` 也随之改用全量边。
+- **布局确定性**：圆环 `-π/2 + 2πi/n`，节点按 `(name, id)` 排序后编号，坐标保留两位小数；同数据两次调用逐字段一致，E2E 可直接断言。
+- **单向 / 双向**：同轴存在反向边 → 双向（实线）；否则单向（虚线 + 箭头）。曲线（二次贝塞尔）分开双向边，并保证零宽/零高的直线也有可点面积。
+- **来源面板**：只给 `source_type` / `source_id` 与「章 · 记忆 / 拍」标签；**不显示私有记忆正文**（`sourceLabel` 由服务层解析，来源失效时显示「来源已失效」）。
+- **聚焦**：`focusId` 只保留该角色与直接相邻角色；>50 角色时用聚焦而不是 canvas。
+- **UI**：记忆台第五个 tab（提案 / 角色记忆 / 世界状态 / 关系图 / 审计）；as_of 滑杆与聚焦下拉；只读。
 
 ---
 

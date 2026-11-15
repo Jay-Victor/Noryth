@@ -100,14 +100,22 @@ memory.rebuild(chapterId) [author_confirm]
 
 ## 6 验收清单
 
-- [ ] `E2E-M1-REBUILD-01`：定稿 → 应用记忆 → 重开定稿 → 重建 → 旧条 inactive、新条 active、关系 / 事实有效期正确；`db.verify()` 绿。
-- [ ] 重建重放 `duplicate`，不双写；无令牌 `gate_required`；失败令牌可重试。
-- [ ] 关系图 as-of 回放：两个 as_of 边值不同；点边显示来源；无私有记忆文本。
-- [ ] 确定性布局：同数据两次渲染节点坐标一致（容差 1px）。
-- [ ] bge 冷启动 <1.5s、单条 <120ms、512 维（本机）；缺失时降级不崩。
-- [ ] `index.rebuild` 中途杀进程 → 重启可续；无半条向量。
-- [ ] 记忆台关系图 / 审计 tab 可用；按章重建按钮不再禁用。
-- [ ] 打包后 `resources/models` 存在，安装冒烟仍 PASS。
+- [x] `E2E-M1-REBUILD-01`：定稿 → 应用记忆 → 重建 → 旧条 inactive、新条 active、关系 / 事实有效期正确；`db.verify()` 绿。
+      （`tests/e2e/memory-m1.spec.ts`：旧 8 inactive / 新 8 active；事实 1 author live + 3 memory live + 3 memory closed；边 1 live + 1 closed；`memory.rebuild` job succeeded。注：「重新打开定稿」后端属 M1-21（阶段 16），本阶段重建作用于当前 final revision，幂等键已含 revision。）
+- [x] 重建重放 `duplicate`，不双写；无令牌 `gate_required`；失败令牌可重试。
+      （`tests/unit/memory/rebuild.test.ts` 4 条：重放计数不变；bogus token 零写入；CHECK 失败整批回滚、旧条仍 active。）
+- [x] 关系图 as-of 回放：两个 as_of 边值不同；点边显示来源；无私有记忆文本。
+      （`tests/unit/world/relations.test.ts` 6 条 + E2E：as_of 0 无边、水位 1 条；来源面板「章 · 记忆」。）
+- [x] 确定性布局：同数据两次渲染节点坐标一致（容差 1px）。
+      （布局坐标由 `layoutRing` 两位小数；单测两次调用 deep-equal；E2E 两次 IPC 逐字段相等。）
+- [x] bge 冷启动 <1.5s、单条 <120ms、512 维（本机）；缺失时降级不崩。
+      （`pnpm verify:embed`：冷启动 134ms / 单条 6ms / 512 维；`resolveEmbeddingModelDir` 缺失时回落 hash，E2E 显式 `NORYTH_MEMORY_EMBED=hash` 验证降级路径。）
+- [x] `index.rebuild` 中途杀进程 → 重启可续；无半条向量。
+      （`CHAOS-09`：真进程强杀未提交批次 → 模型名与旧向量逐字节不变；`tests/unit/memory/reindex.test.ts` 失败后从 3/8 续跑到 8/8。）
+- [x] 记忆台关系图 / 审计 tab 可用；按章重建按钮不再禁用。
+      （第五个 tab「关系图」；`memory-rebuild` 在定稿章的可写项目里 enabled，二次确认后执行。）
+- [x] 打包后 `resources/models` 存在，安装冒烟仍 PASS。
+      （NSIS 157MB；`install-smoke` 断言 `onnx/model_quantized.onnx` 存在、日志 `embedder_ready source=model dim=512`、卸载清理。）
 
 ## 7 风险与回退
 
