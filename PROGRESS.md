@@ -169,6 +169,12 @@
 | 构建 | `pnpm build` | 通过（`out/main/memory-embed-worker.js` 在 asar 内） |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T40 升 1.1.0、enabled、summary 变化） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 提交 | `3d09c3d`（feat）、`8654d8d`（docs）、`1b57902`（fix 代次键/滑杆）、`ec0a278`（fix 重放消费令牌） | 已推送 origin/dev |
+| CI（首次） | GitHub Actions run `43719779933`（`8654d8d`） | verify 全绿；e2e 在第 16 条 `settings.spec` 失败（1.0s，早退；本地 5/5 通过）→ 判定为 runner 偶发 |
+| CI（复跑） | GitHub Actions run `43720315361`（`b8c43ee`，空提交） | verify + e2e 均绿 |
+| CI（runner 卡住） | run `43721050909`（`1b57902`）、`43721114670`（`ec0a278`） | 均卡在 `actions/setup-node@v4`（>25 分钟无进展），非代码失败；未完成即作废 |
+| CI（再复跑） | GitHub Actions run `43722556226`（`a29c7b8`，空提交） | verify 2m29 + e2e 均绿；package 按规则跳过（非 `v*` tag） |
+| 阶段标签 | `phase-14-done` → `a29c7b8` | 已推送 origin（树与 `ec0a278` 相同） |
 
 ## 当前可运行命令
 
@@ -505,7 +511,7 @@
 
 ## 当前阻塞
 
-- 无阻塞。阶段 14 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 288 modules / unit 693 / integration 41 / chaos 8 / e2e 26 / build / gen:check / 规格脚本）+ NSIS 157MB + 安装冒烟 PASS，`LATEST_SCHEMA_VERSION = 8`（本阶段未改 schema）。
+- 无阻塞。阶段 14 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 288 modules / unit 693 / integration 41 / chaos 8 / e2e 26 / build / gen:check / 规格脚本）+ NSIS 157MB + 安装冒烟 PASS；CI run `43722556226`（verify 2m29 + e2e 均绿，package 跳过），标签 `phase-14-done` → `a29c7b8`；`LATEST_SCHEMA_VERSION = 8`（本阶段未改 schema）。
 - 遗留观察（不阻塞）：阶段 12 的文档提交 run `43708534963`（`37af4db`）e2e 在第 10 条（provider）之前中断：日志只有 `Downloading Electron binary...`，前 9 条已 `ok`，verify 全绿。形态与阶段 11 的 `43699407599` 一致（runner 上 `node_modules/electron/dist` 不可用），判断为环境偶发；复跑记录见「验证记录（阶段 12）」。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录（M1 阶段 18，M1-26）。
