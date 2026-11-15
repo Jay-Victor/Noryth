@@ -55,6 +55,7 @@ import {
 import {
   WriteBeatInputSchema,
   WriteChapterInputSchema,
+  WriteContextInputSchema,
   WriteConfirmInputSchema,
   WriteEditInputSchema,
   WriteG2InputSchema,
@@ -79,6 +80,9 @@ import {
 import {
   MemoryApplyInputSchema,
   MemoryChapterInputSchema,
+  WorldFactAddSchema,
+  WorldFactCloseSchema,
+  WorldProjectionInputSchema,
   MemoryDecideInputSchema,
   MemoryDecideManyInputSchema,
   MemoryDevSeedInputSchema,
@@ -97,6 +101,7 @@ import type { SettingsStore } from '../settings/store'
 import type { SettingsService } from '../settings/service'
 import type { SliceService } from '../slice/service'
 import type { WriteService } from '../scheduler/service'
+import type { WorldService } from '../world/service'
 
 const EnvelopeSchema = z.strictObject({ requestId: z.string().min(1), payload: z.unknown() })
 const EmptySchema = z.strictObject({})
@@ -118,6 +123,8 @@ export interface IpcDeps {
   write: WriteService
   review: ReviewService
   memory: MemoryService
+  /** 世界状态（PHASE-13）：as-of 投影与作者事实。 */
+  world: WorldService
 }
 
 interface HandlerDefinition<S extends z.ZodTypeAny, R> {
@@ -672,6 +679,10 @@ export function registerIpc(deps: IpcDeps): void {
     schema: WriteTimelineInputSchema,
     handler: (payload) => write.timeline(payload.chapterId)
   })
+  register(IPC.writeContext, {
+    schema: WriteContextInputSchema,
+    handler: (payload) => write.inspectContext(payload.beatId)
+  })
   if (deps.devTools) {
     register(IPC.writeDevSeed, {
       schema: WriteDevSeedInputSchema,
@@ -803,6 +814,22 @@ export function registerIpc(deps: IpcDeps): void {
       }
     })
   }
+
+  const world = deps.world
+  register(IPC.worldProjection, {
+    schema: WorldProjectionInputSchema,
+    handler: (payload) => world.projection(payload)
+  })
+  register(IPC.worldFactAdd, {
+    schema: WorldFactAddSchema,
+    mutation: true,
+    handler: (payload) => world.addFact(payload)
+  })
+  register(IPC.worldFactClose, {
+    schema: WorldFactCloseSchema,
+    mutation: true,
+    handler: (payload) => world.closeFact(payload)
+  })
 
   const slice = deps.slice
   if (slice) {

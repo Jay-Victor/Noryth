@@ -12,6 +12,7 @@ import { RepoIdempotencyStore } from '../tools/idempotency'
 import { invokeTool, type TurnContext } from '../tools/invoke'
 import { resolveToolset } from '../tools/resolve'
 import type { ToolResult, ToolServices } from '../tools/types'
+import { resolveChapterAsOf } from '../context/sources'
 import { TurnRefRegistry } from '../tools/turn-refs'
 import { ORCHESTRATE_ANSWER_CONTRACT, TOOL_MATERIAL_RULE } from '../agents/prompts/contract'
 import { ORCHESTRATOR_PROMPT } from '../agents/prompts/orchestrator'
@@ -198,7 +199,7 @@ export async function runOrchestratorTurn(
     turnId: `oturn_${input.messageId}`,
     actorId: 'orchestrator',
     characterId: null,
-    asOf: project.seqHead,
+    asOf: resolveChapterAsOf(deps.repos, chapter, 'write'),
     epoch: project.writeEpoch,
     expectedRevision: chapter.currentRevisionId,
     gateToken: null,

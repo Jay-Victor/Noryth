@@ -51,9 +51,15 @@ export const CONTRACT_FIXTURES: Record<string, ContractFixture> = {
     agent: 'character:chr_lin',
     emptyArgs: { axis: 'intimacy' }
   },
-  'manuscript.search_final': { args: { query: '匣子' }, emptyArgs: { query: 'zzz不存在' } },
+  // PHASE-13 M1-19：定稿检索按本章截断，所以上下文必须站在第 2 章（有定稿的那章）。
+  'manuscript.search_final': {
+    args: { query: '匣子' },
+    context: { chapterId: 'ch_final' },
+    emptyArgs: { query: 'zzz不存在' }
+  },
   'manuscript.get_final_chapter': {
     args: { chapter_id: 'ch_final' },
+    context: { chapterId: 'ch_final' },
     emptyArgs: { chapter_id: 'ch_draft' }
   },
   'draft.get_chapter': { args: { revision_id: 'rev_draft' }, emptyArgs: null },

@@ -1,10 +1,12 @@
 import { AppError } from '../../shared/domain/app-error'
 import type { Repos } from '../db/repos'
+import type { ChapterRecord } from '../db/repos/chapter'
 import type { CharacterRecord } from '../db/repos/character'
 import type { WorldFactRecord } from '../db/repos/world'
 import type { AgentInstanceKey } from '../tools/types'
 import { baseAgentOf } from '../tools/registry'
 import { scoreText } from '../tools/support/text'
+import { factValidAt, parseStringArray } from '../world/projection'
 import type {
   AssembleInput,
   CharacterSpec,
@@ -30,11 +32,52 @@ export interface CollectContextInput {
   contextWindow?: number
   topK?: number
   recentLimit?: number
+  /** PHASE-13 M1-19：write 用「本章或前一章」水位；review 只认本章水位且不得为 0。 */
+  mode?: AsOfMode
 }
+
+/**
+ * as-of 模式（PHASE-13 §5.3）：
+ * - `write`：已写章用本章 `covered_until_seq`；新章用前一章水位（第一章 0）；
+ * - `review`：必须用本章 `covered_until_seq`，为 0 时拒绝（不 fallback 到 seq_head）。
+ */
+export type AsOfMode = 'write' | 'review'
 
 export interface CollectedContext {
   input: AssembleInput
   asOf: number
+}
+
+function previousChapterOf(repos: Repos, chapter: ChapterRecord): ChapterRecord | null {
+  return (
+    repos.chapter
+      .listByProject(chapter.projectId)
+      .filter((item) => item.ord < chapter.ord)
+      .sort((left, right) => right.ord - left.ord)[0] ?? null
+  )
+}
+
+/**
+ * 章节认知水位（DEV-PLAN §7.3 / PHASE-13 §5.1）。
+ *
+ * `project.seq_head` 只用于分配新 seq 与项目级元数据，不再作为 Agent 上下文水位：
+ * 用当前认知审早期章节会把第 20 章才产生的事实判成第 3 章越界（假阳性）。
+ */
+export function resolveChapterAsOf(repos: Repos, chapter: ChapterRecord, mode: AsOfMode = 'write'): number {
+  const own = Number.isFinite(chapter.coveredUntilSeq) ? Math.max(0, Math.trunc(chapter.coveredUntilSeq)) : 0
+  if (mode === 'review') {
+    if (own <= 0) {
+      throw new AppError('invalid_args', '本章还没有确认过任何叙事序，不能按章复审', {
+        chapterId: chapter.id,
+        coveredUntilSeq: own
+      })
+    }
+    return own
+  }
+  if (own > 0) return own
+  // 新章：不引入未来章事实，只能看到前一章结束时的认知。
+  const previous = previousChapterOf(repos, chapter)
+  return previous ? Math.max(0, Math.trunc(previous.coveredUntilSeq)) : 0
 }
 
 function parseJson<T>(value: string | null | undefined, fallback: T): T {
@@ -65,12 +108,8 @@ function stringValue(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
 }
 
-function factValidAt(fact: WorldFactRecord, asOf: number): boolean {
-  return fact.validFromSeq <= asOf && (fact.validToSeq === null || fact.validToSeq > asOf)
-}
-
 function factKnownBy(fact: WorldFactRecord, characterId: string): boolean {
-  return parseJson<string[]>(fact.knownByJson, []).includes(characterId)
+  return parseStringArray(fact.knownByJson).includes(characterId)
 }
 
 function memoryValid(entry: { learnedSeq: number; validToSeq: number | null }, asOf: number): boolean {
@@ -125,7 +164,7 @@ export function collectContext(repos: Repos, input: CollectContextInput): Collec
     previousResult: previous ? `${previous.location}：${previous.exitJson}` : null
   }
 
-  const asOf = chapter.coveredUntilSeq > 0 ? chapter.coveredUntilSeq : project.seqHead
+  const asOf = resolveChapterAsOf(repos, chapter, input.mode ?? 'write')
 
   const actorCharacterId = input.agent.startsWith('character:')
     ? input.agent.slice('character:'.length)

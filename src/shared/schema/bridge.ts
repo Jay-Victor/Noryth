@@ -46,7 +46,12 @@ import type {
   MemoryIssueResult,
   MemoryRecallResult,
   MemorySendResult,
-  MemoryState
+  MemoryState,
+  WorldFactActionResult,
+  WorldFactAddInput,
+  WorldFactCloseInput,
+  WorldProjectionInput,
+  WorldProjectionState
 } from './memory'
 import type {
   ReviewActionResult,
@@ -58,6 +63,7 @@ import type {
 } from './review'
 import type {
   WriteActionResult,
+  WriteContextInspection,
   WriteEvent,
   WritePreflightState,
   WriteSendResult,
@@ -239,6 +245,8 @@ export interface WriteApi {
   reorderScenes(input: { chapterId: string; sceneIds: string[] }): Promise<IpcResult<WriteActionResult>>
   forkScene(input: { chapterId: string; sceneId: string }): Promise<IpcResult<WriteActionResult>>
   removeScene(input: { chapterId: string; sceneId: string }): Promise<IpcResult<WriteActionResult>>
+  /** 上下文检查器（M1-17）：只读 turn_metric.context_json。 */
+  context(beatId: string): Promise<IpcResult<WriteContextInspection>>
   /** 时间三轴（M1-2）：省略 = 不改，null = 清空。 */
   setSceneTime(input: {
     chapterId: string
@@ -332,6 +340,13 @@ export interface MemoryApi {
   }): Promise<IpcResult<MemoryState>>
 }
 
+/** 世界状态（PHASE-13 M1-3 / M1-18）：as-of 投影 + 作者显式新增/关闭事实。 */
+export interface WorldApi {
+  projection(input?: WorldProjectionInput): Promise<IpcResult<WorldProjectionState>>
+  addFact(input: WorldFactAddInput): Promise<IpcResult<WorldFactActionResult>>
+  closeFact(input: WorldFactCloseInput): Promise<IpcResult<WorldFactActionResult>>
+}
+
 export interface NorythBridge {
   project: ProjectApi
   dialog: DialogApi
@@ -343,6 +358,7 @@ export interface NorythBridge {
   write: WriteApi
   review: ReviewApi
   memory: MemoryApi
+  world: WorldApi
   app: AppApi
   events: EventApi
 }

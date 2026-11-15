@@ -4,6 +4,7 @@ import type { Repos } from '../db/repos'
 import type { MemoryEntryRecord } from '../db/repos/memory'
 import type { ProposalKind } from '../db/repos/memory-proposal'
 import { withTransaction } from '../db/tx'
+import type { AuthorFactInput } from '../world/author-facts'
 import { classifyProposal } from './classify'
 import type { Embedder } from './embed/types'
 import { vectorToArray } from './embed/types'
@@ -459,6 +460,160 @@ export async function applyMemoryProposals(
   })
 
   return result
+}
+
+/**
+ * 作者新增世界事实（PHASE-13 M1-18）。
+ *
+ * 与 `applyMemoryProposals` 共用「单一写入者」：世界状态只在这里写。
+ * 与记忆 apply 的区别：不需要 G7（作者权限），不产生 job，**不写正文**。
+ *
+ * 顺序：
+ *   1. 单值槽（truth='objective' 且 single_value=1）：同三元组视为重复；否则新值先关旧值
+ *   2. 插入 `source_type='author'` 的事实
+ *   3. 同事务写 `memory_audit(action='apply'|'supersede', actor='author')`
+ */
+export interface AuthorFactApplyInput extends AuthorFactInput {
+  /** 覆盖审计操作者（测试用）；生产恒为 'author'。 */
+  actor?: string
+}
+
+export interface AuthorFactApplyResult {
+  factId: string
+  duplicate: boolean
+  superseded: string[]
+}
+
+export function applyAuthorFact(db: Db, repos: Repos, input: AuthorFactApplyInput): AuthorFactApplyResult {
+  const project = repos.project.getById(input.projectId)
+  if (!project) throw new AppError('project_not_found', 'project row missing', { projectId: input.projectId })
+  const actor = input.actor ?? 'author'
+  const result: AuthorFactApplyResult = { factId: '', duplicate: false, superseded: [] }
+
+  withTransaction(db, () => {
+    if (input.truth === 'objective' && input.singleValue === 1) {
+      const current = repos.world.currentSingleValue(input.subject, input.predicate)
+      if (current && current.object === input.object) {
+        // 同一三元组重复写入：不插第二行（单值唯一索引会拒绝），记一次去重审计。
+        result.factId = current.id
+        result.duplicate = true
+        repos.memoryAudit.insert({
+          projectId: input.projectId,
+          jobId: null,
+          action: 'apply',
+          actor,
+          entityType: 'world_fact',
+          entityId: current.id,
+          detail: {
+            source: 'author_editor',
+            deduplicated: true,
+            subject: input.subject,
+            predicate: input.predicate,
+            object: input.object
+          }
+        })
+        return
+      }
+      if (current) {
+        if (current.validFromSeq >= input.validFromSeq) {
+          throw new AppError('invalid_args', '新增事实的生效序必须晚于当前值', {
+            current: { id: current.id, validFromSeq: current.validFromSeq, object: current.object },
+            validFromSeq: input.validFromSeq
+          })
+        }
+        repos.world.closeValidity(current.id, input.validFromSeq)
+        result.superseded.push(current.id)
+        repos.memoryAudit.insert({
+          projectId: input.projectId,
+          jobId: null,
+          action: 'supersede',
+          actor,
+          entityType: 'world_fact',
+          entityId: current.id,
+          detail: {
+            source: 'author_editor',
+            subject: input.subject,
+            predicate: input.predicate,
+            previousObject: current.object,
+            newObject: input.object,
+            seq: input.validFromSeq
+          }
+        })
+      }
+    }
+
+    const fact = repos.world.insert({
+      projectId: input.projectId,
+      subject: input.subject,
+      predicate: input.predicate,
+      object: input.object,
+      singleValue: input.singleValue,
+      truth: input.truth,
+      visibility: input.visibility,
+      knownByJson: input.knownByJson,
+      revealSeq: input.revealSeq,
+      validFromSeq: input.validFromSeq,
+      sourceType: 'author',
+      sourceId: null
+    })
+    result.factId = fact.id
+    repos.memoryAudit.insert({
+      projectId: input.projectId,
+      jobId: null,
+      action: 'apply',
+      actor,
+      entityType: 'world_fact',
+      entityId: fact.id,
+      detail: {
+        source: 'author_editor',
+        subject: input.subject,
+        predicate: input.predicate,
+        object: input.object,
+        truth: input.truth,
+        visibility: input.visibility,
+        revealSeq: input.revealSeq,
+        validFromSeq: input.validFromSeq,
+        singleValue: input.singleValue,
+        superseded: result.superseded
+      }
+    })
+  })
+
+  return result
+}
+
+/**
+ * 作者关闭事实：只把 `valid_to_seq` 推到当前序，不物理删除（PHASE-13 §5.2）。
+ * 已关闭的返回 duplicate，不重复写审计。
+ */
+export function closeAuthorFact(
+  repos: Repos,
+  input: { projectId: string; factId: string; seq: number; reason: string | null; actor?: string }
+): { factId: string; duplicate: boolean } {
+  const fact = repos.world.get(input.factId)
+  if (!fact || fact.projectId !== input.projectId) {
+    throw new AppError('invalid_args', '事实不存在', { factId: input.factId })
+  }
+  if (fact.validToSeq !== null) return { factId: fact.id, duplicate: true }
+  const seq = Math.max(input.seq, fact.validFromSeq)
+  repos.world.closeValidity(fact.id, seq)
+  repos.memoryAudit.insert({
+    projectId: input.projectId,
+    jobId: null,
+    action: 'invalidate',
+    actor: input.actor ?? 'author',
+    entityType: 'world_fact',
+    entityId: fact.id,
+    detail: {
+      source: 'author_editor',
+      reason: input.reason,
+      subject: fact.subject,
+      predicate: fact.predicate,
+      object: fact.object,
+      closedAtSeq: seq
+    }
+  })
+  return { factId: fact.id, duplicate: false }
 }
 
 /** 标记错误：软失效，不物理删除（PRD §6.4 / PHASE-09 H4）。 */

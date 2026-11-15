@@ -15,6 +15,7 @@ import { TurnRefRegistry } from '../tools/turn-refs'
 import type { ToolResult, ToolServices } from '../tools/types'
 import { MEMORY_ANSWER_CONTRACT, TOOL_MATERIAL_RULE } from '../agents/prompts/contract'
 import { MEMORY_PROMPT } from '../agents/prompts/memory'
+import { resolveChapterAsOf } from '../context/sources'
 import type { Embedder } from './embed/types'
 import { buildExtractionInput, parseProposalJson, submitProposalItems, type SubmitProposalsResult } from './extract'
 
@@ -271,7 +272,7 @@ export async function runMemoryTurn(
     turnId,
     actorId: 'memory',
     characterId: null,
-    asOf: project.seqHead,
+    asOf: resolveChapterAsOf(repos, chapter, 'write'),
     epoch: project.writeEpoch,
     expectedRevision: revisionId,
     gateToken: null,

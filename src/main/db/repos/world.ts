@@ -230,6 +230,27 @@ export class WorldFactRepo extends BaseRepo {
     return row ? mapFact(row) : null
   }
 
+  /**
+   * 单值槽的当前值：只取 `single_value = 1` 的客观事实。
+   * 多值谓词（喜欢/认识/去过…）没有槽位，不能拿来关旧值（PHASE-13 M1-18）。
+   */
+  currentSingleValue(subject: string, predicate: string): WorldFactRecord | null {
+    const row = firstRow<FactRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('world_fact')
+        .selectAll()
+        .where('subject', '=', subject)
+        .where('predicate', '=', predicate)
+        .where('valid_to_seq', 'is', null)
+        .where('truth', '=', 'objective')
+        .where('single_value', '=', 1)
+        .orderBy('valid_from_seq', 'desc')
+        .limit(1)
+    )
+    return row ? mapFact(row) : null
+  }
+
   closeValidity(id: string, seq: number): void {
     runStatement(
       this.runner,

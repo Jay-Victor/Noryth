@@ -75,7 +75,7 @@ test('J6：IPC 白名单、可读名字与 200% 缩放不截断', async () => {
   expect(bridgeShape.send).toBe(false)
   expect(bridgeShape.requireType).toBe('undefined')
   expect(bridgeShape.namespaces).toEqual(
-    ['app', 'dialog', 'diagnostics', 'events', 'manuscript', 'memory', 'plan', 'project', 'review', 'settings', 'slice', 'write'].sort()
+    ['app', 'dialog', 'diagnostics', 'events', 'manuscript', 'memory', 'plan', 'project', 'review', 'settings', 'slice', 'world', 'write'].sort()
   )
 
   const created = await page.evaluate(

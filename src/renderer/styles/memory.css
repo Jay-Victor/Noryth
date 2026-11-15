@@ -577,3 +577,108 @@
   color: var(--fg-soft);
   overflow-wrap: anywhere;
 }
+
+/* 世界时间线（PHASE-13 M1-3）：章 + 叙事序滑杆；只读回放，不遮正文 */
+.world-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+}
+
+.world-timeline__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+
+.world-timeline__label {
+  min-width: 40px;
+  color: var(--muted);
+}
+
+.world-timeline__select,
+.world-form__input {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.world-timeline__range {
+  flex: 1 1 auto;
+  accent-color: var(--accent);
+}
+
+.world-timeline__value {
+  min-width: 64px;
+  text-align: right;
+}
+
+.world-timeline__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 作者事实编辑器（PHASE-13 M1-18）：单一作者写入口 */
+.world-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px 8px;
+}
+
+.world-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.world-form__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.world-form__error {
+  color: var(--danger);
+}
+
+.world-close-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+/* 世界事实表列多：窄栅格（含 200% 缩放）下保持最小可读宽度，横向滚动而不是挤成一字列 */
+.world-timeline__counts {
+  flex-basis: 100%;
+}
+
+.memory-world .memory-table {
+  min-width: 520px;
+}
+
+.memory-world .memory-table th,
+.memory-world .memory-table td {
+  padding: 3px 5px;
+}
+
+.memory-table th {
+  white-space: nowrap;
+}
+
+.world-timeline__row {
+  flex-wrap: wrap;
+}
+

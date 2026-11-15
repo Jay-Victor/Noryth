@@ -155,6 +155,7 @@ export class ReviewService {
         ? (host.repos.revision.get(chapter.currentRevisionId)?.contentHash ?? null)
         : null,
       finalRevisionId: chapter.finalRevisionId,
+      asOf: chapter.coveredUntilSeq,
       rounds: rounds.rounds,
       maxRounds: REVIEW_ROUND_LIMIT,
       takeover: rounds.takeover,

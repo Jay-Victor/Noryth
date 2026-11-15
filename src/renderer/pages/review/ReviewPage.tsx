@@ -211,6 +211,10 @@ export function ReviewPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
               <span>patch {state.patches.length}</span>
               <span>版本 {state.versions.length}</span>
               <span>{state.takeover ? '转人工' : `${state.rounds}/${state.maxRounds} 轮`}</span>
+              {/* PHASE-13 M1-19：审批按本章 covered_until_seq 展开，不是项目水位。 */}
+              <span data-testid="review-asof" title="本章认知快照">
+                水位 seq {state.asOf}
+              </span>
             </div>
           </div>
         </div>

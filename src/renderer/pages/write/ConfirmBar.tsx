@@ -21,7 +21,8 @@ export function ConfirmBar({
   onAuto,
   onPause,
   onResume,
-  onCancel
+  onCancel,
+  onContext
 }: {
   state: WriteState
   beat: WriteBeatState | null
@@ -34,6 +35,8 @@ export function ConfirmBar({
   onPause: () => void
   onResume: () => void
   onCancel: () => void
+  /** 上下文检查器（M1-17）：占用对话栅，只读。 */
+  onContext: () => void
 }): React.JSX.Element {
   const stalePrompt = useWrite((store) => store.stalePrompt)
   const [preflightOpen, setPreflightOpen] = useState(false)
@@ -86,8 +89,9 @@ export function ConfirmBar({
         type="button"
         className="write-chip"
         data-testid="write-context-checker"
-        title={beat?.traceRef ?? '没有轨迹'}
-        disabled
+        title={beat ? '看这一轮为什么贵：块、tokens、裁剪与预算' : '先选一拍'}
+        disabled={!beat}
+        onClick={onContext}
       >
         上下文
       </button>

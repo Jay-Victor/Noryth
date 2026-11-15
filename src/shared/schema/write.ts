@@ -284,6 +284,62 @@ export const WriteModelStatusSchema = z.strictObject({
 })
 export type WriteModelStatus = z.infer<typeof WriteModelStatusSchema>
 
+/**
+ * 上下文检查器（PHASE-13 M1-17 / UI-DESIGN §5.4）。
+ *
+ * 数据源是 `turn_metric.context_json`：拍生成时写进去的块清单、裁剪与 prefix hash。
+ * 这里**只读**，不提供「改预算」按钮（预算在设置页）；也不回传被裁掉的正文。
+ */
+export const WriteContextBlockSchema = z.strictObject({
+  id: z.string(),
+  layer: z.enum(['L0', 'L1', 'L2', 'L3']),
+  stable: z.boolean(),
+  priority: z.number(),
+  tokens: z.number().int().nonnegative(),
+  role: z.string(),
+  order: z.number().int().nullable(),
+  refType: z.string().nullable(),
+  /** 该块在裁剪清单里。 */
+  trimmed: z.boolean()
+})
+export type WriteContextBlock = z.infer<typeof WriteContextBlockSchema>
+
+export const WriteContextInspectionSchema = z.strictObject({
+  beatId: z.string(),
+  chapterId: z.string(),
+  /** false = 这一拍还没生成过（没有 turn_metric 行）。 */
+  found: z.boolean(),
+  turnId: z.string().nullable(),
+  agentKey: z.string().nullable(),
+  provider: z.string().nullable(),
+  model: z.string().nullable(),
+  /** 这一轮实际使用的 as_of 水位（来自 context_json，不是重新推算的）。 */
+  asOf: z.number().int().nonnegative().nullable(),
+  totalTokens: z.number().int().nonnegative(),
+  blocks: z.array(WriteContextBlockSchema),
+  trimmed: z.array(z.string()),
+  degraded: z.array(z.string()),
+  prefixHash: z.string().nullable(),
+  usage: z.strictObject({
+    tokensIn: z.number().int().nonnegative().nullable(),
+    tokensOut: z.number().int().nonnegative().nullable(),
+    costCny: z.number(),
+    latencyMs: z.number().int().nonnegative().nullable(),
+    firstTokenMs: z.number().int().nonnegative().nullable()
+  }),
+  /** 估算 vs 上次实际 prompt tokens：不显示假精确值（DEV-PLAN §7.4）。 */
+  estimate: z.strictObject({
+    totalTokens: z.number().int().nonnegative(),
+    actualPromptTokens: z.number().int().nonnegative().nullable(),
+    ratio: z.number().nullable()
+  }),
+  budget: WriteBudgetSchema,
+  pauseReason: z.string().nullable()
+})
+export type WriteContextInspection = z.infer<typeof WriteContextInspectionSchema>
+
+export const WriteContextInputSchema = z.strictObject({ beatId: z.string().min(1) })
+
 export const WriteChapterInputSchema = z.strictObject({ chapterId: z.string().min(1) })
 export const WriteStoryboardSaveInputSchema = z.strictObject({
   chapterId: z.string().min(1),

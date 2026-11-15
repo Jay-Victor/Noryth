@@ -57,6 +57,11 @@ export function AuditList({ state }: { state: MemoryState }): React.JSX.Element 
               {typeof detail.reason === 'string' ? `原因：${detail.reason}` : null}
               {typeof detail.quote === 'string' ? `证据：${detail.quote}` : null}
               {typeof detail.kind === 'string' ? `类型：${detail.kind}` : null}
+              {typeof detail.subject === 'string' &&
+              typeof detail.predicate === 'string' &&
+              typeof detail.object === 'string'
+                ? `${detail.subject} ${detail.predicate} ${detail.object}`
+                : null}
               {downgrades.length > 0
                 ? ` · ${downgrades.map((value) => MEMORY_DOWNGRADE_LABELS[value] ?? value).join('；')}`
                 : null}

@@ -160,6 +160,11 @@ export const ReviewStateSchema = z.strictObject({
   revisionId: z.string().nullable(),
   contentHash: z.string().nullable(),
   finalRevisionId: z.string().nullable(),
+  /**
+   * 本章认知快照（PHASE-13 M1-19）：审批按 `covered_until_seq` 展开，
+   * 不再用项目水位 `seq_head`。0 表示还没写过正文，复审会被拒绝。
+   */
+  asOf: z.number().int().nonnegative(),
   rounds: z.number().int().nonnegative(),
   maxRounds: z.number().int().positive(),
   takeover: z.boolean(),

@@ -1,6 +1,7 @@
 import { AppError } from '../../shared/domain/app-error'
 import type { DimensionKey, ReportDraft } from '../../shared/schema/report'
 import { DIMENSION_LABELS, DimensionKeySchema, ReportDraftSchema, dimensionsForBlocking } from '../../shared/schema/report'
+import { resolveChapterAsOf } from '../context/sources'
 import type { ChapterRecord } from '../db/repos/chapter'
 import type { PatchRecord } from '../db/repos/patch'
 import type { Db } from '../db/project-db'
@@ -284,6 +285,9 @@ export async function runReviewTurn(
     throw new AppError('invalid_args', '本章还没有草稿 revision')
   }
 
+  // PHASE-13 M1-19：审批的认知水位 = 本章 covered_until_seq，严格不 fallback seq_head。
+  const asOf = resolveChapterAsOf(repos, chapter, 'review')
+
   const scope = scopeOf(options, repos, chapter.id)
   const system = buildReviewPrompt(repos, { chapterId: chapter.id, mode: options.mode, scope })
   const userText =
@@ -326,7 +330,7 @@ export async function runReviewTurn(
     turnId,
     actorId: 'reviewer',
     characterId: null,
-    asOf: project.seqHead,
+    asOf,
     epoch: project.writeEpoch,
     expectedRevision: chapter.currentRevisionId,
     gateToken: options.gateToken ?? null,

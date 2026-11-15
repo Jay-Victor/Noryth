@@ -90,6 +90,7 @@ export const IPC = {
   writeSceneRemove: 'write.scene.remove',
   writeSceneTime: 'write.scene.time',
   writeTimeline: 'write.timeline',
+  writeContext: 'write.context',
   // 未打包构建的 E2E 脚手架（生产包不注册）
   writeDevSeed: 'write.devSeed',
   // 审批台（PHASE-08）
@@ -115,7 +116,11 @@ export const IPC = {
   memoryRecall: 'memory.recall',
   memoryIsolation: 'memory.isolation',
   memorySend: 'memory.send',
-  memoryDevSeed: 'memory.devSeed'
+  memoryDevSeed: 'memory.devSeed',
+  // 世界状态（PHASE-13 M1-3 / M1-18）：as-of 投影与作者事实
+  worldProjection: 'world.projection',
+  worldFactAdd: 'world.fact.add',
+  worldFactClose: 'world.fact.close'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]

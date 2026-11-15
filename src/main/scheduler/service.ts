@@ -4,6 +4,7 @@ import { WRITE_STATUS_LABELS } from '../../shared/schema/write'
 import type {
   WriteActionResult,
   WriteChapterSummary,
+  WriteContextInspection,
   WriteEvent,
   WriteMessageState,
   WriteSendResult,
@@ -492,6 +493,129 @@ export class WriteService {
       chapterId: chapter.id,
       asOf: chapter.coveredUntilSeq
     })
+  }
+
+  /**
+   * 上下文检查器（PHASE-13 M1-17）：只读 `turn_metric.context_json`。
+   *
+   * 展示的就是这一拍**实际用过**的上下文——不重新装配、不重算 token；
+   * 被裁掉的块只给 id/类型/数量，不回传正文（PHASE-13 §5.4）。
+   */
+  inspectContext(beatId: string): WriteContextInspection {
+    const host = this.requireHost()
+    const beat = host.repos.beat.get(beatId)
+    if (!beat) throw new AppError('invalid_args', `beat ${beatId} not found`)
+    const chapter = host.repos.chapter.get(beat.chapterId)
+    if (!chapter) throw new AppError('invalid_args', '章不存在', { chapterId: beat.chapterId })
+    const budget = chapterBudget(host.repos, chapter)
+    const session = this.sessionOf(chapter.id)
+    const pauseEvent = host.repos.schedulerEvent.latestPause(chapter.id)
+    const pauseReason =
+      session.pauseReason ??
+      (pauseEvent && pauseEvent.kind === 'paused' ? (pauseEvent.reason as PauseReason | null) : null)
+    // 生成时 `turn_metric.beat_id` 记的是**槽位拍**；提交后新拍 supersedes 旧拍。
+    // 所以沿 supersedes 链各查一次，取最新的一条（重生成同理）。
+    const metric =
+      [beat.id, beat.supersedesId]
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        .map((id) => host.repos.turnMetric.latestByBeat(id))
+        .filter((row): row is NonNullable<typeof row> => row !== null)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null
+
+    const empty: WriteContextInspection = {
+      beatId: beat.id,
+      chapterId: chapter.id,
+      found: false,
+      turnId: null,
+      agentKey: null,
+      provider: null,
+      model: null,
+      asOf: null,
+      totalTokens: 0,
+      blocks: [],
+      trimmed: [],
+      degraded: [],
+      prefixHash: null,
+      usage: { tokensIn: null, tokensOut: null, costCny: 0, latencyMs: null, firstTokenMs: null },
+      estimate: { totalTokens: 0, actualPromptTokens: null, ratio: null },
+      budget,
+      pauseReason
+    }
+    if (!metric) return empty
+
+    const snapshot = parseJson(metric.contextJson)
+    if (snapshot === null || typeof snapshot !== 'object') return { ...empty, found: true, turnId: metric.turnId }
+    const record = snapshot as {
+      blocks?: unknown
+      total_tokens?: unknown
+      trimmed?: unknown
+      degraded?: unknown
+      prefix_hash?: unknown
+      as_of?: unknown
+    }
+    const trimmed = Array.isArray(record.trimmed)
+      ? record.trimmed.filter((item): item is string => typeof item === 'string')
+      : []
+    const trimmedSet = new Set(trimmed)
+    type BlockLayer = WriteContextInspection['blocks'][number]['layer']
+    const blocks: WriteContextInspection['blocks'] = Array.isArray(record.blocks)
+      ? record.blocks.flatMap((item): WriteContextInspection['blocks'] => {
+          if (item === null || typeof item !== 'object') return []
+          const raw = item as Record<string, unknown>
+          const layer = raw.layer
+          if (layer !== 'L0' && layer !== 'L1' && layer !== 'L2' && layer !== 'L3') return []
+          const typedLayer: BlockLayer = layer
+          const id = typeof raw.id === 'string' ? raw.id : ''
+          if (id.length === 0) return []
+          return [
+            {
+              id,
+              layer: typedLayer,
+              stable: raw.stable === true,
+              priority: typeof raw.priority === 'number' ? raw.priority : 0,
+              tokens: typeof raw.tokens === 'number' ? raw.tokens : 0,
+              role: typeof raw.role === 'string' ? raw.role : 'unknown',
+              order: typeof raw.order === 'number' ? raw.order : null,
+              refType: typeof raw.ref_type === 'string' ? raw.ref_type : null,
+              trimmed: trimmedSet.has(id)
+            }
+          ]
+        })
+      : []
+    const totalTokens =
+      typeof record.total_tokens === 'number'
+        ? record.total_tokens
+        : blocks.reduce((sum, block) => sum + block.tokens, 0)
+    const actual = typeof metric.tokensIn === 'number' ? metric.tokensIn : null
+    const ratio = actual !== null && totalTokens > 0 ? actual / totalTokens : null
+
+    return {
+      beatId: beat.id,
+      chapterId: chapter.id,
+      found: true,
+      turnId: metric.turnId,
+      agentKey: metric.agentKey,
+      provider: metric.provider,
+      model: metric.model,
+      asOf: typeof record.as_of === 'number' ? record.as_of : null,
+      totalTokens,
+      blocks,
+      trimmed,
+      degraded: Array.isArray(record.degraded)
+        ? record.degraded.filter((item): item is string => typeof item === 'string')
+        : [],
+      prefixHash: typeof record.prefix_hash === 'string' ? record.prefix_hash : null,
+      usage: {
+        tokensIn: metric.tokensIn,
+        tokensOut: metric.tokensOut,
+        costCny: metric.costCny ?? 0,
+        latencyMs: metric.latencyMs,
+        firstTokenMs: metric.firstTokenMs
+      },
+      estimate: { totalTokens, actualPromptTokens: actual, ratio },
+      budget,
+      pauseReason
+    }
   }
 
   // ── F2/F4 发牌、确认、重生成、编辑 ───────────────────────────────────────

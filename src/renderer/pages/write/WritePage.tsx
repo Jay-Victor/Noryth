@@ -7,6 +7,7 @@ import { TreeRailTrigger } from '../../app/TreeRailTrigger'
 import { useApp } from '../../stores/app'
 import { useWrite } from '../../stores/write'
 import { ConfirmBar } from './ConfirmBar'
+import { ContextInspector } from './ContextInspector'
 import { ProseView } from './ProseView'
 import { StoryboardTable } from './StoryboardTable'
 
@@ -37,6 +38,7 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
   const busy = useWrite((store) => store.busy)
   const loading = useWrite((store) => store.loading)
   const editingBeatId = useWrite((store) => store.editingBeatId)
+  const inspectorOpen = useWrite((store) => store.inspectorOpen)
   const [message, setMessage] = useState('')
   const [activeBeatId, setActiveBeatId] = useState<string | null>(null)
 
@@ -251,7 +253,9 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
         </div>
 
         <div className="pane-body">
-          {chatTab === 'stream' ? (
+          {inspectorOpen ? (
+            <ContextInspector state={state} />
+          ) : chatTab === 'stream' ? (
             <div className="write-exec-stream" data-testid="write-exec-stream">
               {state.events.length === 0 ? (
                 <p className="write-note">还没有执行记录。</p>
@@ -296,7 +300,7 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
             </div>
           )}
 
-          {pauseBanner ? (
+          {!inspectorOpen && pauseBanner ? (
             <div className="write-pause-banner" data-testid="write-pause-banner" data-reason={pauseBanner.reason}>
               <strong>{pauseBanner.reason}</strong>
               <span>{pauseBanner.text}</span>
@@ -311,7 +315,7 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
             </div>
           ) : null}
 
-          {chatTab === 'chat' ? (
+          {!inspectorOpen && chatTab === 'chat' ? (
             <div className="write-composer">
               <textarea
                 className="write-composer__input"
@@ -391,6 +395,9 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           onPause={() => void useWrite.getState().pause()}
           onResume={() => void useWrite.getState().resume()}
           onCancel={() => void useWrite.getState().cancel()}
+          onContext={() => {
+            if (currentBeat) void useWrite.getState().openInspector(currentBeat.id)
+          }}
         />
       </section>
 

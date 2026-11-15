@@ -1,5 +1,11 @@
 import { create } from 'zustand'
-import type { WriteActionResult, WriteEvent, WriteState, WriteTimeline } from '../../shared/schema/write'
+import type {
+  WriteActionResult,
+  WriteContextInspection,
+  WriteEvent,
+  WriteState,
+  WriteTimeline
+} from '../../shared/schema/write'
 import { getBridge } from '../lib/bridge'
 import { useApp } from './app'
 
@@ -24,6 +30,10 @@ interface WriteStoreState {
   tab: 'prose' | 'storyboard'
   /** 执行流 / 编排对话 */
   chatTab: 'chat' | 'stream'
+  /** 上下文检查器（M1-17）：打开时占用对话栅，不覆盖正文。 */
+  inspectorOpen: boolean
+  inspection: WriteContextInspection | null
+  inspectionLoading: boolean
   error: string | null
   load(chapterId?: string): Promise<void>
   setTab(tab: 'prose' | 'storyboard'): void
@@ -57,6 +67,8 @@ interface WriteStoreState {
   resume(): Promise<void>
   cancel(): Promise<void>
   send(text: string): Promise<void>
+  openInspector(beatId: string): Promise<void>
+  closeInspector(): void
   applyEvent(event: WriteEvent): void
   reset(): void
 }
@@ -123,6 +135,9 @@ export const useWrite = create<WriteStoreState>((set, get) => {
     stalePrompt: null,
     tab: 'prose',
     chatTab: 'chat',
+    inspectorOpen: false,
+    inspection: null,
+    inspectionLoading: false,
     error: null,
 
     async load(chapterId) {
@@ -403,6 +418,24 @@ export const useWrite = create<WriteStoreState>((set, get) => {
       if (result.data.storyboardUpdated) set({ tab: 'storyboard' })
     },
 
+    async openInspector(beatId) {
+      const bridge = getBridge()
+      if (!bridge) return
+      set({ inspectorOpen: true, inspectionLoading: true })
+      const result = await bridge.write.context(beatId)
+      set({ inspectionLoading: false })
+      if (!result.ok) {
+        set({ inspection: null })
+        toastError(result.error.message, result.error.code)
+        return
+      }
+      set({ inspection: result.data })
+    },
+
+    closeInspector() {
+      set({ inspectorOpen: false, inspection: null, inspectionLoading: false })
+    },
+
     applyEvent(event) {
       const state = get().state
       // 跨项目事件一律丢弃（PHASE-11 §5.1）：切库后迟到的 delta 不能写进新项目。
@@ -459,6 +492,9 @@ export const useWrite = create<WriteStoreState>((set, get) => {
         stalePrompt: null,
         tab: 'prose',
         chatTab: 'chat',
+        inspectorOpen: false,
+        inspection: null,
+        inspectionLoading: false,
         error: null
       })
     }

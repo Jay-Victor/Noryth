@@ -4,6 +4,7 @@ import type { Repos } from '../../db/repos'
 import type { MemoryEntryRecord, MemoryKind } from '../../db/repos/memory'
 import type { WorldFactRecord } from '../../db/repos/world'
 import { retrieveOwn } from '../../memory/retrieve'
+import { factValidAt, readerKnownAt } from '../../world/projection'
 import { queryTimeline } from '../support/timeline'
 import { defineTool } from '../define'
 import { makeRef } from '../support/refs'
@@ -208,8 +209,7 @@ const canonSearchPublic = defineTool({
       }))
     const facts = services.repos.world
       .listByProject(ctx.runtime.project_id)
-      .filter((fact) => fact.visibility === 'public')
-      .filter((fact) => fact.revealSeq !== null && fact.revealSeq <= ctx.runtime.as_of)
+      .filter((fact) => readerKnownAt(fact, ctx.runtime.as_of))
       .map((fact) => ({
         kind: 'fact' as const,
         id: fact.id,
@@ -265,8 +265,13 @@ function factItem(fact: WorldFactRecord): z.infer<typeof FactItem> {
   }
 }
 
-function validAt(fact: WorldFactRecord, asOf: number): boolean {
-  return fact.validFromSeq <= asOf && (fact.validToSeq === null || fact.validToSeq > asOf)
+/**
+ * 当前章序（PHASE-13 M1-19）：定稿正文与审计通道都按「本章及更早」截断。
+ * `chapterId` 为空（规划台）时返回 null，表示不做章级限制——那时还没有定稿章。
+ */
+function currentChapterOrd(services: { repos: Repos }, ctx: { chapterId: string | null }): number | null {
+  if (!ctx.chapterId) return null
+  return services.repos.chapter.get(ctx.chapterId)?.ord ?? null
 }
 
 const worldGetLimited = defineTool({
@@ -292,7 +297,7 @@ const worldGetLimited = defineTool({
     const asOf = clampAsOf(args.as_of, ctx.runtime.as_of)
     const candidates = services.repos.world
       .listByProject(ctx.runtime.project_id)
-      .filter((fact) => validAt(fact, asOf))
+      .filter((fact) => factValidAt(fact, asOf))
     const facts = candidates.filter((fact) => {
       const knownBy = parseJson<string[]>(fact.knownByJson, [])
       if (knownBy.includes(characterId)) return true
@@ -328,9 +333,8 @@ const worldGetReaderKnown = defineTool({
     const asOf = clampAsOf(args.as_of, ctx.runtime.as_of)
     const facts = services.repos.world
       .listByProject(ctx.runtime.project_id)
-      .filter((fact) => fact.visibility === 'public')
-      .filter((fact) => fact.revealSeq !== null && fact.revealSeq <= asOf)
-      .filter((fact) => validAt(fact, asOf))
+      .filter((fact) => readerKnownAt(fact, asOf))
+      .filter((fact) => factValidAt(fact, asOf))
     return {
       data: { as_of: asOf, facts: facts.map(factItem) },
       refs: facts.map((fact) => makeRef('fact', fact.id, `${fact.subject} ${fact.predicate} ${fact.object}`)),
@@ -364,7 +368,7 @@ const worldGetObjective = defineTool({
     const subjects = args.subjects ? new Set(args.subjects) : null
     const facts = services.repos.world
       .listByProject(ctx.runtime.project_id)
-      .filter((fact) => validAt(fact, asOf))
+      .filter((fact) => factValidAt(fact, asOf))
       .filter((fact) => !subjects || subjects.has(fact.subject))
     return {
       data: { as_of: asOf, facts: facts.map(factItem) },
@@ -540,9 +544,23 @@ const manuscriptSearchFinal = defineTool({
   audit: AUDIT,
   milestone: 'M0',
   handler: (args, ctx, services) => {
+    const maxOrd = currentChapterOrd(services, ctx)
+    const requested =
+      args.chapter_id === undefined ? null : services.repos.chapter.get(args.chapter_id)
+    if (args.chapter_id !== undefined && (!requested || requested.projectId !== ctx.runtime.project_id)) {
+      throw new AppError('invalid_args', '章节不存在', { chapterId: args.chapter_id })
+    }
+    if (requested && maxOrd !== null && requested.ord > maxOrd) {
+      // PHASE-13 M1-19：定稿检索不能从第 3 章读到第 4 章以后。
+      throw new AppError('invalid_args', '不能检索本章之后的定稿', {
+        chapterOrd: requested.ord,
+        currentOrd: maxOrd
+      })
+    }
     const chapters = services.repos.chapter
       .listByProject(ctx.runtime.project_id)
       .filter((chapter) => chapter.finalRevisionId !== null)
+      .filter((chapter) => maxOrd === null || chapter.ord <= maxOrd)
       .filter((chapter) => !args.chapter_id || chapter.id === args.chapter_id)
 
     const hits = chapters.flatMap((chapter) =>
@@ -607,7 +625,18 @@ const manuscriptGetFinalChapter = defineTool({
   milestone: 'M0',
   handler: (args, ctx, services) => {
     const chapter = services.repos.chapter.get(args.chapter_id)
-    if (!chapter || chapter.projectId !== ctx.runtime.project_id || chapter.finalRevisionId === null) {
+    if (!chapter || chapter.projectId !== ctx.runtime.project_id) {
+      throw new AppError('invalid_args', '章节不存在', { chapterId: args.chapter_id })
+    }
+    const maxOrd = currentChapterOrd(services, ctx)
+    if (maxOrd !== null && chapter.ord > maxOrd) {
+      // PHASE-13 M1-19：审批第 3 章读不到第 4 章以后的定稿。
+      throw new AppError('invalid_args', '不能读取本章之后的定稿', {
+        chapterOrd: chapter.ord,
+        currentOrd: maxOrd
+      })
+    }
+    if (chapter.finalRevisionId === null) {
       return { data: { chapter_id: args.chapter_id, found: false, revision_id: null, beats: [] }, degraded: 'empty' as const }
     }
     const beats = services.repos.revision.manifest(chapter.finalRevisionId).map((row) => ({

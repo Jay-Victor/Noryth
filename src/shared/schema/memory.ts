@@ -342,6 +342,123 @@ export const MemoryIssueResultSchema = z.strictObject({
 })
 export type MemoryIssueResult = z.infer<typeof MemoryIssueResultSchema>
 
+/**
+ * 世界状态 as-of 投影（PHASE-13 M1-3 / M1-18）。
+ *
+ * 与 `MemoryState` 分开走一条 IPC：世界状态可以按任意 as_of 回放，
+ * 而记忆台的状态是「当前章 + 当前提案」的快照。合并会让两边的语义互相污染。
+ */
+export const WorldFactViewSchema = z.strictObject({
+  id: z.string(),
+  subject: z.string(),
+  predicate: z.string(),
+  object: z.string(),
+  truth: z.enum(['objective', 'claim']),
+  visibility: z.enum(['public', 'secret']),
+  knownBy: z.array(z.string()),
+  revealSeq: z.number().int().nullable(),
+  validFromSeq: z.number().int(),
+  validToSeq: z.number().int().nullable(),
+  sourceType: z.string(),
+  sourceId: z.string().nullable(),
+  /** 读者在 as_of 已经看到这条事实（只影响旁白/读者视图）。 */
+  readerKnown: z.boolean(),
+  /** 公开但尚未揭示：读者不知道，不代表事实不存在。 */
+  pendingReveal: z.boolean()
+})
+export type WorldFactView = z.infer<typeof WorldFactViewSchema>
+
+export const WorldBeliefViewSchema = z.strictObject({
+  id: z.string(),
+  characterId: z.string(),
+  factId: z.string().nullable(),
+  beliefText: z.string(),
+  confidence: z.number(),
+  learnedSeq: z.number().int(),
+  sourceType: z.string(),
+  status: z.string()
+})
+export type WorldBeliefView = z.infer<typeof WorldBeliefViewSchema>
+
+export const WorldEdgeViewSchema = z.strictObject({
+  id: z.string(),
+  fromId: z.string(),
+  toId: z.string(),
+  axis: z.enum(['trust', 'intimacy', 'tension']),
+  value: z.number(),
+  sinceSeq: z.number().int(),
+  validToSeq: z.number().int().nullable(),
+  sourceType: z.string()
+})
+export type WorldEdgeView = z.infer<typeof WorldEdgeViewSchema>
+
+export const WorldProjectionCountsSchema = z.strictObject({
+  facts: z.number().int().nonnegative(),
+  objective: z.number().int().nonnegative(),
+  claim: z.number().int().nonnegative(),
+  beliefs: z.number().int().nonnegative(),
+  edges: z.number().int().nonnegative(),
+  /** as_of 之后才产生的事实：不算「隐藏」，是「还不存在」。 */
+  futureFacts: z.number().int().nonnegative(),
+  /** 已存在但读者还没看到。 */
+  notYetRevealed: z.number().int().nonnegative(),
+  readerKnown: z.number().int().nonnegative()
+})
+export type WorldProjectionCounts = z.infer<typeof WorldProjectionCountsSchema>
+
+export const WorldProjectionStateSchema = z.strictObject({
+  projectId: z.string(),
+  seqHead: z.number().int().nonnegative(),
+  chapterId: z.string().nullable(),
+  chapterOrd: z.number().int().positive().nullable(),
+  /** 本章认知快照（covered_until_seq）；null = 没有选章。 */
+  coverage: z.number().int().nonnegative().nullable(),
+  readOnly: z.boolean(),
+  characters: z.array(z.strictObject({ id: z.string(), name: z.string() })),
+  asOf: z.number().int().nonnegative(),
+  facts: z.array(WorldFactViewSchema),
+  beliefs: z.array(WorldBeliefViewSchema),
+  edges: z.array(WorldEdgeViewSchema),
+  counts: WorldProjectionCountsSchema
+})
+export type WorldProjectionState = z.infer<typeof WorldProjectionStateSchema>
+
+export const WorldProjectionInputSchema = z.strictObject({
+  chapterId: z.string().min(1).optional(),
+  asOf: z.number().int().min(0).optional()
+})
+export type WorldProjectionInput = z.infer<typeof WorldProjectionInputSchema>
+
+export const WorldFactAddSchema = z.strictObject({
+  chapterId: z.string().min(1).optional(),
+  asOf: z.number().int().min(0).optional(),
+  subject: z.string().min(1).max(60),
+  predicate: z.string().min(1).max(40),
+  object: z.string().min(1).max(200),
+  truth: z.enum(['objective', 'claim']),
+  visibility: z.enum(['public', 'secret']),
+  knownBy: z.array(z.string().min(1)).max(24).optional(),
+  revealSeq: z.number().int().min(0).nullable().optional(),
+  /** 省略 = 当前叙事序。单值槽不接受早于当前值的生效序（主进程校验）。 */
+  validFromSeq: z.number().int().min(0).optional()
+})
+export type WorldFactAddInput = z.infer<typeof WorldFactAddSchema>
+
+export const WorldFactCloseSchema = z.strictObject({
+  chapterId: z.string().min(1).optional(),
+  asOf: z.number().int().min(0).optional(),
+  factId: z.string().min(1),
+  reason: z.string().min(2).max(200).optional()
+})
+export type WorldFactCloseInput = z.infer<typeof WorldFactCloseSchema>
+
+export const WorldFactActionResultSchema = z.strictObject({
+  projection: WorldProjectionStateSchema,
+  factId: z.string(),
+  detail: z.string().nullable()
+})
+export type WorldFactActionResult = z.infer<typeof WorldFactActionResultSchema>
+
 /** 流式事件：抽取长任务的进度；提案以 state 为准。 */
 export const MemoryEventSchema = z.strictObject({
   projectId: z.string(),

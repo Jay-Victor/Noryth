@@ -388,6 +388,20 @@ export class TurnMetricRepo extends BaseRepo {
     return row ? mapMetric(row) : null
   }
 
+  /** 某一拍最近一次真实调用（上下文检查器的数据源，PHASE-13 M1-17）。 */
+  latestByBeat(beatId: string): TurnMetricRecord | null {
+    const row = firstRow<TurnMetricRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('turn_metric')
+        .selectAll()
+        .where('beat_id', '=', beatId)
+        .orderBy('created_at', 'desc')
+        .limit(1)
+    )
+    return row ? mapMetric(row) : null
+  }
+
   listByJob(jobId: string): TurnMetricRecord[] {
     const rows = allRows<TurnMetricRow>(
       this.runner,

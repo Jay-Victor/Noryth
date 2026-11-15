@@ -1,5 +1,11 @@
 import { create } from 'zustand'
-import type { MemoryEvent, MemoryRecallResult, MemoryState } from '../../shared/schema/memory'
+import type {
+  MemoryEvent,
+  MemoryRecallResult,
+  MemoryState,
+  WorldFactAddInput,
+  WorldProjectionState
+} from '../../shared/schema/memory'
 import { getBridge } from '../lib/bridge'
 import { useApp } from './app'
 
@@ -39,6 +45,11 @@ interface MemoryStoreState {
   recallQuery: string
   recallCharacterId: string | null
   isolation: IsolationReport | null
+  /** 世界状态 as-of 投影（PHASE-13 M1-3）。与 state 分开：可回放到任意叙事序。 */
+  projection: WorldProjectionState | null
+  projectionLoading: boolean
+  /** 读者视角预览：只看 reveal_seq 已揭示的事实。 */
+  readerOnly: boolean
   error: string | null
   load(chapterId?: string): Promise<void>
   setChapter(chapterId: string): Promise<void>
@@ -54,6 +65,10 @@ interface MemoryStoreState {
   invalidate(entryId: string, reason: string): Promise<void>
   runRecall(characterId: string, query: string): Promise<void>
   checkIsolation(): Promise<void>
+  loadProjection(input?: { chapterId?: string; asOf?: number }): Promise<void>
+  setReaderOnly(readerOnly: boolean): void
+  addFact(input: WorldFactAddInput): Promise<boolean>
+  closeFact(factId: string, reason?: string): Promise<boolean>
   send(text: string): Promise<void>
   focusProposal(id: string | null): void
   applyEvent(event: MemoryEvent): void
@@ -87,6 +102,9 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
     recallQuery: '',
     recallCharacterId: null,
     isolation: null,
+    projection: null,
+    projectionLoading: false,
+    readerOnly: false,
     error: null,
 
     async load(chapterId) {
@@ -102,6 +120,9 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
       }
       apply(result.data)
       const state = result.data
+      void get().loadProjection(
+        state.chapterId === null ? {} : { chapterId: state.chapterId }
+      )
       if (
         state.chapterId !== null &&
         state.jobStatus === 'queued' &&
@@ -118,6 +139,62 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
     async setChapter(chapterId) {
       set({ activeProposalId: null, editing: null, recall: null })
       await get().load(chapterId)
+    },
+
+    async loadProjection(input = {}) {
+      const bridge = getBridge()
+      if (!bridge) return
+      set({ projectionLoading: true })
+      const result = await bridge.world.projection(input)
+      set({ projectionLoading: false })
+      if (!result.ok) {
+        set({ projection: null })
+        toastError(result.error.message, result.error.code)
+        return
+      }
+      set({ projection: result.data })
+    },
+
+    setReaderOnly(readerOnly) {
+      set({ readerOnly })
+    },
+
+    async addFact(input) {
+      const bridge = getBridge()
+      if (!bridge) return false
+      set({ busy: true })
+      const result = await bridge.world.addFact(input)
+      set({ busy: false })
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        return false
+      }
+      set({ projection: result.data.projection })
+      if (result.data.detail) toastOk(result.data.detail)
+      return true
+    },
+
+    async closeFact(factId, reason) {
+      const bridge = getBridge()
+      if (!bridge) return false
+      const projection = get().projection
+      set({ busy: true })
+      const result = await bridge.world.closeFact({
+        factId,
+        ...(reason === undefined ? {} : { reason }),
+        ...(projection?.chapterId === null || projection?.chapterId === undefined
+          ? {}
+          : { chapterId: projection.chapterId }),
+        ...(projection === null ? {} : { asOf: projection.asOf })
+      })
+      set({ busy: false })
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        return false
+      }
+      set({ projection: result.data.projection })
+      if (result.data.detail) toastOk(result.data.detail)
+      return true
     },
 
     setTab(tab) {
@@ -219,6 +296,12 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
       }
       apply(result.data.state)
       toastOk(result.data.detail ?? '已应用')
+      // 固化会新增/关闭世界事实：投影必须跟着刷新，否则世界状态页还停在固化前。
+      const projection = get().projection
+      await get().loadProjection({
+        ...(projection?.chapterId == null ? {} : { chapterId: projection.chapterId }),
+        ...(projection === null ? {} : { asOf: projection.asOf })
+      })
       set({ tab: 'entries' })
     },
 
@@ -306,6 +389,9 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
         recallQuery: '',
         recallCharacterId: null,
         isolation: null,
+        projection: null,
+        projectionLoading: false,
+        readerOnly: false,
         error: null,
         busy: false,
         loading: false

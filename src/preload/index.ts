@@ -126,6 +126,7 @@ const bridge: NorythBridge = {
     removeScene: (input) => invoke(IPC.writeSceneRemove, input),
     setSceneTime: (input) => invoke(IPC.writeSceneTime, input),
     timeline: (chapterId) => invoke(IPC.writeTimeline, { chapterId }),
+    context: (beatId) => invoke(IPC.writeContext, { beatId }),
     devSeed: (input) => invoke(IPC.writeDevSeed, input ?? {})
   },
   review: {
@@ -140,6 +141,11 @@ const bridge: NorythBridge = {
     issueFinalizeToken: (chapterId) => invoke(IPC.reviewG6Issue, { chapterId }),
     finalize: (input) => invoke(IPC.reviewFinalize, input),
     devSeed: (input) => invoke(IPC.reviewDevSeed, input ?? {})
+  },
+  world: {
+    projection: (input) => invoke(IPC.worldProjection, input ?? {}),
+    addFact: (input) => invoke(IPC.worldFactAdd, input),
+    closeFact: (input) => invoke(IPC.worldFactClose, input)
   },
   memory: {
     state: (chapterId) => invoke(IPC.memoryState, chapterId === undefined ? {} : { chapterId }),
