@@ -203,6 +203,8 @@
 | 提交 | `ad52579`（feat）、`be72ee7`（docs） | 已推送 origin/dev |
 | CI（首次） | GitHub Actions run `43728834631`（`be72ee7`） | verify 2m09 全绿；e2e 3m17 失败：前 3 条（`a11y.spec`、`app.spec` 外壳 / 向导）失败，随后 13 条（含 `E2E-M1-BLUEPRINT-01`、`E2E-M1-FORESHADOW-01`）全绿 → 判定为 runner 冷启动偶发（与阶段 11/12/14 同形态） |
 | CI（复跑） | GitHub Actions run `43729850861`（`048ab10`，空提交） | verify + e2e 均绿（28/28）；package 按规则跳过（非 `v*` tag） |
+| CI（文档提交） | GitHub Actions run `43730656629`（`a261e06`）、`43730675276`（`c6a1b59`） | verify + e2e 均绿 |
+| 阶段标签 | `phase-15-done` → `048ab10` | 已推送 origin（树与 `be72ee7` 相同） |
 
 ## 当前可运行命令
 
