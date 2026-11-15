@@ -1,5 +1,12 @@
 import { z } from 'zod'
 import { AppError } from '../../../shared/domain/app-error'
+import {
+  BlueprintOpSchema,
+  CoverageCheckOutputSchema,
+  ImpactCountsSchema
+} from '../../../shared/schema/blueprint'
+import { analyzeCoverage, filterCoverageByScope, gatherCoverageInput } from '../../plan/coverage'
+import { analyzeChange } from '../../plan/change'
 import { defineTool } from '../define'
 import { validateExitExpr } from '../support/dsl'
 import { validateStoryboard, StoryboardDraftSchema } from '../support/storyboard'
@@ -388,50 +395,147 @@ const voiceMetrics = defineTool({
   handler: () => notImplemented('voice.metrics')
 })
 
-/** T26（P1）：覆盖检查；建议项，不阻断 G1。 */
+/** T26（PHASE-15 M1-11）：覆盖检查；只有 error 才阻断 G1，warn 只计数。 */
 const coverageCheck = defineTool({
   toolId: 'T26',
   name: 'coverage.check',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'verify',
-  summary: '检查卷纲关键事件无落点、角色无出场动机与章纲冲突（P1），只给建议',
+  summary: '检查卷纲关键事件落点、主要角色出场、主线推进间隔与章纲 POV，输出可定位的 gaps',
   actors: ['planner'],
   sideEffect: 'none',
   agentCallable: true,
   requiresGate: null,
   idempotency: 'natural',
   input: z.strictObject({ scope: z.enum(['volume', 'chapter', 'project']) }),
-  output: z.strictObject({ gaps: z.array(z.strictObject({ code: z.string(), message: z.string() })) }),
+  output: CoverageCheckOutputSchema,
   limits: limitsFor('verify'),
   degrade: degradeFor('verify'),
   audit: AUDIT,
   milestone: 'P1',
-  handler: () => notImplemented('coverage.check')
+  enabled: true,
+  handler: (args, ctx, services) => {
+    const input = gatherCoverageInput(services.repos, ctx.runtime.project_id)
+    const gaps = filterCoverageByScope(analyzeCoverage(input), args.scope, input.nodes)
+    return {
+      data: {
+        scope: args.scope,
+        error_count: gaps.filter((gap) => gap.severity === 'error').length,
+        warn_count: gaps.filter((gap) => gap.severity === 'warn').length,
+        gaps: gaps.map((gap) => ({
+          code: gap.code,
+          severity: gap.severity,
+          node_id: gap.node_id,
+          message: gap.message
+        }))
+      },
+      degraded: gaps.length === 0 ? ('empty' as const) : ('none' as const)
+    }
+  }
 })
 
-/** T29（P1）：影响分析；蓝图变更前必须跑。 */
+/**
+ * T29（PHASE-15 M1-8）：影响分析，蓝图变更前必须跑。
+ *
+ * 结果写入 `blueprint_change(status=proposed)`——这是「变更必须可追溯」的落点，
+ * 所以 side_effect=propose 且需要幂等键（同一次调用重放不产生第二条记录）。
+ */
 const impactAnalyze = defineTool({
   toolId: 'T29',
   name: 'impact.analyze',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'verify',
-  summary: '分析蓝图变更影响的章节、记忆条目与关系边（P1），结果进变更记录',
+  summary: '分析蓝图变更影响的章节、记忆条目与关系边，并写入变更记录，供作者确认后应用',
   actors: ['planner'],
-  sideEffect: 'none',
+  sideEffect: 'propose',
   agentCallable: true,
   requiresGate: null,
-  idempotency: 'natural',
-  input: z.strictObject({ change: z.record(z.string(), z.unknown()) }),
+  idempotency: 'key_required',
+  input: z.strictObject({
+    proposal_id: Id.optional(),
+    ops: z.array(BlueprintOpSchema).min(1).max(50).optional(),
+    character_id: Id.optional(),
+    character_card: z.record(z.string(), z.unknown()).optional()
+  }),
   output: z.strictObject({
+    change_id: Id,
     chapters: z.array(Id),
     memory_entries: z.array(Id),
-    relationships: z.array(Id)
+    relationships: z.array(Id),
+    counts: ImpactCountsSchema
   }),
   limits: limitsFor('verify'),
   degrade: degradeFor('verify'),
   audit: AUDIT,
   milestone: 'P1',
-  handler: () => notImplemented('impact.analyze')
+  enabled: true,
+  handler: (args, ctx, services) => {
+    let ops = args.ops
+    let characterCard =
+      args.character_card === undefined
+        ? undefined
+        : { character_id: args.character_id ?? '', card: args.character_card }
+    if (args.character_card !== undefined && args.character_id === undefined) {
+      throw new AppError('invalid_args', 'character_card 必须同时给 character_id')
+    }
+    let proposalId: string | null = null
+
+    if (args.proposal_id !== undefined) {
+      const proposal = services.repos.proposal.get(args.proposal_id)
+      if (!proposal || proposal.projectId !== ctx.runtime.project_id) {
+        throw new AppError('invalid_args', `proposal ${args.proposal_id} not in project`)
+      }
+      if (proposal.status !== 'draft') throw new AppError('invalid_args', '提案已处理')
+      let payload: Record<string, unknown> = {}
+      try {
+        const parsed: unknown = JSON.parse(proposal.payloadJson)
+        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          payload = parsed as Record<string, unknown>
+        }
+      } catch {
+        throw new AppError('internal_error', '提案 payload 不是合法 JSON')
+      }
+      if (proposal.kind === 'blueprint_patch') {
+        ops = payload.ops as typeof ops
+      } else if (proposal.kind === 'character_card') {
+        if (typeof payload.character_id !== 'string') throw new AppError('invalid_args', '提案没有指定角色')
+        characterCard = {
+          character_id: payload.character_id,
+          card: (payload.card ?? {}) as Record<string, unknown>
+        }
+      } else {
+        throw new AppError('invalid_args', '注册清单提案不需要影响分析')
+      }
+      proposalId = proposal.id
+    }
+
+    if (ops === undefined && characterCard === undefined) {
+      throw new AppError('invalid_args', '需要 proposal_id / ops / character_card 之一')
+    }
+
+    const view = analyzeChange(
+      { repos: services.repos },
+      {
+        projectId: ctx.runtime.project_id,
+        ...(ops === undefined ? {} : { ops }),
+        ...(characterCard === undefined ? {} : { characterCard }),
+        ...(proposalId === null ? {} : { proposalId }),
+        actor: ctx.runtime.actor_id
+      }
+    )
+    const impact = view.impact
+    if (impact === null) throw new AppError('internal_error', '影响分析结果缺失')
+    return {
+      data: {
+        change_id: view.id,
+        chapters: impact.chapters.map((chapter) => chapter.id),
+        memory_entries: impact.memory_entries.map((memory) => memory.id),
+        relationships: impact.relationships.map((edge) => edge.id),
+        counts: impact.counts
+      },
+      degraded: impact.chapters.length === 0 ? ('empty' as const) : ('none' as const)
+    }
+  }
 })
 
 export const VERIFY_TOOLS = [

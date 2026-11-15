@@ -1,9 +1,11 @@
 import type { Db } from '../project-db'
 import { createQueryRunner } from '../kysely'
 import { BeatRepo } from './beat'
+import { BlueprintChangeRepo } from './blueprint-change'
 import { ChapterRepo } from './chapter'
 import { CharacterRepo } from './character'
 import { systemClock, type Clock } from './common'
+import { ForeshadowRepo } from './foreshadow'
 import { JobRepo } from './job'
 import { MemoryRepo } from './memory'
 import { MemoryAuditRepo } from './memory-audit'
@@ -74,16 +76,20 @@ export function createRepos(db: Db, options: RepoOptions = {}) {
     turnMetric: new TurnMetricRepo(runner, now),
     storyboard: new StoryboardDraftRepo(runner, now),
     writeMessage: new WriteMessageRepo(runner, now),
-    schedulerEvent: new SchedulerEventRepo(runner, now)
+    schedulerEvent: new SchedulerEventRepo(runner, now),
+    foreshadow: new ForeshadowRepo(runner, now),
+    blueprintChange: new BlueprintChangeRepo(runner, now)
   }
 }
 
 export type Repos = ReturnType<typeof createRepos>
 
 export * from './beat'
+export * from './blueprint-change'
 export * from './chapter'
 export * from './character'
 export * from './common'
+export * from './foreshadow'
 export * from './job'
 export * from './memory'
 export * from './memory-proposal'

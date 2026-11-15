@@ -68,6 +68,13 @@ export const CONTRACT_FIXTURES: Record<string, ContractFixture> = {
     context: { asOf: 2 },
     emptyArgs: { chapter_id: 'ch_draft', as_of: 0 }
   },
+  // PHASE-15：伏笔只读；两条都用真实章节，避免 chapter-not-in-project
+  'foreshadow.list_open': { args: { chapter_id: 'ch_draft' }, emptyArgs: { chapter_id: 'ch_final' } },
+  'coverage.check': { args: { scope: 'project' }, emptyArgs: { scope: 'chapter' } },
+  'impact.analyze': {
+    args: { ops: [{ op: 'update', node_id: 'out_main', title: '主线：黑漆匣子（改）' }] },
+    emptyArgs: null
+  },
   'consistency.check': { args: { revision_id: 'rev_draft' } },
   'storyboard.validate': { args: { draft: { scenes: [draftScene] } }, emptyArgs: null },
   'exit_dsl.validate': { args: { expr: 'all(fact("黑漆匣子","位置","祠堂供桌下面"), beats(2))' }, emptyArgs: null },

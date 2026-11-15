@@ -1,5 +1,10 @@
 import { create } from 'zustand'
 import type {
+  ForeshadowCreateInput,
+  ForeshadowState,
+  ForeshadowUpdateInput
+} from '../../shared/schema/foreshadow'
+import type {
   MemoryEvent,
   MemoryRecallResult,
   MemoryState,
@@ -20,7 +25,7 @@ import { useApp } from './app'
  * - 讨论只解释来源，不改库。
  */
 
-export type MemoryTab = 'proposals' | 'entries' | 'world' | 'relations' | 'audit'
+export type MemoryTab = 'proposals' | 'entries' | 'world' | 'relations' | 'foreshadows' | 'audit'
 
 export interface MemoryFilters {
   characterId: string | null
@@ -53,6 +58,9 @@ interface MemoryStoreState {
   /** 关系图（PHASE-14 M1-5）：as-of 回放 + 确定性布局（坐标由主进程给出）。 */
   relations: RelationGraph | null
   relationsLoading: boolean
+  /** 伏笔（PHASE-15 M1-10）：作者标注 + 距离；不产生任何阻断。 */
+  foreshadows: ForeshadowState | null
+  foreshadowsLoading: boolean
   /** 读者视角预览：只看 reveal_seq 已揭示的事实。 */
   readerOnly: boolean
   error: string | null
@@ -74,6 +82,13 @@ interface MemoryStoreState {
   setReaderOnly(readerOnly: boolean): void
   /** 关系图（M1-5）：as-of 回放；坐标由主进程算好。 */
   loadRelations(input?: RelationGraphInput): Promise<void>
+  /** 伏笔（M1-10）：列表 / 标注 / 回收；距离按当前章计算。 */
+  loadForeshadows(chapterId?: string): Promise<void>
+  createForeshadow(input: ForeshadowCreateInput): Promise<boolean>
+  updateForeshadow(input: ForeshadowUpdateInput): Promise<boolean>
+  closeForeshadow(foreshadowId: string, payoffChapterId: string): Promise<boolean>
+  reopenForeshadow(foreshadowId: string): Promise<boolean>
+  removeForeshadow(foreshadowId: string): Promise<boolean>
   /** 按章重建（M1-4）：先签发 author_confirm，再执行。 */
   rebuild(chapterId: string): Promise<void>
   /** 索引重建（M1-20）：换模型后分批重算向量。 */
@@ -115,6 +130,8 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
     isolation: null,
     projection: null,
     projectionLoading: false,
+    foreshadows: null,
+    foreshadowsLoading: false,
     relations: null,
     relationsLoading: false,
     readerOnly: false,
@@ -185,6 +202,80 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
         return
       }
       set({ relations: result.data })
+    },
+
+    async loadForeshadows(chapterId) {
+      const bridge = getBridge()
+      if (!bridge) return
+      set({ foreshadowsLoading: true })
+      const result = await bridge.world.foreshadows(chapterId === undefined ? {} : { chapterId })
+      set({ foreshadowsLoading: false })
+      if (!result.ok) {
+        set({ foreshadows: null })
+        toastError(result.error.message, result.error.code)
+        return
+      }
+      set({ foreshadows: result.data })
+    },
+
+    async createForeshadow(input) {
+      const bridge = getBridge()
+      if (!bridge) return false
+      const result = await bridge.world.createForeshadow(input)
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        return false
+      }
+      set({ foreshadows: result.data.state })
+      return true
+    },
+
+    async updateForeshadow(input) {
+      const bridge = getBridge()
+      if (!bridge) return false
+      const result = await bridge.world.updateForeshadow(input)
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        return false
+      }
+      set({ foreshadows: result.data.state })
+      return true
+    },
+
+    async closeForeshadow(foreshadowId, payoffChapterId) {
+      const bridge = getBridge()
+      if (!bridge) return false
+      const result = await bridge.world.closeForeshadow({ foreshadowId, payoffChapterId })
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        return false
+      }
+      set({ foreshadows: result.data.state })
+      return true
+    },
+
+    async reopenForeshadow(foreshadowId) {
+      const bridge = getBridge()
+      if (!bridge) return false
+      const result = await bridge.world.reopenForeshadow(foreshadowId)
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        return false
+      }
+      set({ foreshadows: result.data.state })
+      return true
+    },
+
+    async removeForeshadow(foreshadowId) {
+      const bridge = getBridge()
+      if (!bridge) return false
+      const result = await bridge.world.removeForeshadow(foreshadowId)
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        return false
+      }
+      set({ foreshadows: result.data.state })
+      return true
     },
 
     async rebuild(chapterId) {
@@ -471,6 +562,8 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
         isolation: null,
         projection: null,
         projectionLoading: false,
+        foreshadows: null,
+        foreshadowsLoading: false,
         relations: null,
         relationsLoading: false,
         readerOnly: false,

@@ -223,9 +223,10 @@ test('E2E-PLAN-01：对话 → 提案 → 改动机 → G1 → 创作台解锁',
   expect(dbState.isolation).toBe(true)
   expect(dbState.lockedNodes).toBeGreaterThanOrEqual(4)
 
-  // 蓝图 G1 后只读：标题输入框禁用
+  // 蓝图 G1 后只读：修改先落变更记录（PHASE-15），不直接写大纲
   await page.locator('[data-testid="plan-tab-blueprint"]').click()
-  await expect(page.locator('[data-testid="outline-title"]')).toBeDisabled()
+  await expect(page.locator('[data-testid="blueprint-locked"]')).toBeVisible()
+  await expect(page.locator('[data-testid="outline-title"]')).toBeEnabled()
 
   // 创作台解锁
   await page.locator('[data-nav="write"]').click()

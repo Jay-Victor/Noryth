@@ -1,5 +1,11 @@
 import { z } from 'zod'
 import { AppError } from '../../shared/domain/app-error'
+import {
+  BlueprintOpSchema,
+  blueprintMetaJson,
+  mergeBlueprintMeta,
+  parseBlueprintMeta
+} from '../../shared/schema/blueprint'
 import { normalizeCharacterCard, withPublicFields } from '../../shared/schema/plan'
 import type { Db } from '../db/project-db'
 import type { Repos } from '../db/repos'
@@ -13,27 +19,7 @@ import { withTransaction } from '../db/tx'
  * 蓝图提案是唯一能改 `outline_node` 的规划路径；G1 锁定后直接拒绝。
  */
 
-const BlueprintAdd = z.strictObject({
-  op: z.literal('add'),
-  parent_id: z.string().min(1).nullable(),
-  parent_ref: z.string().min(1).max(40).optional(),
-  ref: z.string().min(1).max(40).optional(),
-  kind: z.enum(['main', 'volume', 'chapter']),
-  ord: z.number().int().min(0).max(10_000),
-  title: z.string().min(1).max(200),
-  content: z.string().max(20_000).optional()
-})
-
-const BlueprintUpdate = z.strictObject({
-  op: z.literal('update'),
-  node_id: z.string().min(1),
-  title: z.string().min(1).max(200).optional(),
-  content: z.string().max(20_000).optional()
-})
-
-const BlueprintRemove = z.strictObject({ op: z.literal('remove'), node_id: z.string().min(1) })
-
-const BlueprintOp = z.discriminatedUnion('op', [BlueprintAdd, BlueprintUpdate, BlueprintRemove])
+const BlueprintOp = BlueprintOpSchema
 
 const BlueprintPayload = z.strictObject({ ops: z.array(BlueprintOp).min(1).max(50) })
 
@@ -143,7 +129,8 @@ function applyBlueprint(
           ord: op.ord,
           title: op.title,
           content: op.content ?? '',
-          status: 'draft'
+          status: 'draft',
+          metaJson: op.meta === undefined ? '{}' : blueprintMetaJson(mergeBlueprintMeta({}, op.meta))
         })
         if (op.ref !== undefined) {
           if (refs.has(op.ref)) throw new AppError('invalid_args', `提案内 ref 重复 ${op.ref}`)
@@ -158,12 +145,15 @@ function applyBlueprint(
         throw new AppError('invalid_args', `outline node ${op.node_id} not in project`)
       }
       if (op.op === 'update') {
-        if (op.title === undefined && op.content === undefined) {
-          throw new AppError('invalid_args', 'update 至少需要 title 或 content')
+        if (op.title === undefined && op.content === undefined && op.meta === undefined) {
+          throw new AppError('invalid_args', 'update 至少需要 title / content / meta 之一')
         }
+        const meta =
+          op.meta === undefined ? undefined : mergeBlueprintMeta(parseBlueprintMeta(node.metaJson), op.meta)
         repos.outline.update(node.id, {
           ...(op.title === undefined ? {} : { title: op.title }),
-          ...(op.content === undefined ? {} : { content: op.content })
+          ...(op.content === undefined ? {} : { content: op.content }),
+          ...(meta === undefined ? {} : { metaJson: blueprintMetaJson(meta) })
         })
         continue
       }

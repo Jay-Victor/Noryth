@@ -100,7 +100,14 @@ const bridge: NorythBridge = {
     choose: (input) => invoke(IPC.planChoose, input),
     g1Preview: () => invoke(IPC.planG1Preview, {}),
     confirmG1: () => invoke(IPC.planConfirmG1, {}),
-    retrySetup: () => invoke(IPC.planRetrySetup, {})
+    retrySetup: () => invoke(IPC.planRetrySetup, {}),
+    coverage: () => invoke(IPC.planCoverage, {}),
+    setCoverageGate: (enabled) => invoke(IPC.planCoverageGate, { enabled }),
+    analyzeImpact: (input) => invoke(IPC.planImpact, input),
+    changes: () => invoke(IPC.planChanges, {}),
+    applyChange: (input) => invoke(IPC.planChangeApply, input),
+    rejectChange: (changeId) => invoke(IPC.planChangeReject, { changeId }),
+    dismissInvalidation: (chapterId) => invoke(IPC.planChapterDismiss, { chapterId })
   },
   write: {
     state: (chapterId) => invoke(IPC.writeState, chapterId === undefined ? {} : { chapterId }),
@@ -146,7 +153,13 @@ const bridge: NorythBridge = {
     projection: (input) => invoke(IPC.worldProjection, input ?? {}),
     addFact: (input) => invoke(IPC.worldFactAdd, input),
     closeFact: (input) => invoke(IPC.worldFactClose, input),
-    relations: (input) => invoke(IPC.worldRelations, input ?? {})
+    relations: (input) => invoke(IPC.worldRelations, input ?? {}),
+    foreshadows: (input) => invoke(IPC.worldForeshadowList, input ?? {}),
+    createForeshadow: (input) => invoke(IPC.worldForeshadowCreate, input),
+    updateForeshadow: (input) => invoke(IPC.worldForeshadowUpdate, input),
+    closeForeshadow: (input) => invoke(IPC.worldForeshadowClose, input),
+    reopenForeshadow: (foreshadowId) => invoke(IPC.worldForeshadowReopen, { foreshadowId }),
+    removeForeshadow: (foreshadowId) => invoke(IPC.worldForeshadowRemove, { foreshadowId })
   },
   memory: {
     state: (chapterId) => invoke(IPC.memoryState, chapterId === undefined ? {} : { chapterId }),

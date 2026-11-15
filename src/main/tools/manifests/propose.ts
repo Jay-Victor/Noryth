@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AppError } from '../../../shared/domain/app-error'
+import { BlueprintOpSchema } from '../../../shared/schema/blueprint'
 import { ReportDraftSchema } from '../../../shared/schema/report'
 import { sameText } from '../../../shared/text/normalize'
 import { newId } from '../../db/repos/common'
@@ -23,33 +24,14 @@ const StoryboardConflict = z.strictObject({
   beat_ord: z.number().int().optional()
 })
 
-const BlueprintOp = z.discriminatedUnion('op', [
-  z.strictObject({
-    op: z.literal('add'),
-    parent_id: Id.nullable(),
-    /** 同一提案内引用前面 add 的 `ref`，用于一次提交整棵树。 */
-    parent_ref: z.string().min(1).max(40).optional(),
-    ref: z.string().min(1).max(40).optional(),
-    kind: z.enum(['main', 'volume', 'chapter']),
-    ord: z.number().int().min(0).max(10_000),
-    title: z.string().min(1).max(200),
-    content: z.string().max(20_000).optional()
-  }),
-  z.strictObject({
-    op: z.literal('update'),
-    node_id: Id,
-    title: z.string().min(1).max(200).optional(),
-    content: z.string().max(20_000).optional()
-  }),
-  z.strictObject({ op: z.literal('remove'), node_id: Id })
-])
+const BlueprintOp = BlueprintOpSchema
 
 const blueprintProposePatch = defineTool({
   toolId: 'T31',
   name: 'blueprint.propose_patch',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'propose',
-  summary: '提交大纲变更提案（新增/修改/删除节点），只写草案，不直接改大纲',
+  summary: '提交大纲变更提案（新增/修改/删除节点，含结构化纲要素），只写草案，不直接改大纲',
   actors: ['planner'],
   sideEffect: 'propose',
   agentCallable: true,
@@ -59,6 +41,8 @@ const blueprintProposePatch = defineTool({
   output: z.strictObject({
     proposal_id: Id,
     status: z.literal('draft'),
+    /** G1 后为 true：提案不能直接应用，必须走影响分析 + 变更流程（PHASE-15 §5.2）。 */
+    requires_change: z.boolean(),
     diff_summary: z.strictObject({
       added: z.number().int(),
       updated: z.number().int(),
@@ -73,9 +57,8 @@ const blueprintProposePatch = defineTool({
   handler: (args, ctx, services) => {
     const project = services.repos.project.getById(ctx.runtime.project_id)
     if (!project) throw new AppError('project_not_found', 'project row missing')
-    if (project.blueprintLockedAt !== null) {
-      throw new AppError('invalid_args', '蓝图已锁定；修改必须先走变更流程（阶段 06 只读）')
-    }
+    // G1 后允许提案，但只能作为变更流程的输入（不能直接 applyProposal）。
+    const requiresChange = project.blueprintLockedAt !== null
 
     let added = 0
     let updated = 0
@@ -110,8 +93,8 @@ const blueprintProposePatch = defineTool({
         throw new AppError('invalid_args', `outline node ${op.node_id} not in project`)
       }
       if (op.op === 'update') {
-        if (op.title === undefined && op.content === undefined) {
-          throw new AppError('invalid_args', 'update 至少需要 title 或 content')
+        if (op.title === undefined && op.content === undefined && op.meta === undefined) {
+          throw new AppError('invalid_args', 'update 至少需要 title / content / meta 之一')
         }
         updated += 1
         nodes.push(op.node_id)
@@ -127,13 +110,14 @@ const blueprintProposePatch = defineTool({
       jobId: ctx.runtime.job_id,
       turnId: ctx.runtime.turn_id,
       payloadJson: canonicalJson({ ops: args.ops }),
-      summaryJson: JSON.stringify({ added, updated, removed, nodes })
+      summaryJson: JSON.stringify({ added, updated, removed, nodes, requires_change: requiresChange })
     })
 
     return {
       data: {
         proposal_id: record.id,
         status: 'draft' as const,
+        requires_change: requiresChange,
         diff_summary: { added, updated, removed, nodes }
       }
     }

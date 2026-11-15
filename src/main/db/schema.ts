@@ -37,6 +37,8 @@ export interface OutlineNodeTable {
   content: Generated<string>
   status: Generated<string>
   version: Generated<number>
+  /** 覆盖检查的结构化标注（0009，PHASE-15 §5.1）；旧行 '{}'。 */
+  meta_json: Generated<string>
   created_at: string
   updated_at: string
 }
@@ -64,6 +66,9 @@ export interface ChapterTable {
   opened_at: string | null
   finalized_at: string | null
   budget_tokens: number | null
+  /** 蓝图变更后的跨章标脏（0009，PHASE-15 §5.2）；只提示，不改状态与正文。 */
+  invalidated_at: string | null
+  invalidated_reason: string | null
 }
 
 export interface SceneTable {
@@ -509,6 +514,32 @@ export interface SchedulerEventTable {
   created_at: string
 }
 
+/** 作者手写的伏笔（0009，PHASE-15 M1-10）。 */
+export interface ForeshadowTable {
+  id: string
+  project_id: string
+  text: string
+  planted_chapter_id: string | null
+  planned_payoff_chapter_id: string | null
+  payoff_chapter_id: string | null
+  status: Generated<string>
+  created_at: string
+  updated_at: string
+}
+
+/** G1 后的蓝图变更记录（0009，PHASE-15 M1-8）：ops + impact 可追溯。 */
+export interface BlueprintChangeTable {
+  id: string
+  project_id: string
+  proposal_id: string | null
+  ops_json: string
+  impact_json: Generated<string>
+  status: Generated<string>
+  actor: string
+  created_at: string
+  applied_at: string | null
+}
+
 export interface Database {
   project: ProjectTable
   outline_node: OutlineNodeTable
@@ -546,4 +577,6 @@ export interface Database {
   write_message: WriteMessageTable
   scheduler_event: SchedulerEventTable
   review_message: ReviewMessageTable
+  foreshadow: ForeshadowTable
+  blueprint_change: BlueprintChangeTable
 }

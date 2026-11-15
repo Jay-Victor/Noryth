@@ -805,3 +805,64 @@
   font-size: 11px;
   color: var(--muted);
 }
+
+/* 伏笔（PHASE-15 M1-10）：只报节奏，不阻断 */
+.memory-foreshadows {
+  max-width: 720px;
+}
+
+.foreshadow-create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px 180px auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.foreshadow-list {
+  display: grid;
+  gap: 2px;
+}
+
+.foreshadow-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.foreshadow-row.is-closed {
+  opacity: 0.72;
+}
+
+.foreshadow-status {
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  line-height: 16px;
+  background: var(--warn-weak);
+  color: var(--warn);
+}
+
+.foreshadow-status.is-closed {
+  background: var(--bg-raised);
+  color: var(--muted);
+}
+
+.foreshadow-text {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.foreshadow-distance.is-overdue {
+  color: var(--danger);
+}
+
+.foreshadow-actions {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}

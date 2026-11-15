@@ -176,7 +176,9 @@ export const WriteChapterSummarySchema = z.strictObject({
   beatCount: z.number().int().nonnegative(),
   confirmedCount: z.number().int().nonnegative(),
   /** 章内正文合计字数（不含 superseded），列表不发正文（PHASE-11 M1-9）。 */
-  wordCount: z.number().int().nonnegative()
+  wordCount: z.number().int().nonnegative(),
+  /** 蓝图变更标脏（PHASE-15）：非空时 G2 前提示「待重审」，可忽略。 */
+  invalidatedAt: z.string().nullable()
 })
 export type WriteChapterSummary = z.infer<typeof WriteChapterSummarySchema>
 

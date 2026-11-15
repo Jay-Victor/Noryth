@@ -12,6 +12,7 @@ import { withTransaction } from '../db/tx'
 import { registerRoster } from '../agents/roster'
 import { ensureNamespaces, type EnsureNamespaceOptions } from '../memory/namespace'
 import { applyInitialFacts } from '../memory/setup'
+import { coverageBlockers, coverageGateEnabled, coverageGaps } from './coverage'
 
 /**
  * G1 蓝图确认（PHASE-06 E4 / PRD §2.3）。
@@ -87,6 +88,11 @@ export function g1Blockers(repos: Repos): string[] {
     if (current && current.object !== fact.object) {
       blockers.push(`世界初值冲突：${fact.subject} 的「${fact.predicate}」与已有事实不一致`)
     }
+  }
+
+  // 覆盖检查（PHASE-15 M1-11）：只有 error 才阻断；开关关闭时一条都不加。
+  if (coverageGateEnabled(repos.project.metadata(project.id))) {
+    blockers.push(...coverageBlockers(coverageGaps(repos, project.id)))
   }
 
   return blockers

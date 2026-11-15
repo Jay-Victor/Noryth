@@ -2,12 +2,12 @@
 import type { AgentKey } from '../types'
 
 export const TOOL_ALLOWLIST: Record<AgentKey, readonly string[]> = {
-  planner: ['author.request_choice', 'blueprint.propose_patch', 'canon.search_public', 'character.get_card_full', 'character.propose_card', 'outline.get_subtree', 'project.get_meta', 'roster.propose'],
-  orchestrator: ['belief.get_for_character', 'canon.search_public', 'character.get_card_full', 'exit_dsl.validate', 'manuscript.get_final_chapter', 'manuscript.search_final', 'outline.get_subtree', 'project.get_meta', 'relationship.get_edges', 'report.get_latest', 'scene.get', 'storyboard.get_chapter', 'storyboard.propose', 'storyboard.validate', 'timeline.query', 'world.get_objective', 'world.get_reader_known'],
+  planner: ['author.request_choice', 'blueprint.propose_patch', 'canon.search_public', 'character.get_card_full', 'character.propose_card', 'coverage.check', 'impact.analyze', 'outline.get_subtree', 'project.get_meta', 'roster.propose'],
+  orchestrator: ['belief.get_for_character', 'canon.search_public', 'character.get_card_full', 'exit_dsl.validate', 'foreshadow.list_open', 'manuscript.get_final_chapter', 'manuscript.search_final', 'outline.get_subtree', 'project.get_meta', 'relationship.get_edges', 'report.get_latest', 'scene.get', 'storyboard.get_chapter', 'storyboard.propose', 'storyboard.validate', 'timeline.query', 'world.get_objective', 'world.get_reader_known'],
   character: ['belief.get_own', 'canon.search_public', 'character.get_own_card', 'memory.retrieve_own', 'outline.get_chapter_brief', 'refusal.raise', 'relationship.get_edges', 'storyboard.get_beat', 'world.get_limited'],
   narrator: ['canon.search_public', 'character.get_public_profile', 'outline.get_chapter_brief', 'storyboard.get_beat', 'world.get_reader_known'],
-  reviewer: ['belief.get_for_character', 'canon.search_public', 'character.get_card_full', 'consistency.check', 'draft.get_chapter', 'manuscript.get_final_chapter', 'manuscript.search_final', 'memory.retrieve_audit', 'outline.get_subtree', 'patch.propose', 'project.get_meta', 'relationship.get_edges', 'report.get_latest', 'report.submit', 'scene.get', 'storyboard.get_chapter', 'timeline.query', 'world.get_objective'],
-  memory: ['belief.get_for_character', 'canon.search_public', 'character.get_card_full', 'manuscript.get_final_chapter', 'manuscript.search_final', 'memory.apply', 'memory.namespace.create', 'memory.proposal.submit', 'memory.rebuild', 'outline.get_subtree', 'project.get_meta', 'relationship.get_edges', 'report.get_latest', 'timeline.query', 'world.get_objective'],
+  reviewer: ['belief.get_for_character', 'canon.search_public', 'character.get_card_full', 'consistency.check', 'draft.get_chapter', 'foreshadow.list_open', 'manuscript.get_final_chapter', 'manuscript.search_final', 'memory.retrieve_audit', 'outline.get_subtree', 'patch.propose', 'project.get_meta', 'relationship.get_edges', 'report.get_latest', 'report.submit', 'scene.get', 'storyboard.get_chapter', 'timeline.query', 'world.get_objective'],
+  memory: ['belief.get_for_character', 'canon.search_public', 'character.get_card_full', 'foreshadow.list_open', 'manuscript.get_final_chapter', 'manuscript.search_final', 'memory.apply', 'memory.namespace.create', 'memory.proposal.submit', 'memory.rebuild', 'outline.get_subtree', 'project.get_meta', 'relationship.get_edges', 'report.get_latest', 'timeline.query', 'world.get_objective'],
 }
 
 /** PRD §4.11 的 M0 基线数量（只数 milestone=M0）；M1 打开的开关不改变它。 */
@@ -22,10 +22,10 @@ export const M0_TOOL_COUNTS: Record<AgentKey, number> = {
 
 /** 当前生效的 allowlist 数量（含 M1 已打开的开关）。 */
 export const TOOL_COUNTS: Record<AgentKey, number> = {
-  planner: 8,
-  orchestrator: 17,
+  planner: 10,
+  orchestrator: 18,
   character: 9,
   narrator: 5,
-  reviewer: 18,
-  memory: 15,
+  reviewer: 19,
+  memory: 16,
 }

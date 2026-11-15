@@ -1,15 +1,15 @@
 {
   "name": "impact.analyze",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "family": "verify",
-  "summary": "分析蓝图变更影响的章节、记忆条目与关系边（P1），结果进变更记录",
+  "summary": "分析蓝图变更影响的章节、记忆条目与关系边，并写入变更记录，供作者确认后应用",
   "actors": [
     "planner"
   ],
-  "side_effect": "none",
+  "side_effect": "propose",
   "agent_callable": true,
   "requires_gate": null,
-  "idempotency": "natural",
+  "idempotency": "key_required",
   "injected": [],
   "limits": {
     "timeout_ms": 2000,
@@ -28,7 +28,243 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-      "change": {
+      "proposal_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "ops": {
+        "minItems": 1,
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "add"
+                },
+                "parent_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "parent_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "main",
+                    "volume",
+                    "chapter"
+                  ]
+                },
+                "ord": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 20000
+                },
+                "meta": {
+                  "type": "object",
+                  "properties": {
+                    "key_events": {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "text": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "chapter_node_id": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "character_ids": {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "pov_character_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "mainline": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "op",
+                "parent_id",
+                "kind",
+                "ord",
+                "title"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "update"
+                },
+                "node_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 20000
+                },
+                "meta": {
+                  "type": "object",
+                  "properties": {
+                    "key_events": {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "text": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "chapter_node_id": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "character_ids": {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "pov_character_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "mainline": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "op",
+                "node_id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "remove"
+                },
+                "node_id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "op",
+                "node_id"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "character_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "character_card": {
         "type": "object",
         "propertyNames": {
           "type": "string"
@@ -36,15 +272,17 @@
         "additionalProperties": {}
       }
     },
-    "required": [
-      "change"
-    ],
     "additionalProperties": false
   },
   "output_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
+      "change_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
       "chapters": {
         "type": "array",
         "items": {
@@ -68,12 +306,40 @@
           "minLength": 1,
           "maxLength": 80
         }
+      },
+      "counts": {
+        "type": "object",
+        "properties": {
+          "chapters": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "memory_entries": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "relationships": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "chapters",
+          "memory_entries",
+          "relationships"
+        ],
+        "additionalProperties": false
       }
     },
     "required": [
+      "change_id",
       "chapters",
       "memory_entries",
-      "relationships"
+      "relationships",
+      "counts"
     ],
     "additionalProperties": false
   },

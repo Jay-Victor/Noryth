@@ -29,6 +29,9 @@ export interface ChapterRecord {
   openedAt: string | null
   finalizedAt: string | null
   budgetTokens: number | null
+  /** 蓝图变更后的跨章标脏（0009）；只提示，不改状态与正文。 */
+  invalidatedAt: string | null
+  invalidatedReason: string | null
 }
 
 export interface NewChapterInput {
@@ -55,6 +58,8 @@ export interface ChapterSummaryRecord {
   confirmedCount: number
   wordCount: number
   finalized: boolean
+  /** 蓝图变更标脏（PHASE-15）；只给提示，不改状态。 */
+  invalidatedAt: string | null
 }
 
 interface ChapterSummaryRow {
@@ -62,6 +67,7 @@ interface ChapterSummaryRow {
   ord: number
   status: string
   final_revision_id: string | null
+  invalidated_at: string | null
   title: string | null
   beat_count: number
   confirmed_count: number
@@ -82,7 +88,9 @@ function mapChapter(row: ChapterRow): ChapterRecord {
     finalRevisionId: row.final_revision_id,
     openedAt: row.opened_at,
     finalizedAt: row.finalized_at,
-    budgetTokens: row.budget_tokens
+    budgetTokens: row.budget_tokens,
+    invalidatedAt: row.invalidated_at,
+    invalidatedReason: row.invalidated_reason
   }
 }
 
@@ -145,6 +153,7 @@ export class ChapterRepo extends BaseRepo {
           'chapter.ord as ord',
           'chapter.status as status',
           'chapter.final_revision_id as final_revision_id',
+          'chapter.invalidated_at as invalidated_at',
           'outline_node.title as title',
           (eb) => eb.fn.count<number>('beat.id').as('beat_count'),
           (eb) =>
@@ -160,6 +169,7 @@ export class ChapterRepo extends BaseRepo {
           'chapter.ord',
           'chapter.status',
           'chapter.final_revision_id',
+          'chapter.invalidated_at',
           'outline_node.title'
         ])
         .orderBy('chapter.ord')
@@ -188,7 +198,8 @@ export class ChapterRepo extends BaseRepo {
       beatCount: Number(row.beat_count),
       confirmedCount: Number(row.confirmed_count),
       wordCount: Number(row.word_count),
-      finalized: row.final_revision_id !== null
+      finalized: row.final_revision_id !== null,
+      invalidatedAt: row.invalidated_at
     }))
   }
 
@@ -242,6 +253,33 @@ export class ChapterRepo extends BaseRepo {
       this.runner.db
         .updateTable('chapter')
         .set({ status: 'finalized', final_revision_id: revisionId, finalized_at: this.now() })
+        .where('id', '=', id)
+    )
+  }
+
+  /**
+   * 蓝图变更后的跨章标脏（PHASE-15 §5.2）。
+   *
+   * 只写两列：不改章状态、不建 revision、不动正文。已定稿章同样标记，
+   * 因为「下游是否还符合新蓝图」需要作者自己判断。
+   */
+  markInvalidated(id: string, reason: string): void {
+    runStatement(
+      this.runner,
+      this.runner.db
+        .updateTable('chapter')
+        .set({ invalidated_at: this.now(), invalidated_reason: reason })
+        .where('id', '=', id)
+    )
+  }
+
+  /** 作者选择「忽略」：清掉标记，正文与状态都不动。 */
+  clearInvalidation(id: string): void {
+    runStatement(
+      this.runner,
+      this.runner.db
+        .updateTable('chapter')
+        .set({ invalidated_at: null, invalidated_reason: null })
         .where('id', '=', id)
     )
   }

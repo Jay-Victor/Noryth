@@ -159,6 +159,9 @@ export function ReviewPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
     : state.g6.blockers.length > 0
       ? state.g6.blockers[0]
       : '定稿后正文冻结'
+  // 蓝图变更标脏（PHASE-15）：只提示，不阻断审批与定稿。
+  const invalidatedAt =
+    state.chapters.find((chapter) => chapter.id === state.chapterId)?.invalidatedAt ?? null
 
   return (
     <>
@@ -374,6 +377,13 @@ export function ReviewPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
             {state.g6.alreadyFinalized ? '已定稿' : '定稿 G6'}
           </button>
         </div>
+
+        {invalidatedAt !== null ? (
+          <div className="write-invalidated" data-testid="review-invalidated" role="status">
+            <strong>蓝图变更：本章待重审</strong>
+            <span>审批不会因此被阻止；正文与版本都没有改动。重写或忽略由作者决定。</span>
+          </div>
+        ) : null}
 
         {tab === 'draft' ? <DraftView state={state} /> : null}
         {tab === 'report' ? <ReportView state={state} /> : null}

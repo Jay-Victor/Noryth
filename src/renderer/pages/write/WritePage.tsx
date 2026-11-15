@@ -152,6 +152,9 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
   const pauseBanner = state.pauseReason
     ? { reason: state.pauseReason, text: state.pauseText ?? state.pauseReason }
     : null
+  // 蓝图变更标脏（PHASE-15）：只提示，不阻断 G2/G4。
+  const invalidatedAt =
+    state.chapters.find((chapter) => chapter.id === state.chapterId)?.invalidatedAt ?? null
 
   return (
     <>
@@ -373,6 +376,24 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           </span>
         </div>
 
+        {invalidatedAt !== null ? (
+          <div className="write-invalidated" data-testid="write-invalidated" role="status">
+            <strong>蓝图变更：本章待重审</strong>
+            <span>
+              G2/G4 前提示：本章依据的蓝图已改，正文与已定稿版本都没有改动。可以继续写、重写，或忽略标记。
+            </span>
+            <button
+              type="button"
+              className="plan-mini-btn"
+              data-testid="write-invalidated-dismiss"
+              disabled={state.readOnly}
+              onClick={() => void useWrite.getState().dismissInvalidation()}
+            >
+              忽略标记
+            </button>
+          </div>
+        ) : null}
+
         {tab === 'prose' ? (
           <ProseView
             state={state}
@@ -382,7 +403,6 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
         ) : (
           <StoryboardTable state={state} />
         )}
-
         <ConfirmBar
           state={state}
           beat={currentBeat}

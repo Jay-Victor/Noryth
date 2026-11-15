@@ -141,4 +141,61 @@ describe('G1 蓝图确认', () => {
       cleanup()
     }
   })
+
+  it('覆盖检查有阻断时 G1 禁用并显示第一条原因；开关关闭后可确认', () => {
+    const w = world()
+    try {
+      const { volumeId, chapterId } = seedBlueprint(w)
+      seedCharacters(w, ['沈昼'])
+      // 卷纲列了一个从未在章里出现的角色 → character_uncast（error）
+      const viewer = w.repos.planCharacter.insert({
+        projectId: w.projectId,
+        name: '沈砚',
+        cardJson: JSON.stringify(fullCard())
+      })
+      w.repos.outline.update(volumeId, {
+        metaJson: JSON.stringify({ character_ids: [viewer.id] })
+      })
+      // 章纲 POV 指向不存在的角色 → pov_missing（error）
+      w.repos.outline.update(chapterId, {
+        metaJson: JSON.stringify({ pov_character_id: 'chr_ghost' })
+      })
+
+      const blockers = g1Blockers(w.repos)
+      expect(blockers.length).toBeGreaterThanOrEqual(2)
+      expect(blockers.some((item) => item.includes('没有任何出场章'))).toBe(true)
+      expect(blockers.some((item) => item.includes('不在角色表'))).toBe(true)
+      expect(g1Preview(w.repos).firstBlocker).toBe(blockers[0])
+
+      let code = ''
+      try {
+        confirmG1(w.handle.db, w.repos)
+      } catch (error) {
+        code = error instanceof AppError ? error.code : 'unknown'
+      }
+      expect(code).toBe('invalid_args')
+      expect(w.repos.project.get()!.blueprintLockedAt).toBeNull()
+
+      // P1 开关关闭：阻断项不再禁 G1（建议项照旧不影响）
+      w.repos.project.mergeMetadata(w.projectId, { coverage_gate: false })
+      expect(g1Blockers(w.repos).some((item) => item.includes('不在角色表'))).toBe(false)
+      const confirmed = confirmG1(w.handle.db, w.repos)
+      expect(confirmed.setupState).toBe('complete')
+    } finally {
+      cleanup()
+    }
+  })
+
+  it('meta_json 全空只给「未标注」建议，不阻断 G1（老项目升级不被卡）', () => {
+    const w = world()
+    try {
+      seedBlueprint(w)
+      seedCharacters(w, ['沈昼'])
+      expect(g1Blockers(w.repos)).toEqual([])
+      const preview = g1Preview(w.repos)
+      expect(preview.blockers).toEqual([])
+    } finally {
+      cleanup()
+    }
+  })
 })

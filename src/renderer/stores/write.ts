@@ -69,6 +69,8 @@ interface WriteStoreState {
   send(text: string): Promise<void>
   openInspector(beatId: string): Promise<void>
   closeInspector(): void
+  /** 蓝图变更标脏（PHASE-15）：作者选择忽略，只清标记。 */
+  dismissInvalidation(): Promise<void>
   applyEvent(event: WriteEvent): void
   reset(): void
 }
@@ -434,6 +436,19 @@ export const useWrite = create<WriteStoreState>((set, get) => {
 
     closeInspector() {
       set({ inspectorOpen: false, inspection: null, inspectionLoading: false })
+    },
+
+    async dismissInvalidation() {
+      const api = getBridge()
+      const state = get().state
+      if (!api || !state) return
+      const result = await api.plan.dismissInvalidation(state.chapterId)
+      if (!result.ok) {
+        useApp.getState().toast({ tone: 'error', title: result.error.message, key: 'write-dismiss' })
+        return
+      }
+      await get().load(state.chapterId)
+      useApp.getState().toast({ tone: 'success', title: '已忽略标脏', key: 'write-dismiss' })
     },
 
     applyEvent(event) {

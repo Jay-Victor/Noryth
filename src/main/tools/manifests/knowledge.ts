@@ -1,9 +1,11 @@
 import { z } from 'zod'
 import { AppError } from '../../../shared/domain/app-error'
+import { ForeshadowListOpenOutputSchema } from '../../../shared/schema/foreshadow'
 import type { Repos } from '../../db/repos'
 import type { MemoryEntryRecord, MemoryKind } from '../../db/repos/memory'
 import type { WorldFactRecord } from '../../db/repos/world'
 import { retrieveOwn } from '../../memory/retrieve'
+import { listOpenForeshadow } from '../../world/foreshadow'
 import { factValidAt, readerKnownAt } from '../../world/projection'
 import { queryTimeline } from '../support/timeline'
 import { defineTool } from '../define'
@@ -704,31 +706,39 @@ const draftGetChapter = defineTool({
   }
 })
 
-const notImplemented = (name: string): never => {
-  throw new AppError('tool_unavailable', `${name} 按里程碑开关未启用`)
-}
-
-/** T22（P1）：契约完整，enabled=false，不在任何 M0 白名单。 */
+/** T22（PHASE-15 M1-10）：只读，返回 open 列表 + 埋设章 + 距离；不产生任何阻断。 */
 const foreshadowListOpen = defineTool({
   toolId: 'T22',
   name: 'foreshadow.list_open',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'knowledge',
-  summary: '列出未回收伏笔与埋设章（P1），只报节奏，不报逻辑错误',
+  summary: '列出未回收伏笔、埋设章与当前章距离，只报节奏，不报逻辑错误',
   actors: ['orchestrator', 'reviewer', 'memory'],
   sideEffect: 'none',
   agentCallable: true,
   requiresGate: null,
   idempotency: 'natural',
-  input: z.strictObject({ as_of: z.number().int().min(0).optional() }),
-  output: z.strictObject({
-    items: z.array(z.strictObject({ id: Id, text: z.string(), planted_chapter_id: Id.nullable() }))
-  }),
+  input: z.strictObject({ chapter_id: Id.optional() }),
+  output: ForeshadowListOpenOutputSchema,
   limits: limitsFor('knowledge'),
   degrade: degradeFor('knowledge'),
   audit: AUDIT,
   milestone: 'P1',
-  handler: () => notImplemented('foreshadow.list_open')
+  enabled: true,
+  handler: (args, ctx, services) => {
+    const requested = args.chapter_id ?? ctx.chapterId ?? undefined
+    if (requested !== undefined) {
+      const chapter = services.repos.chapter.get(requested)
+      if (!chapter || chapter.projectId !== ctx.runtime.project_id) {
+        throw new AppError('invalid_args', `chapter ${requested} not in project`)
+      }
+    }
+    const data = listOpenForeshadow(services.repos, ctx.runtime.project_id, requested)
+    return {
+      data,
+      degraded: data.items.length === 0 ? ('empty' as const) : ('none' as const)
+    }
+  }
 })
 
 /** T23（M1 / PHASE-12）：三轴分开返回；as_of 不越章水位。 */

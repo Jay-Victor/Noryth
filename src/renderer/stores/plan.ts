@@ -1,5 +1,11 @@
 import { create } from 'zustand'
 import type {
+  BlueprintChangeView,
+  BlueprintMetaPatch,
+  PlanCoverageState,
+  PlanImpactAnalyzeInput
+} from '../../shared/schema/blueprint'
+import type {
   CharacterCard,
   PlanAddOutlineInput,
   PlanCharacterAddInput,
@@ -23,6 +29,8 @@ interface PlanStore {
   loading: boolean
   error: string | null
   tab: PlanTab
+  /** 覆盖检查「定位」跳转的目标节点（BlueprintPane 据此选中）。 */
+  focusNodeId: string | null
   /** 流式增量：messageId → 完整文本；终态后清空。 */
   streaming: Record<string, string>
   busySessionId: string | null
@@ -62,6 +70,15 @@ interface PlanStore {
   confirmG1(): Promise<PlanG1Result | null>
   retrySetup(): Promise<PlanG1Result | null>
   setTab(tab: PlanTab): void
+  /** 覆盖检查定位：切到蓝图 tab 并选中该节点。 */
+  focusNode(nodeId: string): void
+  refreshCoverage(): Promise<PlanCoverageState | null>
+  setCoverageGate(enabled: boolean): Promise<void>
+  saveNodeMeta(nodeId: string, meta: BlueprintMetaPatch): Promise<void>
+  analyzeImpact(input: PlanImpactAnalyzeInput): Promise<BlueprintChangeView | null>
+  applyChange(changeId: string): Promise<boolean>
+  rejectChange(changeId: string): Promise<void>
+  dismissInvalidation(chapterId: string): Promise<void>
   choose(choiceId: string, optionId: string): Promise<void>
   applyEvent(event: PlanEvent): void
   applyChoice(event: PlanChoiceRequest): void
@@ -113,6 +130,7 @@ export const usePlan = create<PlanStore>((set, get) => {
     loading: false,
     error: null,
     tab: 'blueprint',
+    focusNodeId: null,
     streaming: {},
     busySessionId: null,
     choice: null,
@@ -434,6 +452,104 @@ export const usePlan = create<PlanStore>((set, get) => {
       set({ tab })
     },
 
+    /** 覆盖检查「定位」：切到蓝图并选中节点（BlueprintPane 同步选中态）。 */
+    focusNode(nodeId) {
+      set({ tab: 'blueprint', focusNodeId: nodeId })
+    },
+
+    async refreshCoverage() {
+      const api = bridge()
+      if (!api) return null
+      const result = await api.plan.coverage()
+      if (!result.ok) {
+        toastError(result.error)
+        return null
+      }
+      const state = get().state
+      if (state) set({ state: { ...state, coverage: result.data } })
+      return result.data
+    },
+
+    async setCoverageGate(enabled) {
+      const api = bridge()
+      if (!api) return
+      const result = await api.plan.setCoverageGate(enabled)
+      if (!result.ok) {
+        toastError(result.error)
+        return
+      }
+      await get().load()
+    },
+
+    async saveNodeMeta(nodeId, meta) {
+      const api = bridge()
+      if (!api) return
+      set({ saveStatus: 'saving' })
+      const result = await api.plan.saveOutline({ nodeId, meta })
+      if (!result.ok) {
+        set({ saveStatus: 'error' })
+        toastError(result.error)
+        return
+      }
+      await get().load()
+      set({ saveStatus: 'saved', lastSavedAt: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) })
+    },
+
+    async analyzeImpact(input) {
+      const api = bridge()
+      if (!api) return null
+      const result = await api.plan.analyzeImpact(input)
+      const analyzed = unwrap(result)
+      if (!analyzed) return null
+      await get().load()
+      useApp.getState().toast({
+        tone: 'success',
+        title: '影响分析完成',
+        detail: `${analyzed.impact?.counts.chapters ?? 0} 章 / ${analyzed.impact?.counts.memory_entries ?? 0} 条记忆 / ${analyzed.impact?.counts.relationships ?? 0} 条关系边`,
+        key: `plan-impact-${analyzed.id}`
+      })
+      return analyzed
+    },
+
+    async applyChange(changeId) {
+      const api = bridge()
+      if (!api) return false
+      const result = await api.plan.applyChange({ changeId })
+      const applied = unwrap(result)
+      if (!applied) return false
+      await get().load()
+      useApp.getState().toast({
+        tone: 'success',
+        title: '变更已应用',
+        detail: `蓝图 v${applied.blueprintVersion} · ${applied.invalidatedChapters.length} 章标为待重审（正文未改动）`,
+        key: `plan-change-${changeId}`
+      })
+      return true
+    },
+
+    async rejectChange(changeId) {
+      const api = bridge()
+      if (!api) return
+      const result = await api.plan.rejectChange(changeId)
+      if (!result.ok) {
+        toastError(result.error)
+        return
+      }
+      await get().load()
+    },
+
+    async dismissInvalidation(chapterId) {
+      const api = bridge()
+      if (!api) return
+      const result = await api.plan.dismissInvalidation(chapterId)
+      if (!result.ok) {
+        toastError(result.error)
+        return
+      }
+      useApp.getState().toast({ tone: 'success', title: '已忽略标脏', key: `plan-dismiss-${chapterId}` })
+      await get().load()
+    },
+
     async choose(choiceId, optionId) {
       const api = bridge()
       if (!api) return
@@ -512,6 +628,7 @@ export const usePlan = create<PlanStore>((set, get) => {
         loading: false,
         error: null,
         tab: 'blueprint',
+        focusNodeId: null,
         streaming: {},
         busySessionId: null,
         choice: null,

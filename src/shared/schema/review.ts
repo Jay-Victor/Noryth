@@ -116,7 +116,9 @@ export const ReviewChapterSummarySchema = z.strictObject({
   title: z.string(),
   status: z.string(),
   rounds: z.number().int().nonnegative(),
-  verdict: VerdictSchema.nullable()
+  verdict: VerdictSchema.nullable(),
+  /** 蓝图变更标脏（PHASE-15）：G4 前提示「待重审」，不阻断审批。 */
+  invalidatedAt: z.string().nullable()
 })
 export type ReviewChapterSummary = z.infer<typeof ReviewChapterSummarySchema>
 

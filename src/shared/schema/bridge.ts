@@ -13,6 +13,19 @@ import type {
   SettingsView
 } from './settings'
 import type {
+  BlueprintChangeView,
+  PlanChangeApplyResult,
+  PlanCoverageState,
+  PlanImpactAnalyzeInput
+} from './blueprint'
+import type {
+  ForeshadowCreateInput,
+  ForeshadowListInput,
+  ForeshadowMutationResult,
+  ForeshadowState,
+  ForeshadowUpdateInput
+} from './foreshadow'
+import type {
   PlanAddOutlineInput,
   PlanCharacterAddInput,
   PlanCharacterSaveInput,
@@ -191,6 +204,16 @@ export interface PlanApi {
   g1Preview(): Promise<IpcResult<PlanG1Preview>>
   confirmG1(): Promise<IpcResult<PlanG1Result>>
   retrySetup(): Promise<IpcResult<PlanG1Result>>
+  /** 覆盖检查（M1-11）：与 G1 阻断同一份规则；gate=false 时不阻断。 */
+  coverage(): Promise<IpcResult<PlanCoverageState>>
+  setCoverageGate(enabled: boolean): Promise<IpcResult<PlanCoverageState>>
+  /** 影响分析（M1-8）：写一条 blueprint_change(status=proposed)。 */
+  analyzeImpact(input: PlanImpactAnalyzeInput): Promise<IpcResult<BlueprintChangeView>>
+  changes(): Promise<IpcResult<BlueprintChangeView[]>>
+  applyChange(input: { changeId: string; markChapters?: boolean }): Promise<IpcResult<PlanChangeApplyResult>>
+  rejectChange(changeId: string): Promise<IpcResult<BlueprintChangeView>>
+  /** 作者忽略跨章标脏：只清标记，不改正文。 */
+  dismissInvalidation(chapterId: string): Promise<IpcResult<{ dismissed: boolean }>>
 }
 
 export interface EventApi {
@@ -357,6 +380,13 @@ export interface WorldApi {
   closeFact(input: WorldFactCloseInput): Promise<IpcResult<WorldFactActionResult>>
   /** 关系图（PHASE-14 M1-5）：只读 as-of 回放，含确定性布局坐标。 */
   relations(input?: RelationGraphInput): Promise<IpcResult<RelationGraph>>
+  /** 伏笔（PHASE-15 M1-10）：作者标注 + 距离；不产生任何阻断。 */
+  foreshadows(input?: ForeshadowListInput): Promise<IpcResult<ForeshadowState>>
+  createForeshadow(input: ForeshadowCreateInput): Promise<IpcResult<ForeshadowMutationResult>>
+  updateForeshadow(input: ForeshadowUpdateInput): Promise<IpcResult<ForeshadowMutationResult>>
+  closeForeshadow(input: { foreshadowId: string; payoffChapterId: string }): Promise<IpcResult<ForeshadowMutationResult>>
+  reopenForeshadow(foreshadowId: string): Promise<IpcResult<ForeshadowMutationResult>>
+  removeForeshadow(foreshadowId: string): Promise<IpcResult<ForeshadowMutationResult>>
 }
 
 export interface NorythBridge {

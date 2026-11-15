@@ -1,8 +1,8 @@
 {
   "name": "coverage.check",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "family": "verify",
-  "summary": "检查卷纲关键事件无落点、角色无出场动机与章纲冲突（P1），只给建议",
+  "summary": "检查卷纲关键事件落点、主要角色出场、主线推进间隔与章纲 POV，输出可定位的 gaps",
   "actors": [
     "planner"
   ],
@@ -46,12 +46,47 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
+      "scope": {
+        "type": "string",
+        "enum": [
+          "volume",
+          "chapter",
+          "project"
+        ]
+      },
+      "error_count": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "warn_count": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
       "gaps": {
         "type": "array",
         "items": {
           "type": "object",
           "properties": {
             "code": {
+              "type": "string",
+              "enum": [
+                "key_event_unlanded",
+                "character_uncast",
+                "mainline_gap",
+                "pov_missing",
+                "meta_unannotated"
+              ]
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "error",
+                "warn"
+              ]
+            },
+            "node_id": {
               "type": "string"
             },
             "message": {
@@ -60,6 +95,8 @@
           },
           "required": [
             "code",
+            "severity",
+            "node_id",
             "message"
           ],
           "additionalProperties": false
@@ -67,6 +104,9 @@
       }
     },
     "required": [
+      "scope",
+      "error_count",
+      "warn_count",
       "gaps"
     ],
     "additionalProperties": false

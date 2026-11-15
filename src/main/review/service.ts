@@ -106,7 +106,8 @@ export class ReviewService {
         title: host.repos.outline.get(chapter.outlineNodeId)?.title ?? `第 ${chapter.ord} 章`,
         status: chapter.status,
         rounds: rounds.rounds,
-        verdict: rounds.latest?.verdict ?? null
+        verdict: rounds.latest?.verdict ?? null,
+        invalidatedAt: chapter.invalidatedAt
       }
     })
   }

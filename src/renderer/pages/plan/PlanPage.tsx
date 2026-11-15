@@ -7,6 +7,7 @@ import { usePlan, type PlanTab } from '../../stores/plan'
 import { BlueprintPane } from './BlueprintPane'
 import { CharacterCardForm } from './CharacterCardForm'
 import { ChatPane } from './ChatPane'
+import { CoveragePanel } from './CoveragePanel'
 import { GateBar } from './GateBar'
 import { WorldPane } from './WorldPane'
 
@@ -29,6 +30,7 @@ export function PlanPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
   const choice = usePlan((store) => store.choice)
   const saveStatus = usePlan((store) => store.saveStatus)
   const lastSavedAt = usePlan((store) => store.lastSavedAt)
+  const focusNodeId = usePlan((store) => store.focusNodeId)
   const [characterId, setCharacterId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -186,7 +188,11 @@ export function PlanPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
                 onClick={() => setTab(item.key)}
               >
                 {item.label}
-                {item.key === 'coverage' ? <span className="plan-tab__badge">0</span> : null}
+                {item.key === 'coverage' && state.coverage.errorCount + state.coverage.warnCount > 0 ? (
+                  <span className="plan-tab__badge" data-testid="coverage-badge">
+                    {state.coverage.errorCount + state.coverage.warnCount}
+                  </span>
+                ) : null}
               </button>
             ))}
           </div>
@@ -210,8 +216,18 @@ export function PlanPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           {tab === 'blueprint' ? (
             <BlueprintPane
               nodes={state.blueprint.nodes}
+              characters={state.characters}
               locked={locked}
+              readOnly={state.readOnly}
+              focusNodeId={focusNodeId}
               onSave={(input) => usePlan.getState().saveOutline(input)}
+              onProposeChange={async (nodeId, patch) => {
+                await usePlan.getState().analyzeImpact({ ops: [{ op: 'update', node_id: nodeId, ...patch }] })
+              }}
+              onSaveMeta={(nodeId, meta) => usePlan.getState().saveNodeMeta(nodeId, meta)}
+              onAnalyzeMeta={(nodeId, meta) =>
+                usePlan.getState().analyzeImpact({ ops: [{ op: 'update', node_id: nodeId, meta }] })
+              }
               onAdd={(parentId, kind) => usePlan.getState().addOutline({ parentId, kind, title: kind === 'main' ? '新主线' : kind === 'volume' ? '新卷' : '新章' })}
               onRemove={(nodeId) => usePlan.getState().removeOutline(nodeId)}
             />
@@ -290,17 +306,19 @@ export function PlanPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           ) : null}
 
           {tab === 'coverage' ? (
-            <div className="plan-coverage" data-testid="coverage-pane">
-              <h3>覆盖检查</h3>
-              <p className="plan-coverage__state">{state.coverage.note}</p>
-              <ul className="plan-coverage__list">
-                <li>卷纲关键事件是否有章纲落点</li>
-                <li>主要角色是否有出场动机</li>
-                <li>主线是否每 3–5 章推进一次</li>
-                <li>章纲是否与角色卡能力/关系冲突</li>
-              </ul>
-              <p className="plan-note">M0 只保留入口与数据契约；不阻断 G1。</p>
-            </div>
+            <CoveragePanel
+              coverage={state.coverage}
+              nodes={state.blueprint.nodes}
+              changes={state.changes}
+              proposals={state.proposals}
+              locked={locked}
+              readOnly={state.readOnly}
+              onFocus={(nodeId) => usePlan.getState().focusNode(nodeId)}
+              onToggleGate={(enabled) => void usePlan.getState().setCoverageGate(enabled)}
+              onAnalyzeProposal={(proposalId) => void usePlan.getState().analyzeImpact({ proposalId })}
+              onApplyChange={(changeId) => void usePlan.getState().applyChange(changeId)}
+              onRejectChange={(changeId) => void usePlan.getState().rejectChange(changeId)}
+            />
           ) : null}
         </div>
 

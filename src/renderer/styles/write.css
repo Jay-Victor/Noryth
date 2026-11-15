@@ -1045,3 +1045,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 蓝图变更标脏（PHASE-15 §5.2）：只提示，不阻断 */
+.write-invalidated {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 12px 0;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in oklab, var(--warn) 40%, transparent);
+  background: var(--warn-weak);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+}

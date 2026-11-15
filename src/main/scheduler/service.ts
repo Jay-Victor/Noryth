@@ -130,7 +130,8 @@ export class WriteService {
       sceneCount: chapter.sceneCount,
       beatCount: chapter.beatCount,
       confirmedCount: chapter.confirmedCount,
-      wordCount: chapter.wordCount
+      wordCount: chapter.wordCount,
+      invalidatedAt: chapter.invalidatedAt
     }))
   }
 

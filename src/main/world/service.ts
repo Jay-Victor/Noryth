@@ -8,10 +8,25 @@ import type {
   WorldProjectionInput,
   WorldProjectionState
 } from '../../shared/schema/memory'
+import type {
+  ForeshadowCreateInput,
+  ForeshadowListInput,
+  ForeshadowMutationResult,
+  ForeshadowState,
+  ForeshadowUpdateInput
+} from '../../shared/schema/foreshadow'
 import type { Db } from '../db/project-db'
 import type { Repos } from '../db/repos'
 import { applyAuthorFact, closeAuthorFact } from '../memory/apply'
 import { buildAuthorFactCloseInput, buildAuthorFactInput } from './author-facts'
+import {
+  closeForeshadow,
+  createForeshadow,
+  foreshadowState,
+  reopenForeshadow,
+  removeForeshadow,
+  updateForeshadow
+} from './foreshadow'
 import { projectWorld } from './projection'
 import { buildRelationGraph } from './relations'
 
@@ -235,5 +250,63 @@ export class WorldService {
       ...(input.chapterId === undefined ? {} : { chapterId: input.chapterId }),
       ...(input.asOf === undefined ? {} : { asOf: input.asOf })
     }
+  }
+
+  // ── 伏笔（PHASE-15 M1-10）────────────────────────────────────────────────
+  // 只做作者标注；不产生闸门、不进检索、不影响审批报告。
+
+  foreshadows(input: ForeshadowListInput = {}): ForeshadowState {
+    const host = this.requireHost()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    const chapterId = input.chapterId
+    if (chapterId !== undefined) {
+      const chapter = host.repos.chapter.get(chapterId)
+      if (!chapter || chapter.projectId !== project.id) throw new AppError('invalid_args', '本章不存在')
+    }
+    return foreshadowState(host.repos, project.id, chapterId, host.readOnly)
+  }
+
+  foreshadowCreate(input: ForeshadowCreateInput): ForeshadowMutationResult {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    const item = createForeshadow(host.repos, project.id, input)
+    this.deps.log?.('foreshadow_created', { projectId: project.id, foreshadowId: item.id })
+    return { state: foreshadowState(host.repos, project.id, item.plantedChapterId, host.readOnly), item }
+  }
+
+  foreshadowUpdate(input: ForeshadowUpdateInput): ForeshadowMutationResult {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    const item = updateForeshadow(host.repos, project.id, input)
+    return { state: foreshadowState(host.repos, project.id, item.plantedChapterId, host.readOnly), item }
+  }
+
+  foreshadowClose(input: { foreshadowId: string; payoffChapterId: string }): ForeshadowMutationResult {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    const item = closeForeshadow(host.repos, project.id, input)
+    this.deps.log?.('foreshadow_closed', { projectId: project.id, foreshadowId: item.id })
+    return { state: foreshadowState(host.repos, project.id, item.plantedChapterId, host.readOnly), item }
+  }
+
+  foreshadowReopen(input: { foreshadowId: string }): ForeshadowMutationResult {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    const item = reopenForeshadow(host.repos, project.id, input.foreshadowId)
+    return { state: foreshadowState(host.repos, project.id, item.plantedChapterId, host.readOnly), item }
+  }
+
+  foreshadowRemove(input: { foreshadowId: string }): ForeshadowMutationResult {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    removeForeshadow(host.repos, project.id, input.foreshadowId)
+    this.deps.log?.('foreshadow_removed', { projectId: project.id, foreshadowId: input.foreshadowId })
+    return { state: foreshadowState(host.repos, project.id, undefined, host.readOnly), item: null }
   }
 }

@@ -18,11 +18,14 @@ describe('registry contracts', () => {
     expect(ALL_MANIFESTS).toHaveLength(50)
   })
 
-  it('2. M0 注册 36 个 + M1 已打开 T23 / T40；4 个里程碑工具不在注册表', () => {
-    expect(AGENT_TOOLS.filter((tool) => tool.enabled)).toHaveLength(38)
-    expect(registry.tools.size).toBe(46) // 38 Agent + 8 系统
-    for (const name of ['foreshadow.list_open', 'voice.metrics', 'coverage.check', 'impact.analyze']) {
+  it('2. M0 注册 36 个 + 已打开 T22/T23/T26/T29/T40；只剩 voice.metrics 未注册', () => {
+    expect(AGENT_TOOLS.filter((tool) => tool.enabled)).toHaveLength(41)
+    expect(registry.tools.size).toBe(49) // 41 Agent + 8 系统
+    for (const name of ['voice.metrics']) {
       expect(registry.get(name), name).toBeUndefined()
+    }
+    for (const name of ['foreshadow.list_open', 'coverage.check', 'impact.analyze']) {
+      expect(registry.get(name), name).toBeDefined()
     }
   })
 
@@ -34,11 +37,16 @@ describe('registry contracts', () => {
       expect(TOOL_COUNTS[agent]).toBe(baseline)
     }
     for (const agent of ['orchestrator', 'reviewer'] as const) {
-      expect(registry.baselineFor(agent), agent).toHaveLength(EXPECTED[agent] + 1)
+      expect(registry.baselineFor(agent), agent).toHaveLength(EXPECTED[agent] + 2)
       expect(registry.baselineFor(agent).map((tool) => tool.name)).toContain('timeline.query')
+      expect(registry.baselineFor(agent).map((tool) => tool.name)).toContain('foreshadow.list_open')
     }
-    // 记忆管理：T23 + T40（按章重建）
-    expect(registry.baselineFor('memory')).toHaveLength(EXPECTED.memory + 2)
+    // 规划：T26 覆盖检查 + T29 影响分析
+    expect(registry.baselineFor('planner')).toHaveLength(EXPECTED.planner + 2)
+    expect(registry.baselineFor('planner').map((tool) => tool.name)).toContain('coverage.check')
+    expect(registry.baselineFor('planner').map((tool) => tool.name)).toContain('impact.analyze')
+    // 记忆管理：T23 + T40（按章重建）+ T22
+    expect(registry.baselineFor('memory')).toHaveLength(EXPECTED.memory + 3)
     expect(registry.baselineFor('memory').map((tool) => tool.name)).toContain('memory.rebuild')
   })
 
@@ -52,9 +60,9 @@ describe('registry contracts', () => {
     ])
   })
 
-  it('5. 审批列表恰好 18 个（17 + T23），且包含 G5 的 patch.propose', () => {
+  it('5. 审批列表恰好 19 个（17 + T23 + T22），且包含 G5 的 patch.propose', () => {
     const names = resolveToolset('reviewer', {}, registry).names()
-    expect(names).toHaveLength(18)
+    expect(names).toHaveLength(19)
     expect(names).toContain('patch.propose')
     expect(names).toContain('timeline.query')
     expect(names).not.toContain('memory.apply')

@@ -65,6 +65,14 @@ export const IPC = {
   planG1Preview: 'plan.g1.preview',
   planConfirmG1: 'plan.g1.confirm',
   planRetrySetup: 'plan.g1.retry',
+  // 覆盖检查 / 影响分析 / 蓝图变更（PHASE-15 M1-8 / M1-11）
+  planCoverage: 'plan.coverage',
+  planCoverageGate: 'plan.coverage.gate',
+  planImpact: 'plan.impact',
+  planChanges: 'plan.change.list',
+  planChangeApply: 'plan.change.apply',
+  planChangeReject: 'plan.change.reject',
+  planChapterDismiss: 'plan.chapter.dismiss',
   // 创作台（PHASE-07）
   writeState: 'write.state',
   writeSaveStoryboard: 'write.storyboard.save',
@@ -127,7 +135,14 @@ export const IPC = {
   worldFactAdd: 'world.fact.add',
   worldFactClose: 'world.fact.close',
   // 关系图（PHASE-14 M1-5）：as-of 回放 + 确定性圆环布局
-  worldRelations: 'world.relations'
+  worldRelations: 'world.relations',
+  // 伏笔（PHASE-15 M1-10）：作者标注 + 节奏提示，不产生阻断
+  worldForeshadowList: 'world.foreshadow.list',
+  worldForeshadowCreate: 'world.foreshadow.create',
+  worldForeshadowUpdate: 'world.foreshadow.update',
+  worldForeshadowClose: 'world.foreshadow.close',
+  worldForeshadowReopen: 'world.foreshadow.reopen',
+  worldForeshadowRemove: 'world.foreshadow.remove'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]

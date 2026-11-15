@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { MIGRATIONS, LATEST_SCHEMA_VERSION } from '../../src/main/db/migrations'
 import { checksumOf, currentVersion, migrate, normalizeMigrationSql } from '../../src/main/db/migrator'
 import { openDatabase, openDatabaseForMigrate } from '../../src/main/db/project-db'
+import { verifyDatabase } from '../../src/main/db/verify'
 import { tempDir, vecExtensionPath } from './helpers'
 
 const cleanups: Array<() => void> = []
@@ -23,7 +24,7 @@ describe('migrator', () => {
       const db = newDb(dir.path)
       try {
         const first = migrate(db, MIGRATIONS)
-        expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+        expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
         expect(first.to).toBe(LATEST_SCHEMA_VERSION)
         expect(currentVersion(db)).toBe(LATEST_SCHEMA_VERSION)
         expect(db.pragma('user_version', { simple: true })).toBe(LATEST_SCHEMA_VERSION)
@@ -101,7 +102,7 @@ describe('migrator', () => {
       ).run()
 
       const result = migrate(db, MIGRATIONS)
-      expect(result.applied).toEqual([8])
+      expect(result.applied).toEqual([8, 9])
       const row = db.prepare('SELECT timeline, story_start, story_end FROM scene WHERE id = ?').get('scn_old') as {
         timeline: string
         story_start: string | null
@@ -113,6 +114,79 @@ describe('migrator', () => {
         .get() as { name?: string } | undefined
       expect(index?.name).toBe('scene_timeline')
       expect(() => db.prepare("UPDATE scene SET timeline = 'nope' WHERE id = 'scn_old'").run()).toThrow()
+    } finally {
+      db.close()
+    }
+  })
+
+  it('0009 迁移旧项目：meta_json 默认 {}、invalidated 两列 NULL、新表与索引存在', () => {
+    const dir = tempDir()
+    cleanups.push(dir.cleanup)
+    const db = newDb(dir.path)
+    try {
+      migrate(
+        db,
+        MIGRATIONS.filter((migration) => migration.version <= 8)
+      )
+      db.prepare(
+        `INSERT INTO project (id, title, pov, embedding_model, embedding_dim, default_preset, schema_version, created_at, updated_at)
+         VALUES ('prj_old', '旧项目', 'third_limited', 'bge', 512, 'deepseek', 8, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare(
+        `INSERT INTO outline_node (id, project_id, parent_id, kind, ord, title, content, status, created_at, updated_at)
+         VALUES ('out_old', 'prj_old', NULL, 'main', 0, '旧主线', '', 'locked', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare(
+        `INSERT INTO outline_node (id, project_id, parent_id, kind, ord, title, content, status, created_at, updated_at)
+         VALUES ('out_ch', 'prj_old', 'out_old', 'chapter', 0, '旧章', '', 'locked', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare(
+        `INSERT INTO chapter (id, project_id, outline_node_id, ord, status)
+         VALUES ('ch_old', 'prj_old', 'out_ch', 1, 'planned')`
+      ).run()
+
+      const result = migrate(db, MIGRATIONS)
+      expect(result.applied).toEqual([9])
+
+      const node = db.prepare('SELECT meta_json FROM outline_node WHERE id = ?').get('out_old') as {
+        meta_json: string
+      }
+      expect(node.meta_json).toBe('{}')
+      const chapter = db
+        .prepare('SELECT invalidated_at, invalidated_reason FROM chapter WHERE id = ?')
+        .get('ch_old') as { invalidated_at: string | null; invalidated_reason: string | null }
+      expect(chapter).toEqual({ invalidated_at: null, invalidated_reason: null })
+
+      const tables = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('foreshadow','blueprint_change') ORDER BY name")
+        .all() as Array<{ name: string }>
+      expect(tables.map((row) => row.name)).toEqual(['blueprint_change', 'foreshadow'])
+      const indexes = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name IN ('foreshadow_by_status','blueprint_change_by_project') ORDER BY name"
+        )
+        .all() as Array<{ name: string }>
+      expect(indexes.map((row) => row.name)).toEqual(['blueprint_change_by_project', 'foreshadow_by_status'])
+
+      // 旧行 meta 为空 → 覆盖检查只给「未标注」建议，不阻断 G1（PHASE-15 §5.1）
+      expect(() =>
+        db
+          .prepare(
+            `INSERT INTO foreshadow (id, project_id, text, planted_chapter_id, status, created_at, updated_at)
+             VALUES ('fs_1', 'prj_old', '旧伏笔', 'ch_old', 'open', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+          )
+          .run()
+      ).not.toThrow()
+      expect(() =>
+        db
+          .prepare("UPDATE foreshadow SET status = 'nope' WHERE id = 'fs_1'")
+          .run()
+      ).toThrow()
+
+      // 旧项目升级后 db.verify() 全绿（PHASE-15 §6）
+      const report = verifyDatabase(db, { checkMirror: false })
+      expect(report.issues.filter((issue) => issue.severity === 'error')).toEqual([])
+      expect(report.ok).toBe(true)
     } finally {
       db.close()
     }

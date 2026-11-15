@@ -138,7 +138,7 @@ describe('chapter.listSummaries', () => {
     // 结构不变量：摘要行没有正文/依据字段（列表不发正文）。
     for (const summary of summaries) {
       expect(Object.keys(summary).sort()).toEqual(
-        ['beatCount', 'confirmedCount', 'finalized', 'id', 'ord', 'sceneCount', 'status', 'title', 'wordCount'].sort()
+        ['beatCount', 'confirmedCount', 'finalized', 'id', 'invalidatedAt', 'ord', 'sceneCount', 'status', 'title', 'wordCount'].sort()
       )
     }
   })

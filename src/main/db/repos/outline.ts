@@ -18,6 +18,8 @@ export interface OutlineNodeRecord {
   content: string
   status: OutlineStatus
   version: number
+  /** 结构化纲要素（覆盖检查输入，0009）；未标注为 '{}'。 */
+  metaJson: string
   createdAt: string
   updatedAt: string
 }
@@ -31,6 +33,7 @@ export interface NewOutlineNodeInput {
   title: string
   content?: string
   status?: OutlineStatus
+  metaJson?: string
   createdAt?: string
   updatedAt?: string
 }
@@ -39,6 +42,7 @@ export interface OutlineNodePatch {
   title?: string
   content?: string
   status?: OutlineStatus
+  metaJson?: string
 }
 
 type OutlineRow = Selectable<OutlineNodeTable>
@@ -54,6 +58,7 @@ function mapOutline(row: OutlineRow): OutlineNodeRecord {
     content: row.content,
     status: row.status as OutlineStatus,
     version: row.version,
+    metaJson: row.meta_json,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }
@@ -76,6 +81,7 @@ export class OutlineRepo extends BaseRepo {
       title: input.title,
       content: input.content ?? '',
       status: input.status ?? 'draft',
+      meta_json: input.metaJson ?? '{}',
       created_at: at,
       updated_at: input.updatedAt ?? at
     }
@@ -118,6 +124,7 @@ export class OutlineRepo extends BaseRepo {
     if (patch.title !== undefined) update.title = patch.title
     if (patch.content !== undefined) update.content = patch.content
     if (patch.status !== undefined) update.status = patch.status
+    if (patch.metaJson !== undefined) update.meta_json = patch.metaJson
     if (Object.keys(update).length > 0) {
       update.version = sql`version + 1`
       update.updated_at = this.now()

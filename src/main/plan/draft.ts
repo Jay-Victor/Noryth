@@ -1,5 +1,10 @@
 import { AppError } from '../../shared/domain/app-error'
 import {
+  blueprintMetaJson,
+  mergeBlueprintMeta,
+  parseBlueprintMeta
+} from '../../shared/schema/blueprint'
+import {
   CharacterCardSchema,
   emptyCharacterCard,
   withPublicFields,
@@ -54,12 +59,18 @@ export function affectedChaptersFor(repos: Repos, projectId: string, characterId
 export function saveOutlineNode(repos: Repos, input: PlanSaveOutlineInput): PlanSaveResult {
   const projectId = requireEditable(repos)
   const node = outlineOf(repos, projectId, input.nodeId)
-  if (input.title === undefined && input.content === undefined) {
-    throw new AppError('invalid_args', '至少需要 title 或 content')
+  if (input.title === undefined && input.content === undefined && input.meta === undefined) {
+    throw new AppError('invalid_args', '至少需要 title / content / meta 之一')
   }
+  // meta 是「整体替换」语义：省略 = 不改，给了就按 merged 结果落库（未知字段丢弃）。
+  const metaJson =
+    input.meta === undefined
+      ? undefined
+      : blueprintMetaJson(mergeBlueprintMeta(parseBlueprintMeta(node.metaJson), input.meta))
   const updated = repos.outline.update(node.id, {
     ...(input.title === undefined ? {} : { title: input.title }),
-    ...(input.content === undefined ? {} : { content: input.content })
+    ...(input.content === undefined ? {} : { content: input.content }),
+    ...(metaJson === undefined ? {} : { metaJson })
   })
   return { saved: true, version: updated.version, updatedAt: updated.updatedAt }
 }

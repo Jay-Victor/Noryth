@@ -1,13 +1,23 @@
-import { useState } from 'react'
-import type { PlanOutlineNode, PlanSaveOutlineInput } from '../../../shared/schema/plan'
+import { useEffect, useState } from 'react'
+import type { BlueprintMetaPatch } from '../../../shared/schema/blueprint'
+import type { PlanCharacterView, PlanOutlineNode, PlanSaveOutlineInput } from '../../../shared/schema/plan'
 import { useApp } from '../../stores/app'
 import { FieldEditor } from './FieldEditor'
+import { OutlineMetaEditor } from './OutlineMetaEditor'
 import { OutlineTree } from './OutlineTree'
 
 export interface BlueprintPaneProps {
   nodes: PlanOutlineNode[]
+  characters: PlanCharacterView[]
   locked: boolean
+  readOnly: boolean
+  /** 覆盖检查「定位」目标：选中该节点（null = 不动）。 */
+  focusNodeId: string | null
   onSave: (input: PlanSaveOutlineInput) => Promise<void>
+  /** G1 后：修改先落变更记录（影响分析），作者确认后才改大纲。 */
+  onProposeChange: (nodeId: string, patch: { title?: string; content?: string }) => Promise<void>
+  onSaveMeta: (nodeId: string, meta: BlueprintMetaPatch) => Promise<void>
+  onAnalyzeMeta: (nodeId: string, meta: BlueprintMetaPatch) => Promise<unknown>
   onAdd: (parentId: string | null, kind: PlanOutlineNode['kind']) => Promise<boolean>
   onRemove: (nodeId: string) => Promise<void>
 }
@@ -18,10 +28,26 @@ const KIND_LABEL: Record<PlanOutlineNode['kind'], string> = {
   chapter: '章'
 }
 
-export function BlueprintPane({ nodes, locked, onSave, onAdd, onRemove }: BlueprintPaneProps): React.JSX.Element {
+export function BlueprintPane({
+  nodes,
+  characters,
+  locked,
+  readOnly,
+  focusNodeId,
+  onSave,
+  onProposeChange,
+  onSaveMeta,
+  onAnalyzeMeta,
+  onAdd,
+  onRemove
+}: BlueprintPaneProps): React.JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(nodes[0]?.id ?? null)
   const selected = nodes.find((node) => node.id === selectedId) ?? nodes[0] ?? null
   const current = useApp((store) => store.current)
+
+  useEffect(() => {
+    if (focusNodeId !== null && nodes.some((node) => node.id === focusNodeId)) setSelectedId(focusNodeId)
+  }, [focusNodeId, nodes])
 
   const add = async (parentId: string | null, kind: PlanOutlineNode['kind']): Promise<void> => {
     const created = await onAdd(parentId, kind)
@@ -63,28 +89,53 @@ export function BlueprintPane({ nodes, locked, onSave, onAdd, onRemove }: Bluepr
             </header>
             {locked ? (
               <p className="plan-notice" data-testid="blueprint-locked">
-                G1 后蓝图只读；修改必须走变更流程（影响分析在 P1）。
+                G1 后蓝图只读：改标题 / 内容会先生成变更记录（影响分析），确认应用后才改大纲。
               </p>
             ) : null}
             <FieldEditor
-              label="标题"
+              label={locked ? '标题（提交变更）' : '标题'}
               value={selected.title}
-              disabled={locked}
+              disabled={readOnly}
               testId="outline-title"
-              onSave={(value) => onSave({ nodeId: selected.id, title: value })}
+              onSave={(value) =>
+                locked
+                  ? void onProposeChange(selected.id, { title: value })
+                  : onSave({ nodeId: selected.id, title: value })
+              }
             />
             <FieldEditor
-              label={selected.kind === 'chapter' ? '章纲（一句话目标 / 场景 / 禁揭）' : '内容'}
+              label={
+                locked
+                  ? '内容（提交变更）'
+                  : selected.kind === 'chapter'
+                    ? '章纲（一句话目标 / 场景 / 禁揭）'
+                    : '内容'
+              }
               multiline
               rows={selected.kind === 'chapter' ? 8 : 6}
               value={selected.content}
-              disabled={locked}
+              disabled={readOnly}
               testId="outline-content"
-              onSave={(value) => onSave({ nodeId: selected.id, content: value })}
+              onSave={(value) =>
+                locked
+                  ? void onProposeChange(selected.id, { content: value })
+                  : onSave({ nodeId: selected.id, content: value })
+              }
             />
             <p className="plan-field-foot">
-              字段自动保存（800ms）；G1 后只读。{selected.kind === 'chapter' ? '章纲不进入角色上下文。' : ''}
+              {locked ? '变更先进入变更记录；应用前大纲不变。' : '字段自动保存（800ms）。'}
+              {selected.kind === 'chapter' ? '章纲不进入角色上下文。' : ''}
             </p>
+            <OutlineMetaEditor
+              key={selected.id}
+              node={selected}
+              nodes={nodes}
+              characters={characters}
+              locked={locked}
+              readOnly={readOnly}
+              onSave={onSaveMeta}
+              onAnalyze={onAnalyzeMeta}
+            />
           </>
         ) : (
           <div className="plan-empty-skeleton" data-testid="blueprint-empty">

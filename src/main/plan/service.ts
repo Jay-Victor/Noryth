@@ -1,7 +1,14 @@
 import { existsSync, unlinkSync } from 'node:fs'
 import { AppError, isAppError } from '../../shared/domain/app-error'
 import {
-  PLAN_COVERAGE_NOTE,
+  BlueprintChangeViewSchema,
+  parseBlueprintMeta,
+  type BlueprintChangeView,
+  type PlanChangeApplyResult,
+  type PlanCoverageState,
+  type PlanImpactAnalyzeInput
+} from '../../shared/schema/blueprint'
+import {
   PlanMessageMetaSchema,
   parseCharacterCard,
   type PlanCharacterAddInput,
@@ -29,6 +36,7 @@ import type { Settings } from '../../shared/schema/project'
 import type { Db } from '../db/project-db'
 import type { Repos } from '../db/repos'
 import type { PlanMessageRecord, PlanSessionRecord } from '../db/repos/plan'
+import { withTransaction } from '../db/tx'
 import type { ChoiceOption, ChoiceResolver } from '../tools/types'
 import { ModelError } from '../model/adapter'
 import type { RegistrySnapshot } from '../tools/registry'
@@ -37,6 +45,8 @@ import { addPlanCharacter, addPlanFact, removeOutlineNode, removePlanCharacter, 
 import { confirmG1, g1Preview, retrySetup } from './g1'
 import { plannerModel, plannerModelStatus, type PlannerModel } from './model'
 import { applyProposal } from './proposals'
+import { analyzeChange, applyChange, dismissInvalidation, listChanges, rejectChange } from './change'
+import { coverageGaps, coverageGateEnabled } from './coverage'
 import { runPlanMessage } from './runtime'
 
 /**
@@ -200,7 +210,8 @@ export class PlanService {
           title: node.title,
           content: node.content,
           status: node.status,
-          version: node.version
+          version: node.version,
+          meta: parseBlueprintMeta(node.metaJson)
         }))
       },
       characters: host.repos.planCharacter.listByProject(project.id).map((character) => ({
@@ -231,9 +242,40 @@ export class PlanService {
         isolationVerified: metadata.isolation_verified === true
       },
       g1,
-      coverage: { enabled: false, note: PLAN_COVERAGE_NOTE, items: [] },
+      coverage: this.coverageOf(host),
+      changes: listChanges(host.repos, project.id).slice(0, 20),
       model: this.modelStatus(host)
     }
+  }
+
+  /** 覆盖检查（PHASE-15 M1-11）：与 G1 阻断、T26 共用一个规则实现。 */
+  private coverageOf(host: PlanHost): PlanCoverageState {
+    const project = host.repos.project.get()
+    if (!project) return { gate: true, locked: false, errorCount: 0, warnCount: 0, gaps: [] }
+    const gaps = coverageGaps(host.repos, project.id)
+    return {
+      gate: coverageGateEnabled(host.repos.project.metadata(project.id)),
+      locked: project.blueprintLockedAt !== null,
+      errorCount: gaps.filter((gap) => gap.severity === 'error').length,
+      warnCount: gaps.filter((gap) => gap.severity === 'warn').length,
+      gaps
+    }
+  }
+
+  coverage(): PlanCoverageState {
+    return this.coverageOf(this.requireHost())
+  }
+
+  /** 覆盖检查开关（PHASE-15 §7）：关掉后阻断项不再禁 G1；建议项照旧显示。 */
+  setCoverageGate(input: { enabled: boolean }): PlanCoverageState {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    if (project.blueprintLockedAt !== null) {
+      throw new AppError('invalid_args', '蓝图已锁定；覆盖检查开关不再影响 G1')
+    }
+    host.repos.project.mergeMetadata(project.id, { coverage_gate: input.enabled })
+    return this.coverageOf(host)
   }
 
   createSession(input: PlanSessionCreateInput): PlanSessionView {
@@ -419,6 +461,127 @@ export class PlanService {
     host.repos.proposal.setStatus(proposal.id, 'rejected')
     this.appendSystemCard(host, 'draft', '已拒绝提案；草案未改动。', { proposal_ids: [proposal.id], label: 'discussion' })
     return { rejected: true }
+  }
+
+  /**
+   * 影响分析（PHASE-15 M1-8）：写一条 `blueprint_change(status=proposed)`。
+   *
+   * 输入三选一：提案 id（T31/T32 的 draft 提案）、直接 ops、角色卡。
+   * G1 前没有变更流程，直接拒绝（作者走「应用建议」）。
+   */
+  analyzeImpact(input: PlanImpactAnalyzeInput): BlueprintChangeView {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+
+    let ops = input.ops
+    let characterCard = input.characterCard
+    let proposalId: string | null = null
+    if (input.proposalId !== undefined) {
+      const proposal = host.repos.proposal.get(input.proposalId)
+      if (!proposal || proposal.projectId !== project.id) throw new AppError('invalid_args', '提案不存在')
+      if (proposal.status !== 'draft') throw new AppError('invalid_args', '提案已处理')
+      const payload = this.parseProposalPayload(proposal.payloadJson)
+      if (proposal.kind === 'blueprint_patch') {
+        ops = payload.ops as NonNullable<typeof ops>
+      } else if (proposal.kind === 'character_card') {
+        if (typeof payload.character_id !== 'string') throw new AppError('invalid_args', '提案没有指定角色')
+        characterCard = {
+          character_id: payload.character_id,
+          card: (payload.card ?? {}) as Record<string, unknown>
+        }
+      } else {
+        throw new AppError('invalid_args', '注册清单提案不需要影响分析')
+      }
+      proposalId = proposal.id
+    }
+
+    const view = analyzeChange(
+      { repos: host.repos },
+      {
+        projectId: project.id,
+        ...(ops === undefined ? {} : { ops }),
+        ...(characterCard === undefined ? {} : { characterCard }),
+        ...(proposalId === null ? {} : { proposalId }),
+        actor: 'author'
+      }
+    )
+    this.appendSystemCard(
+      host,
+      'coverage',
+      `影响分析完成：${view.impact?.counts.chapters ?? 0} 章 / ${view.impact?.counts.memory_entries ?? 0} 条记忆 / ${view.impact?.counts.relationships ?? 0} 条关系边。确认后应用；不自动改正文。`,
+      { proposal_ids: proposalId === null ? [] : [proposalId], label: 'draft' }
+    )
+    this.log('plan_impact_analyzed', {
+      projectId: project.id,
+      changeId: view.id,
+      chapters: view.impact?.counts.chapters ?? 0
+    })
+    return BlueprintChangeViewSchema.parse(view)
+  }
+
+  listChanges(): BlueprintChangeView[] {
+    const host = this.requireHost()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    return listChanges(host.repos, project.id)
+  }
+
+  applyChange(input: { changeId: string; markChapters?: boolean }): PlanChangeApplyResult {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    const result = withTransaction(host.db, () =>
+      applyChange(
+        { repos: host.repos },
+        {
+          projectId: project.id,
+          changeId: input.changeId,
+          markChapters: input.markChapters ?? true
+        }
+      )
+    )
+    this.appendSystemCard(
+      host,
+      'draft',
+      `变更已应用：蓝图 v${result.blueprintVersion}；${result.invalidatedChapters.length} 章标为「待重审」（正文未改动）。`,
+      { label: 'draft' }
+    )
+    this.deps.onStateChange?.()
+    this.log('plan_change_applied', {
+      projectId: project.id,
+      changeId: input.changeId,
+      invalidated: result.invalidatedChapters.length
+    })
+    return result
+  }
+
+  rejectChange(input: { changeId: string }): BlueprintChangeView {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    return rejectChange({ repos: host.repos }, project.id, input.changeId)
+  }
+
+  /** 作者忽略跨章标脏：清标记，不动正文与章状态。 */
+  dismissInvalidation(input: { chapterId: string }): { dismissed: boolean } {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+    const result = dismissInvalidation(host.repos, project.id, input.chapterId)
+    this.deps.onStateChange?.()
+    this.log('plan_invalidation_dismissed', { projectId: project.id, chapterId: input.chapterId })
+    return result
+  }
+
+  private parseProposalPayload(payloadJson: string): Record<string, unknown> {
+    try {
+      const parsed: unknown = JSON.parse(payloadJson)
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+      return parsed as Record<string, unknown>
+    } catch {
+      throw new AppError('internal_error', '提案 payload 不是合法 JSON')
+    }
   }
 
   /** T42 作者选择：只解析本项目的挂起请求；未知/过期选项一律 invalid_args。 */

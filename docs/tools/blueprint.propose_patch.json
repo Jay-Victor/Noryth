@@ -1,8 +1,8 @@
 {
   "name": "blueprint.propose_patch",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "family": "propose",
-  "summary": "提交大纲变更提案（新增/修改/删除节点），只写草案，不直接改大纲",
+  "summary": "提交大纲变更提案（新增/修改/删除节点，含结构化纲要素），只写草案，不直接改大纲",
   "actors": [
     "planner"
   ],
@@ -46,8 +46,7 @@
                   "anyOf": [
                     {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 80
+                      "minLength": 1
                     },
                     {
                       "type": "null"
@@ -85,6 +84,62 @@
                 "content": {
                   "type": "string",
                   "maxLength": 20000
+                },
+                "meta": {
+                  "type": "object",
+                  "properties": {
+                    "key_events": {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "text": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "chapter_node_id": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "character_ids": {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "pov_character_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "mainline": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -105,8 +160,7 @@
                 },
                 "node_id": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80
+                  "minLength": 1
                 },
                 "title": {
                   "type": "string",
@@ -116,6 +170,62 @@
                 "content": {
                   "type": "string",
                   "maxLength": 20000
+                },
+                "meta": {
+                  "type": "object",
+                  "properties": {
+                    "key_events": {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "text": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "chapter_node_id": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "text"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "character_ids": {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "pov_character_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "mainline": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -133,8 +243,7 @@
                 },
                 "node_id": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 80
+                  "minLength": 1
                 }
               },
               "required": [
@@ -164,6 +273,9 @@
       "status": {
         "type": "string",
         "const": "draft"
+      },
+      "requires_change": {
+        "type": "boolean"
       },
       "diff_summary": {
         "type": "object",
@@ -204,6 +316,7 @@
     "required": [
       "proposal_id",
       "status",
+      "requires_change",
       "diff_summary"
     ],
     "additionalProperties": false

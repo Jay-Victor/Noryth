@@ -48,6 +48,21 @@ import {
   PlanStateInputSchema
 } from '../../shared/schema/plan'
 import {
+  PlanChangeApplyInputSchema,
+  PlanChangeIdInputSchema,
+  PlanCoverageGateInputSchema,
+  PlanCoverageInputSchema,
+  PlanDismissValidationInputSchema,
+  PlanImpactAnalyzeInputSchema
+} from '../../shared/schema/blueprint'
+import {
+  ForeshadowCloseInputSchema,
+  ForeshadowCreateInputSchema,
+  ForeshadowIdInputSchema,
+  ForeshadowListInputSchema,
+  ForeshadowUpdateInputSchema
+} from '../../shared/schema/foreshadow'
+import {
   SliceBeatInputSchema,
   SliceEditInputSchema,
   SliceEmptyInputSchema
@@ -570,6 +585,33 @@ export function registerIpc(deps: IpcDeps): void {
     mutation: true,
     handler: () => plan.retrySetup()
   })
+  register(IPC.planCoverage, { schema: PlanCoverageInputSchema, handler: () => plan.coverage() })
+  register(IPC.planCoverageGate, {
+    schema: PlanCoverageGateInputSchema,
+    mutation: true,
+    handler: (payload) => plan.setCoverageGate(payload)
+  })
+  register(IPC.planImpact, {
+    schema: PlanImpactAnalyzeInputSchema,
+    mutation: true,
+    handler: (payload) => plan.analyzeImpact(payload)
+  })
+  register(IPC.planChanges, { schema: PlanEmptyInputSchema, handler: () => plan.listChanges() })
+  register(IPC.planChangeApply, {
+    schema: PlanChangeApplyInputSchema,
+    mutation: true,
+    handler: (payload) => plan.applyChange(payload)
+  })
+  register(IPC.planChangeReject, {
+    schema: PlanChangeIdInputSchema,
+    mutation: true,
+    handler: (payload) => plan.rejectChange(payload)
+  })
+  register(IPC.planChapterDismiss, {
+    schema: PlanDismissValidationInputSchema,
+    mutation: true,
+    handler: (payload) => plan.dismissInvalidation(payload)
+  })
 
   const write = deps.write
   register(IPC.writeState, {
@@ -856,6 +898,35 @@ export function registerIpc(deps: IpcDeps): void {
   register(IPC.worldRelations, {
     schema: RelationGraphInputSchema,
     handler: (payload) => world.relations(payload)
+  })
+  register(IPC.worldForeshadowList, {
+    schema: ForeshadowListInputSchema,
+    handler: (payload) => world.foreshadows(payload)
+  })
+  register(IPC.worldForeshadowCreate, {
+    schema: ForeshadowCreateInputSchema,
+    mutation: true,
+    handler: (payload) => world.foreshadowCreate(payload)
+  })
+  register(IPC.worldForeshadowUpdate, {
+    schema: ForeshadowUpdateInputSchema,
+    mutation: true,
+    handler: (payload) => world.foreshadowUpdate(payload)
+  })
+  register(IPC.worldForeshadowClose, {
+    schema: ForeshadowCloseInputSchema,
+    mutation: true,
+    handler: (payload) => world.foreshadowClose(payload)
+  })
+  register(IPC.worldForeshadowReopen, {
+    schema: ForeshadowIdInputSchema,
+    mutation: true,
+    handler: (payload) => world.foreshadowReopen(payload)
+  })
+  register(IPC.worldForeshadowRemove, {
+    schema: ForeshadowIdInputSchema,
+    mutation: true,
+    handler: (payload) => world.foreshadowRemove(payload)
   })
 
   const slice = deps.slice

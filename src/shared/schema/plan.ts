@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import { BlueprintChangeViewSchema, BlueprintMetaPatchSchema, BlueprintMetaSchema, PlanCoverageSchema } from './blueprint'
+
+export { PlanCoverageSchema } from './blueprint'
 
 /**
  * 规划台契约（PHASE-06 E1–E5）。
@@ -118,8 +121,6 @@ export function missingVoiceFields(card: CharacterCard): VoiceKey[] {
   return VOICE_KEYS.filter((key) => card.voice[key].trim().length === 0)
 }
 
-export const PLAN_COVERAGE_NOTE = '覆盖检查未启用（P1）；当前不阻断 G1。'
-
 export const PLAN_SESSION_STATUSES = ['active', 'archived'] as const
 export const PlanSessionStatusSchema = z.enum(PLAN_SESSION_STATUSES)
 
@@ -182,7 +183,9 @@ export const PlanOutlineNodeSchema = z.strictObject({
   title: z.string(),
   content: z.string(),
   status: z.enum(['draft', 'approved', 'locked']),
-  version: z.number().int()
+  version: z.number().int(),
+  /** 结构化纲要素（PHASE-15 覆盖检查输入）；未标注为 {}。 */
+  meta: BlueprintMetaSchema
 })
 export type PlanOutlineNode = z.infer<typeof PlanOutlineNodeSchema>
 
@@ -248,12 +251,6 @@ export const PlanG1PreviewSchema = z.strictObject({
 })
 export type PlanG1Preview = z.infer<typeof PlanG1PreviewSchema>
 
-export const PlanCoverageSchema = z.strictObject({
-  enabled: z.literal(false),
-  note: z.string(),
-  items: z.array(z.strictObject({ code: z.string(), message: z.string() }))
-})
-
 export const PlanModelStatusSchema = z.strictObject({
   provider: z.string(),
   model: z.string(),
@@ -281,6 +278,8 @@ export const PlanStateSchema = z.strictObject({
   namespaces: PlanNamespaceSummarySchema,
   g1: PlanG1PreviewSchema,
   coverage: PlanCoverageSchema,
+  /** G1 后的蓝图变更记录（PHASE-15 M1-8）：最近 20 条。 */
+  changes: z.array(BlueprintChangeViewSchema),
   model: PlanModelStatusSchema
 })
 export type PlanState = z.infer<typeof PlanStateSchema>
@@ -317,7 +316,9 @@ export const PlanMessageIdInputSchema = z.strictObject({ messageId: z.string().m
 export const PlanSaveOutlineInputSchema = z.strictObject({
   nodeId: z.string().min(1),
   title: z.string().min(1).max(200).optional(),
-  content: z.string().max(20_000).optional()
+  content: z.string().max(20_000).optional(),
+  /** 结构化纲要素（PHASE-15 覆盖检查）：省略 = 不改。 */
+  meta: BlueprintMetaPatchSchema.optional()
 })
 export type PlanSaveOutlineInput = z.infer<typeof PlanSaveOutlineInputSchema>
 

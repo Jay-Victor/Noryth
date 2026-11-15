@@ -9,6 +9,7 @@ import { AuditList } from './AuditList'
 import { GateBar } from './GateBar'
 import { MemoryBrowser } from './MemoryBrowser'
 import { ProposalList } from './ProposalList'
+import { ForeshadowPanel } from './ForeshadowPanel'
 import { RelationshipGraph } from './RelationshipGraph'
 import { WorldStateView } from './WorldStateView'
 
@@ -24,6 +25,7 @@ const TABS: Array<{ key: MemoryTab; label: string }> = [
   { key: 'entries', label: '角色记忆' },
   { key: 'world', label: '世界状态' },
   { key: 'relations', label: '关系图' },
+  { key: 'foreshadows', label: '伏笔' },
   { key: 'audit', label: '审计' }
 ]
 
@@ -103,12 +105,20 @@ export function MemoryPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
   const busy = useMemory((store) => store.busy)
   const loading = useMemory((store) => store.loading)
   const streaming = useMemory((store) => store.streaming)
+  const foreshadows = useMemory((store) => store.foreshadows)
   const [message, setMessage] = useState('')
 
   useEffect(() => {
     useMemory.getState().reset()
     if (projectId) void useMemory.getState().load()
   }, [projectId])
+
+  // 伏笔 tab 首次进入时加载（距离按当前章算）。relation 图在组件内部按需加载。
+  useEffect(() => {
+    if (tab !== 'foreshadows') return
+    if (foreshadows !== null) return
+    void useMemory.getState().loadForeshadows(state?.chapterId ?? undefined)
+  }, [tab, foreshadows, state?.chapterId])
 
   // 键盘：J/K 上下条；A 接受；X 拒绝；E 编辑（焦点在输入框时不生效）。
   useEffect(() => {
@@ -374,6 +384,15 @@ export function MemoryPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
         {tab === 'entries' ? <MemoryBrowser state={state} /> : null}
         {tab === 'world' ? <WorldStateView state={state} /> : null}
         {tab === 'relations' ? <RelationshipGraph state={state} /> : null}
+        {tab === 'foreshadows' ? (
+          foreshadows === null ? (
+            <div className="pane-empty" data-testid="foreshadow-loading">
+              <h3>正在读取伏笔…</h3>
+            </div>
+          ) : (
+            <ForeshadowPanel state={foreshadows} />
+          )
+        ) : null}
         {tab === 'audit' ? <AuditList state={state} /> : null}
       </section>
 
