@@ -41,7 +41,7 @@
 | 变更流程 | `src/main/plan/change.ts` | 提案 → 影响 → 确认 → 应用 |
 | 伏笔 | `src/main/world/foreshadow.ts`、`src/renderer/pages/memory/ForeshadowPanel.tsx` | 标注 / 列表 / 距离 / 回收 |
 | 迁移 | `src/main/db/migrations/0009_blueprint_ops.sql` | 旧行默认；`LATEST_SCHEMA_VERSION = 9` |
-| 测试 | `tests/unit/verify/*`、`tests/e2e/blueprint.spec.ts` | `E2E-M1-BLUEPRINT-01` |
+| 测试 | `tests/unit/plan/{coverage,impact,change}.test.ts`、`tests/unit/world/foreshadow.test.ts`、`tests/integration/blueprint-change.spec.ts`、`tests/e2e/blueprint.spec.ts` | `E2E-M1-BLUEPRINT-01` + `E2E-M1-FORESHADOW-01`（单测跟着模块走，不在 `tests/unit/verify/`：规则实现在 `src/main/plan/`） |
 
 ## 4 任务分解
 
