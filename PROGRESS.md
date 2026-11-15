@@ -110,6 +110,7 @@
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
 | CI | GitHub Actions run `43707502797`（`374578b`） | verify 2m14（lint/typecheck/depcruise/unit 646/chaos 7/spec/gen/build）+ e2e 2m31，均绿；package 按规则跳过（非 `v*` tag） |
 | CI（文档提交） | GitHub Actions run `43707982690`（`e86a69e`） | verify + e2e 均绿 |
+| CI（复跑） | GitHub Actions run `43709035637`（`4711d3c`） | verify + e2e 均绿（同一代码；`43708534963` 的 e2e 中断为环境偶发） |
 | 阶段标签 | `phase-12-done` → `374578b` | 已推送 origin |
 
 ## 当前可运行命令
