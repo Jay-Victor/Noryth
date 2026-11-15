@@ -61,6 +61,15 @@ export class MemoryIndexRepo {
       .run(memoryId, embeddingBlob(vector))
   }
 
+  /**
+   * 换模型后重写向量：同一行必须「先删后插」——直接 INSERT 会撞 memory_vec 主键，
+   * 而分批事务里删与插同成败，不会留下半条向量（PHASE-14 M1-20）。
+   */
+  replaceVector(memoryId: string, vector: readonly number[]): void {
+    this.runner.raw.prepare('DELETE FROM memory_vec WHERE memory_id = ?').run(memoryId)
+    this.writeVector(memoryId, vector)
+  }
+
   hasVector(memoryId: string): boolean {
     const row = this.runner.raw.prepare('SELECT 1 AS ok FROM memory_vec WHERE memory_id = ?').get(memoryId) as
       | { ok: number }

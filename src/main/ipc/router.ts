@@ -78,8 +78,11 @@ import {
   ReviewSendInputSchema
 } from '../../shared/schema/review'
 import {
+  IndexRebuildInputSchema,
   MemoryApplyInputSchema,
   MemoryChapterInputSchema,
+  MemoryRebuildInputSchema,
+  RelationGraphInputSchema,
   WorldFactAddSchema,
   WorldFactCloseSchema,
   WorldProjectionInputSchema,
@@ -803,6 +806,26 @@ export function registerIpc(deps: IpcDeps): void {
     mutation: true,
     handler: (payload) => memory.send(payload)
   })
+  register(IPC.memoryRebuildIssue, {
+    schema: MemoryStateInputSchema,
+    mutation: true,
+    handler: (payload) => memory.issueRebuildToken(payload.chapterId)
+  })
+  register(IPC.memoryRebuild, {
+    schema: MemoryRebuildInputSchema,
+    mutation: true,
+    handler: (payload) => memory.rebuild(payload)
+  })
+  register(IPC.memoryIndexIssue, {
+    schema: EmptySchema,
+    mutation: true,
+    handler: () => memory.issueIndexToken()
+  })
+  register(IPC.memoryIndexRebuild, {
+    schema: IndexRebuildInputSchema,
+    mutation: true,
+    handler: (payload) => memory.reindex(payload)
+  })
   if (deps.devTools) {
     register(IPC.memoryDevSeed, {
       schema: MemoryDevSeedInputSchema,
@@ -829,6 +852,10 @@ export function registerIpc(deps: IpcDeps): void {
     schema: WorldFactCloseSchema,
     mutation: true,
     handler: (payload) => world.closeFact(payload)
+  })
+  register(IPC.worldRelations, {
+    schema: RelationGraphInputSchema,
+    handler: (payload) => world.relations(payload)
   })
 
   const slice = deps.slice

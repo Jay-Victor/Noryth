@@ -14,7 +14,7 @@ import { seedFixture } from '../unit/db/support/fixture'
 import { tempDir } from '../unit/helpers'
 
 /**
- * CHAOS-01..08（PHASE-10 J3 / DEV-PLAN §13.6）。
+ * CHAOS-01..09（PHASE-10 J3 / DEV-PLAN §13.6；09 = PHASE-14 M1-20）。
  *
  * 全部用真实 SQLite 文件 + 真进程强杀（`taskkill /F`）。被杀的子进程在一个
  * 未提交的事务里写 revision/outbox/memory_entry，验证的正是「要么全写要么全不写」
@@ -51,7 +51,7 @@ function setup() {
 }
 
 /** 起子进程，等它打印 ready（事务已开始/已提交），然后强杀。 */
-function runAndKill(dbPath: string, mode: 'tx' | 'committed' | 'memory', chapterId: string): Promise<void> {
+function runAndKill(dbPath: string, mode: 'tx' | 'committed' | 'memory' | 'reindex', chapterId: string): Promise<void> {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(process.execPath, [WORKER, dbPath, mode, chapterId], { stdio: ['ignore', 'pipe', 'pipe'] })
     children.push(child)
@@ -101,7 +101,7 @@ function readDb(dbPath: string): Database.Database {
   return new Database(dbPath, { readonly: true })
 }
 
-describe('CHAOS-01..08：强杀、事务、锁与写失败', () => {
+describe('CHAOS-01..09：强杀、事务、锁与写失败', () => {
   it('CHAOS-01/02 落盘事务中强杀：没有半条 revision，也没有孤儿', async () => {
     const { dir, handle, seed } = setup()
     const chapterId = seed.chapterIds[0]!
@@ -187,6 +187,58 @@ describe('CHAOS-01..08：强杀、事务、锁与写失败', () => {
       expect(after).toBe(before)
       const audit = (db.prepare("SELECT COUNT(*) AS count FROM memory_audit WHERE action = 'apply'").get() as { count: number }).count
       expect(audit).toBe(0)
+    } finally {
+      db.close()
+    }
+  })
+
+  it('CHAOS-09 索引重建中途被杀：批事务整体回滚，不留半条向量（M1-20）', async () => {
+    const { dir, handle, seed } = setup()
+    const project = handle.repos.project.get()!
+    const character = handle.repos.character.list(project.id)[0]!
+    const chapterId = seed.chapterIds[0]!
+    const revision = handle.repos.revision.listByChapter(chapterId).at(-1)!
+    const entry = handle.repos.memory.insert({
+      projectId: project.id,
+      characterId: character.id,
+      kind: 'experience',
+      text: '账本在祠堂的供桌下面',
+      learnedSeq: 1,
+      sourceChapterId: chapterId,
+      sourceRevisionId: revision.id,
+      embeddingModel: 'hash-bigram-v1'
+    })
+    const vector = Array.from({ length: 512 }, (_, index) => (index % 7) / 7)
+    handle.repos.memoryIndex.writeVector(entry.id, vector)
+    const original = handle.db.prepare('SELECT embedding AS blob FROM memory_vec WHERE memory_id = ?').get(entry.id) as {
+      blob: Buffer
+    }
+    const originalBytes = Buffer.from(original.blob)
+    const dbPath = join(dir, 'noryth.db')
+    handle.db.close()
+
+    // 子进程在事务里改模型名 + 删旧向量 + 插新向量，还没提交就被强杀。
+    await runAndKill(dbPath, 'reindex', chapterId)
+
+    const db = new Database(dbPath, { readonly: true })
+    db.loadExtension(join(process.cwd(), 'resources', 'native', 'vec0.dll'))
+    try {
+      const row = db.prepare('SELECT embedding_model FROM memory_entry WHERE id = ?').get(entry.id) as {
+        embedding_model: string
+      }
+      // 模型名没有被改成 test-v2：整批回滚
+      expect(row.embedding_model).toBe('hash-bigram-v1')
+      const after = db.prepare('SELECT embedding AS blob FROM memory_vec WHERE memory_id = ?').get(entry.id) as {
+        blob: Buffer
+      }
+      // 旧向量逐字节还在，且只此一条（删与插同事务）
+      expect(Buffer.compare(Buffer.from(after.blob), originalBytes)).toBe(0)
+      const count = db.prepare('SELECT COUNT(*) AS count FROM memory_vec WHERE memory_id = ?').get(entry.id) as {
+        count: number
+      }
+      expect(count.count).toBe(1)
+      const integrity = db.prepare('PRAGMA integrity_check').get() as { integrity_check: string }
+      expect(integrity.integrity_check).toBe('ok')
     } finally {
       db.close()
     }

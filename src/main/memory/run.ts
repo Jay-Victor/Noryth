@@ -12,7 +12,7 @@ import { RepoIdempotencyStore } from '../tools/idempotency'
 import { invokeTool, type TurnContext } from '../tools/invoke'
 import { resolveToolset } from '../tools/resolve'
 import { TurnRefRegistry } from '../tools/turn-refs'
-import type { ToolResult, ToolServices } from '../tools/types'
+import type { ToolResult, ToolServices, MemoryRebuildPort } from '../tools/types'
 import { MEMORY_ANSWER_CONTRACT, TOOL_MATERIAL_RULE } from '../agents/prompts/contract'
 import { MEMORY_PROMPT } from '../agents/prompts/memory'
 import { resolveChapterAsOf } from '../context/sources'
@@ -43,6 +43,8 @@ export interface MemoryTurnDeps {
   capabilitiesLookup?: CapabilitiesLookup
   embedder?: Embedder | null
   gateSecret?: string
+  /** T40 端口（PHASE-14）：按章重建只委派给 MemoryService。 */
+  rebuildPort?: MemoryRebuildPort
   signal?: AbortSignal
   maxRounds?: number
   hooks?: {
@@ -262,7 +264,8 @@ export async function runMemoryTurn(
   const services: ToolServices = {
     repos,
     now: () => Date.now(),
-    ...(deps.embedder === undefined || deps.embedder === null ? {} : { embedder: deps.embedder })
+    ...(deps.embedder === undefined || deps.embedder === null ? {} : { embedder: deps.embedder }),
+    ...(deps.rebuildPort === undefined ? {} : { memoryRebuild: deps.rebuildPort })
   }
 
   const turnId = `memturn_${options.messageId ?? newId('msg')}`

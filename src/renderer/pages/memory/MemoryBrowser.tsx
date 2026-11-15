@@ -23,6 +23,7 @@ export function MemoryBrowser({ state }: { state: MemoryState }): React.JSX.Elem
   const setFilters = useMemory((store) => store.setFilters)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [reason, setReason] = useState('')
+  const [confirmRebuild, setConfirmRebuild] = useState(false)
   const [recallQuery, setRecallQuery] = useState('账本 祠堂')
   const [recallCharacter, setRecallCharacter] = useState('')
   const recall = useMemory((store) => store.recall)
@@ -190,15 +191,53 @@ export function MemoryBrowser({ state }: { state: MemoryState }): React.JSX.Elem
               >
                 标记错误
               </button>
-              <button
-                type="button"
-                className="plan-btn"
-                data-testid="memory-rebuild"
-                disabled
-                title="按章重建是 M1；本阶段只提供来源追溯与软失效"
-              >
-                按章重建（M1）
-              </button>
+              {confirmRebuild ? (
+                <div className="memory-detail__confirm" data-testid="memory-rebuild-confirm">
+                  <span>
+                    按章重建「{state.chapterTitle}」：旧条目全部失效（不删除），重新抽取并写入新条目。确认？
+                  </span>
+                  <button
+                    type="button"
+                    className="plan-btn"
+                    data-testid="memory-rebuild-run"
+                    disabled={busy || !state.rebuild.allowed}
+                    onClick={() => {
+                      if (state.chapterId !== null) void useMemory.getState().rebuild(state.chapterId)
+                      setConfirmRebuild(false)
+                    }}
+                  >
+                    确认重建
+                  </button>
+                  <button
+                    type="button"
+                    className="plan-btn"
+                    data-testid="memory-rebuild-cancel"
+                    onClick={() => setConfirmRebuild(false)}
+                  >
+                    取消
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="plan-btn"
+                  data-testid="memory-rebuild"
+                  disabled={
+                    state.readOnly ||
+                    busy ||
+                    !state.rebuild.allowed ||
+                    selected.sourceChapterId !== state.chapterId
+                  }
+                  title={
+                    selected.sourceChapterId !== state.chapterId
+                      ? '这条记忆来自别的章：先切到那一章再重建'
+                      : (state.rebuild.reason ?? '按章重建：旧条目失效，重新抽取；需作者确认')
+                  }
+                  onClick={() => setConfirmRebuild(true)}
+                >
+                  按章重建
+                </button>
+              )}
             </div>
           </aside>
         ) : null}

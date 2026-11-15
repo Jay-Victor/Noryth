@@ -18,10 +18,10 @@ describe('registry contracts', () => {
     expect(ALL_MANIFESTS).toHaveLength(50)
   })
 
-  it('2. M0 注册 36 个 + M1 已打开 T23；5 个里程碑工具不在注册表', () => {
-    expect(AGENT_TOOLS.filter((tool) => tool.enabled)).toHaveLength(37)
-    expect(registry.tools.size).toBe(45) // 37 Agent + 8 系统
-    for (const name of ['foreshadow.list_open', 'voice.metrics', 'coverage.check', 'impact.analyze', 'memory.rebuild']) {
+  it('2. M0 注册 36 个 + M1 已打开 T23 / T40；4 个里程碑工具不在注册表', () => {
+    expect(AGENT_TOOLS.filter((tool) => tool.enabled)).toHaveLength(38)
+    expect(registry.tools.size).toBe(46) // 38 Agent + 8 系统
+    for (const name of ['foreshadow.list_open', 'voice.metrics', 'coverage.check', 'impact.analyze']) {
       expect(registry.get(name), name).toBeUndefined()
     }
   })
@@ -33,10 +33,13 @@ describe('registry contracts', () => {
       expect(baseline).toBeGreaterThanOrEqual(EXPECTED[agent])
       expect(TOOL_COUNTS[agent]).toBe(baseline)
     }
-    for (const agent of ['orchestrator', 'reviewer', 'memory'] as const) {
+    for (const agent of ['orchestrator', 'reviewer'] as const) {
       expect(registry.baselineFor(agent), agent).toHaveLength(EXPECTED[agent] + 1)
       expect(registry.baselineFor(agent).map((tool) => tool.name)).toContain('timeline.query')
     }
+    // 记忆管理：T23 + T40（按章重建）
+    expect(registry.baselineFor('memory')).toHaveLength(EXPECTED.memory + 2)
+    expect(registry.baselineFor('memory').map((tool) => tool.name)).toContain('memory.rebuild')
   })
 
   it('4. 旁白列表恰好 5 个', () => {

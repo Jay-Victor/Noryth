@@ -3,6 +3,7 @@
 //   tx      在事务里写半条 revision，打印 ready 后不提交，等被杀
 //   committed  提交一条 revision 后打印 ready，等被杀（模拟落盘后、镜像前的崩溃）
 //   memory  在事务里写半条 memory_entry，等被杀
+//   reindex 在事务里改一条 memory_entry 的模型名 + 换向量，等被杀（PHASE-14 M1-20）
 // 只写表、不调应用代码：目的是让 SQLite 在一个真实的事务中被强杀。
 const Database = require('better-sqlite3')
 
@@ -45,6 +46,20 @@ try {
       `INSERT INTO memory_entry (id, project_id, character_id, kind, text, learned_seq, source_chapter_id, source_revision_id, source_beat_id, importance, pinned, valid_from_seq, valid_to_seq, supersedes_id, embedding_model, status, created_at)
        VALUES (?, ?, ?, 'experience', '混沌写入', 1, ?, ?, NULL, 0.5, 0, NULL, NULL, NULL, 'hash-bigram-v1', 'active', ?)`
     ).run(`mem_chaos_${Date.now().toString(36)}`, project.id, character.id, chapter.id, revision.id, now)
+  } else if (mode === 'reindex') {
+    const path = require('node:path')
+    db.loadExtension(path.join(__dirname, '..', '..', 'resources', 'native', 'vec0.dll'))
+    const entry = db
+      .prepare("SELECT id FROM memory_entry WHERE status = 'active' ORDER BY learned_seq, id LIMIT 1")
+      .get()
+    if (!entry) throw new Error('reindex 需要一条 active memory_entry')
+    db.exec('BEGIN IMMEDIATE')
+    db.prepare("UPDATE memory_entry SET embedding_model = 'test-v2' WHERE id = ?").run(entry.id)
+    db.prepare('DELETE FROM memory_vec WHERE memory_id = ?').run(entry.id)
+    const vector = Buffer.alloc(512 * 4)
+    for (let index = 0; index < 512; index += 1) vector.writeFloatLE(0.5, index * 4)
+    db.prepare('INSERT INTO memory_vec(memory_id, embedding) VALUES (?, ?)').run(entry.id, vector)
+    process.stdout.write(`ready reindexing ${entry.id}\n`)
   } else {
     throw new Error(`unknown mode: ${mode}`)
   }

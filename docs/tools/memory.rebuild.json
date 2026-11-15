@@ -1,8 +1,8 @@
 {
   "name": "memory.rebuild",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "family": "propose",
-  "summary": "按章重建记忆（M1）：旧 revision 记忆标 inactive，不物理删除",
+  "summary": "按章重建记忆（M1）：旧 revision 记忆标 inactive，不物理删除；需 author_confirm",
   "actors": [
     "memory"
   ],

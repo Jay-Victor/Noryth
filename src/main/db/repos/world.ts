@@ -397,6 +397,25 @@ export class RelationshipRepo extends BaseRepo {
     return rows.map(mapRelationship)
   }
 
+  /**
+   * 全量边（含历史关闭行）：as-of 投影与关系图回放必须看到「过去有效、后来关闭」的边，
+   * 只用 listActiveAll 会让滑杆回到过去时边凭空消失（PHASE-14 M1-5）。
+   */
+  listByProject(projectId: string): RelationshipEdgeRecord[] {
+    const rows = allRows<RelationshipRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('relationship_edge')
+        .selectAll()
+        .where('project_id', '=', projectId)
+        .orderBy('from_id')
+        .orderBy('to_id')
+        .orderBy('axis')
+        .orderBy('since_seq')
+    )
+    return rows.map(mapRelationship)
+  }
+
   current(fromId: string, toId: string, axis: RelationshipAxis): RelationshipEdgeRecord | null {
     const row = firstRow<RelationshipRow>(
       this.runner,

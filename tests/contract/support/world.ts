@@ -10,7 +10,7 @@ import type { ManifestBeatRow } from '../../../src/main/db/revision'
 import { openTestDb, closeTestDb } from '../../unit/db/support/db'
 import { applyMemoryProposals } from '../../../src/main/memory/apply'
 import { createHashEmbedder } from '../../../src/main/memory/embed/hash'
-import type { MemoryApplyPort } from '../../../src/main/tools/types'
+import type { MemoryApplyPort, MemoryRebuildPort } from '../../../src/main/tools/types'
 
 /**
  * 契约测试的合成项目：一个草稿章 + 一个定稿章，足够覆盖 36 个工具。
@@ -466,6 +466,13 @@ export function openContractWorld(): ContractWorld {
  * 契约测试的记忆执行器：与生产同一个 `applyMemoryProposals`，只换嵌入器。
  * T39 的 handler 只委派到这个端口，因此这里的语义就是生产语义。
  */
+/** T40 端口（PHASE-14）：契约夹具只验证「委派 + 输出 schema + 幂等」，不跑模型。 */
+export function memoryRebuildPort(): MemoryRebuildPort {
+  return {
+    rebuildFromTokenHash: async () => ({ inactiveCount: 1, rebuiltCount: 2 })
+  }
+}
+
 export function memoryApplyPort(world: ContractWorld): MemoryApplyPort {
   const embedder = createHashEmbedder()
   return {

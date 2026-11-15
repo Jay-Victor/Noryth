@@ -151,6 +151,15 @@ export interface MemoryApplyPort {
   apply(input: MemoryApplyPortInput): Promise<ApplyResult>
 }
 
+/** 按章重建端口（PHASE-14 M1-4）：author_confirm 已由流水线校验，这里只消费哈希。 */
+export interface MemoryRebuildPort {
+  rebuildFromTokenHash(input: {
+    chapterId: string
+    gateTokenHash: string
+    actor: string
+  }): Promise<{ inactiveCount: number; rebuiltCount: number }>
+}
+
 export interface ToolServices {
   repos: Repos
   /** 毫秒时钟，测试可注入；审计 latency 与超时共用。 */
@@ -159,5 +168,7 @@ export interface ToolServices {
   embedder?: Embedder
   /** 记忆执行器（阶段 09）：T39 只委派，不自己写库。 */
   memory?: MemoryApplyPort
+  /** 按章重建（阶段 14）：T40 只委派，不自己写库。 */
+  memoryRebuild?: MemoryRebuildPort
   choices?: ChoiceResolver
 }

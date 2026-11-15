@@ -1,5 +1,6 @@
 import { MemoryService } from '../../src/main/memory/service'
 import { createHashEmbedder } from '../../src/main/memory/embed/hash'
+import type { Embedder } from '../../src/main/memory/embed/types'
 import { ALL_MANIFESTS } from '../../src/main/tools/manifests'
 import { buildRegistry } from '../../src/main/tools/registry'
 import { LATEST_SCHEMA_VERSION } from '../../src/main/db/migrations'
@@ -32,7 +33,9 @@ export interface MemoryTestWorld {
 const registry = buildRegistry(ALL_MANIFESTS, { at: '2026-01-01T00:00:00.000Z' })
 export const MEMORY_GATE_SECRET = 'integration-memory-gate'
 
-export function openMemoryWorld(options: { env?: NodeJS.ProcessEnv } = {}): MemoryTestWorld {
+export function openMemoryWorld(
+  options: { env?: NodeJS.ProcessEnv; embedder?: Embedder } = {}
+): MemoryTestWorld {
   const temp = tempDir('noryth-memory-')
   const handle = openTestDb(temp.path)
   const project = handle.repos.project.create({
@@ -54,7 +57,7 @@ export function openMemoryWorld(options: { env?: NodeJS.ProcessEnv } = {}): Memo
     allowFakeModel: true,
     gateSecret: MEMORY_GATE_SECRET,
     send: (event) => events.push(event),
-    embedder: createHashEmbedder(),
+    embedder: options.embedder ?? createHashEmbedder(),
     fakeChunkDelayMs: 0,
     env: options.env ?? { NORYTH_MEMORY_FAKE: '1' }
   })

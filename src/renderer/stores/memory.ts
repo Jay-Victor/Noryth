@@ -3,6 +3,8 @@ import type {
   MemoryEvent,
   MemoryRecallResult,
   MemoryState,
+  RelationGraph,
+  RelationGraphInput,
   WorldFactAddInput,
   WorldProjectionState
 } from '../../shared/schema/memory'
@@ -18,7 +20,7 @@ import { useApp } from './app'
  * - 讨论只解释来源，不改库。
  */
 
-export type MemoryTab = 'proposals' | 'entries' | 'world' | 'audit'
+export type MemoryTab = 'proposals' | 'entries' | 'world' | 'relations' | 'audit'
 
 export interface MemoryFilters {
   characterId: string | null
@@ -48,6 +50,9 @@ interface MemoryStoreState {
   /** 世界状态 as-of 投影（PHASE-13 M1-3）。与 state 分开：可回放到任意叙事序。 */
   projection: WorldProjectionState | null
   projectionLoading: boolean
+  /** 关系图（PHASE-14 M1-5）：as-of 回放 + 确定性布局（坐标由主进程给出）。 */
+  relations: RelationGraph | null
+  relationsLoading: boolean
   /** 读者视角预览：只看 reveal_seq 已揭示的事实。 */
   readerOnly: boolean
   error: string | null
@@ -67,6 +72,12 @@ interface MemoryStoreState {
   checkIsolation(): Promise<void>
   loadProjection(input?: { chapterId?: string; asOf?: number }): Promise<void>
   setReaderOnly(readerOnly: boolean): void
+  /** 关系图（M1-5）：as-of 回放；坐标由主进程算好。 */
+  loadRelations(input?: RelationGraphInput): Promise<void>
+  /** 按章重建（M1-4）：先签发 author_confirm，再执行。 */
+  rebuild(chapterId: string): Promise<void>
+  /** 索引重建（M1-20）：换模型后分批重算向量。 */
+  reindex(): Promise<void>
   addFact(input: WorldFactAddInput): Promise<boolean>
   closeFact(factId: string, reason?: string): Promise<boolean>
   send(text: string): Promise<void>
@@ -104,6 +115,8 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
     isolation: null,
     projection: null,
     projectionLoading: false,
+    relations: null,
+    relationsLoading: false,
     readerOnly: false,
     error: null,
 
@@ -123,6 +136,7 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
       void get().loadProjection(
         state.chapterId === null ? {} : { chapterId: state.chapterId }
       )
+      void get().loadRelations(state.chapterId === null ? {} : { chapterId: state.chapterId })
       if (
         state.chapterId !== null &&
         state.jobStatus === 'queued' &&
@@ -157,6 +171,69 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
 
     setReaderOnly(readerOnly) {
       set({ readerOnly })
+    },
+
+    async loadRelations(input = {}) {
+      const bridge = getBridge()
+      if (!bridge) return
+      set({ relationsLoading: true })
+      const result = await bridge.world.relations(input)
+      set({ relationsLoading: false })
+      if (!result.ok) {
+        set({ relations: null })
+        toastError(result.error.message, result.error.code)
+        return
+      }
+      set({ relations: result.data })
+    },
+
+    async rebuild(chapterId) {
+      const bridge = getBridge()
+      if (!bridge) return
+      set({ busy: true })
+      // 只有真正点确认才签发 author_confirm：取消不留下未消费的令牌。
+      const issued = await bridge.memory.issueRebuildToken(chapterId)
+      if (!issued.ok) {
+        set({ busy: false })
+        toastError(issued.error.message, issued.error.code)
+        return
+      }
+      const result = await bridge.memory.rebuild({ chapterId, token: issued.data.token })
+      set({ busy: false })
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        await get().load(chapterId)
+        return
+      }
+      apply(result.data.state)
+      toastOk(result.data.detail ?? '已重建')
+      await get().loadRelations({ chapterId })
+      await get().loadProjection({ chapterId })
+    },
+
+    async reindex() {
+      const bridge = getBridge()
+      if (!bridge) return
+      set({ busy: true })
+      const issued = await bridge.memory.issueIndexToken()
+      if (!issued.ok) {
+        set({ busy: false })
+        toastError(issued.error.message, issued.error.code)
+        return
+      }
+      const result = await bridge.memory.reindex({ token: issued.data.token })
+      set({ busy: false })
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        await get().load()
+        return
+      }
+      apply(result.data.state)
+      toastOk(result.data.detail ?? '索引已重建')
+      const state = get().state
+      if (state !== null) {
+        await get().loadRelations(state.chapterId === null ? {} : { chapterId: state.chapterId })
+      }
     },
 
     async addFact(input) {
@@ -302,6 +379,9 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
         ...(projection?.chapterId == null ? {} : { chapterId: projection.chapterId }),
         ...(projection === null ? {} : { asOf: projection.asOf })
       })
+      await get().loadRelations({
+        ...(projection?.chapterId == null ? {} : { chapterId: projection.chapterId })
+      })
       set({ tab: 'entries' })
     },
 
@@ -391,6 +471,8 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
         isolation: null,
         projection: null,
         projectionLoading: false,
+        relations: null,
+        relationsLoading: false,
         readerOnly: false,
         error: null,
         busy: false,

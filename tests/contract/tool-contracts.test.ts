@@ -8,9 +8,9 @@ for (const [name, fixture] of Object.entries(CONTRACT_FIXTURES)) {
 }
 
 describe('contract fixtures', () => {
-  it('37 个已实现工具每个都有六类契约夹具', () => {
+  it('38 个已实现工具每个都有六类契约夹具', () => {
     const enabled = AGENT_TOOLS.filter((tool) => tool.enabled).map((tool) => tool.name).sort()
-    expect(enabled).toHaveLength(37)
+    expect(enabled).toHaveLength(38)
     expect(Object.keys(CONTRACT_FIXTURES).sort()).toEqual(enabled)
   })
 

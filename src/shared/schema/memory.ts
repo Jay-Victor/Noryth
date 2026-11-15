@@ -227,6 +227,65 @@ export const MemoryGateSchema = z.strictObject({
 })
 export type MemoryGateState = z.infer<typeof MemoryGateSchema>
 
+/** 按章重建（PHASE-14 M1-4）：作者点按钮 → author_confirm → 整章重建。 */
+export const MemoryRebuildStateSchema = z.strictObject({
+  allowed: z.boolean(),
+  reason: z.string().nullable(),
+  chapterId: z.string().nullable(),
+  revisionId: z.string().nullable(),
+  entryCount: z.number().int().nonnegative(),
+  factCount: z.number().int().nonnegative(),
+  edgeCount: z.number().int().nonnegative(),
+  jobId: z.string().nullable(),
+  jobStatus: z.enum(['queued', 'running', 'applied', 'failed', 'cancelled']).nullable(),
+  inactiveCount: z.number().int().nonnegative(),
+  rebuiltCount: z.number().int().nonnegative()
+})
+export type MemoryRebuildState = z.infer<typeof MemoryRebuildStateSchema>
+
+export const MemoryRebuildPreviewSchema = z.strictObject({
+  chapterId: z.string(),
+  revisionId: z.string(),
+  entryCount: z.number().int().nonnegative(),
+  factCount: z.number().int().nonnegative(),
+  edgeCount: z.number().int().nonnegative(),
+  blockers: z.array(z.string())
+})
+export type MemoryRebuildPreview = z.infer<typeof MemoryRebuildPreviewSchema>
+
+export const MemoryRebuildIssueResultSchema = z.strictObject({
+  token: z.string(),
+  expiresAt: z.string(),
+  preview: MemoryRebuildPreviewSchema
+})
+export type MemoryRebuildIssueResult = z.infer<typeof MemoryRebuildIssueResultSchema>
+
+/** 索引重建（PHASE-14 M1-20）：向量通道按模型过滤，换模型后分批重算子集。 */
+export const IndexRebuildStateSchema = z.strictObject({
+  allowed: z.boolean(),
+  reason: z.string().nullable(),
+  targetModel: z.string(),
+  dim: z.number().int(),
+  degraded: z.boolean(),
+  /** `embedding_model != targetModel` 的 active 条目数。 */
+  pendingCount: z.number().int().nonnegative(),
+  totalCount: z.number().int().nonnegative(),
+  jobId: z.string().nullable(),
+  jobStatus: z.enum(['queued', 'running', 'applied', 'failed', 'cancelled']).nullable(),
+  rebuiltCount: z.number().int().nonnegative()
+})
+export type IndexRebuildState = z.infer<typeof IndexRebuildStateSchema>
+
+export const IndexRebuildIssueResultSchema = z.strictObject({
+  token: z.string(),
+  expiresAt: z.string(),
+  preview: z.strictObject({
+    targetModel: z.string(),
+    pendingCount: z.number().int().nonnegative()
+  })
+})
+export type IndexRebuildIssueResult = z.infer<typeof IndexRebuildIssueResultSchema>
+
 export const MemoryStateSchema = z.strictObject({
   projectId: z.string(),
   projectTitle: z.string(),
@@ -251,6 +310,10 @@ export const MemoryStateSchema = z.strictObject({
   g7: MemoryGateSchema,
   running: z.boolean(),
   hasProposals: z.boolean(),
+  /** 按章重建（PHASE-14 M1-4）。 */
+  rebuild: MemoryRebuildStateSchema,
+  /** 索引重建（PHASE-14 M1-20）：换模型后的向量重算。 */
+  index: IndexRebuildStateSchema,
   model: z.strictObject({
     provider: z.string(),
     model: z.string(),
@@ -261,7 +324,9 @@ export const MemoryStateSchema = z.strictObject({
     model: z.string(),
     dim: z.number().int(),
     degraded: z.boolean(),
-    vectorCount: z.number().int().nonnegative()
+    vectorCount: z.number().int().nonnegative(),
+    /** `embedding_model != 当前模型` 的 active 条目数（>0 显示「索引待重建」）。 */
+    pendingCount: z.number().int().nonnegative()
   })
 })
 export type MemoryState = z.infer<typeof MemoryStateSchema>
@@ -304,6 +369,15 @@ export const MemoryRecallInputSchema = z.strictObject({
 export const MemorySendInputSchema = z.strictObject({
   chapterId: z.string().min(1).optional(),
   text: z.string().min(1).max(4000)
+})
+/** 按章重建（PHASE-14 M1-4）：author_confirm 一次性令牌（10 分钟）。 */
+export const MemoryRebuildInputSchema = z.strictObject({
+  chapterId: z.string().min(1),
+  token: z.string().min(1)
+})
+/** 索引重建（PHASE-14 M1-20）：author_confirm 一次性令牌（10 分钟）。 */
+export const IndexRebuildInputSchema = z.strictObject({
+  token: z.string().min(1)
 })
 export const MemoryDevSeedInputSchema = z.strictObject({
   scenes: z.number().int().min(1).max(3).optional(),
@@ -388,7 +462,9 @@ export const WorldEdgeViewSchema = z.strictObject({
   value: z.number(),
   sinceSeq: z.number().int(),
   validToSeq: z.number().int().nullable(),
-  sourceType: z.string()
+  sourceType: z.string(),
+  /** 来源（记忆条目 / 拍）；关系图「点边看来源」用它回到章与拍。 */
+  sourceId: z.string().nullable()
 })
 export type WorldEdgeView = z.infer<typeof WorldEdgeViewSchema>
 
@@ -458,6 +534,69 @@ export const WorldFactActionResultSchema = z.strictObject({
   detail: z.string().nullable()
 })
 export type WorldFactActionResult = z.infer<typeof WorldFactActionResultSchema>
+
+/**
+ * 关系图（PHASE-14 M1-5 / UI-DESIGN §7.4）。
+ *
+ * 只读：节点 = active 角色，边 = as-of 投影后的 `relationship_edge`；布局在主进程算好
+ * （确定性圆环，同数据同坐标），renderer 只画 SVG。**不含任何私有记忆文本。**
+ */
+export const RelationNodeSchema = z.strictObject({
+  id: z.string(),
+  name: z.string(),
+  /** 圆环布局坐标（viewBox 640×360，容差 1px）。 */
+  x: z.number(),
+  y: z.number()
+})
+export type RelationNode = z.infer<typeof RelationNodeSchema>
+
+export const RelationGraphEdgeSchema = z.strictObject({
+  id: z.string(),
+  fromId: z.string(),
+  toId: z.string(),
+  axis: z.enum(['trust', 'intimacy', 'tension']),
+  value: z.number(),
+  sinceSeq: z.number().int(),
+  validToSeq: z.number().int().nullable(),
+  sourceType: z.string(),
+  sourceId: z.string().nullable(),
+  /** 来源的人话标签（章标题 · 记忆 / 拍）；不包含记忆正文。 */
+  sourceLabel: z.string(),
+  /** 没有反向边（同轴）= 单向未确认：UI 画虚线。 */
+  bidirectional: z.boolean()
+})
+export type RelationGraphEdge = z.infer<typeof RelationGraphEdgeSchema>
+
+export const RelationGraphSchema = z.strictObject({
+  projectId: z.string(),
+  seqHead: z.number().int().nonnegative(),
+  chapterId: z.string().nullable(),
+  chapterOrd: z.number().int().positive().nullable(),
+  coverage: z.number().int().nonnegative().nullable(),
+  readOnly: z.boolean(),
+  asOf: z.number().int().nonnegative(),
+  nodes: z.array(RelationNodeSchema),
+  edges: z.array(RelationGraphEdgeSchema),
+  counts: z.strictObject({
+    nodes: z.number().int().nonnegative(),
+    edges: z.number().int().nonnegative(),
+    byAxis: z.strictObject({
+      trust: z.number().int().nonnegative(),
+      intimacy: z.number().int().nonnegative(),
+      tension: z.number().int().nonnegative()
+    }),
+    oneWay: z.number().int().nonnegative()
+  })
+})
+export type RelationGraph = z.infer<typeof RelationGraphSchema>
+
+export const RelationGraphInputSchema = z.strictObject({
+  chapterId: z.string().min(1).optional(),
+  asOf: z.number().int().min(0).optional(),
+  /** 聚焦某角色邻域（角色多时用）；省略 = 全量节点。 */
+  focusId: z.string().min(1).optional()
+})
+export type RelationGraphInput = z.infer<typeof RelationGraphInputSchema>
 
 /** 流式事件：抽取长任务的进度；提案以 state 为准。 */
 export const MemoryEventSchema = z.strictObject({

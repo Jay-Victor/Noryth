@@ -9,6 +9,7 @@ import { AuditList } from './AuditList'
 import { GateBar } from './GateBar'
 import { MemoryBrowser } from './MemoryBrowser'
 import { ProposalList } from './ProposalList'
+import { RelationshipGraph } from './RelationshipGraph'
 import { WorldStateView } from './WorldStateView'
 
 /**
@@ -22,6 +23,7 @@ const TABS: Array<{ key: MemoryTab; label: string }> = [
   { key: 'proposals', label: '提案' },
   { key: 'entries', label: '角色记忆' },
   { key: 'world', label: '世界状态' },
+  { key: 'relations', label: '关系图' },
   { key: 'audit', label: '审计' }
 ]
 
@@ -32,6 +34,7 @@ function isEditable(target: EventTarget | null): boolean {
 }
 
 function SummaryCard({ state }: { state: MemoryState }): React.JSX.Element {
+  const busy = useMemory((store) => store.busy)
   const counts = useMemo(() => {
     const result = { memory: 0, relation: 0, world: 0, supersede: 0, belief: 0 }
     for (const item of state.proposals) {
@@ -66,6 +69,28 @@ function SummaryCard({ state }: { state: MemoryState }): React.JSX.Element {
         {state.embedding.model}（{state.embedding.dim} 维）· 向量 {state.embedding.vectorCount} 条
         {state.embedding.degraded ? ' · 哈希降级' : ''}
       </p>
+      {state.rebuild.jobStatus === 'applied' ? (
+        <p className="pane-header__meta" data-testid="memory-rebuild-result">
+          上次重建：旧条目 {state.rebuild.inactiveCount} 条失效 · 新条目 {state.rebuild.rebuiltCount} 条生效
+        </p>
+      ) : null}
+      {state.index.pendingCount > 0 ? (
+        <div className="memory-index-note" data-testid="memory-index-note">
+          <span>
+            索引待重建：{state.index.pendingCount} / {state.index.totalCount} 条仍用其它模型
+          </span>
+          <button
+            type="button"
+            className="plan-btn"
+            data-testid="memory-index-rebuild"
+            disabled={!state.index.allowed || busy}
+            title={state.index.reason ?? '按当前模型重算向量（分批 32，可恢复）'}
+            onClick={() => void useMemory.getState().reindex()}
+          >
+            重建索引
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -348,6 +373,7 @@ export function MemoryPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
         {tab === 'proposals' ? <ProposalList state={state} /> : null}
         {tab === 'entries' ? <MemoryBrowser state={state} /> : null}
         {tab === 'world' ? <WorldStateView state={state} /> : null}
+        {tab === 'relations' ? <RelationshipGraph state={state} /> : null}
         {tab === 'audit' ? <AuditList state={state} /> : null}
       </section>
 

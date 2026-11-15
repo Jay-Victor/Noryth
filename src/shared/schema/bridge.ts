@@ -41,12 +41,16 @@ import type {
 } from './slice'
 import type { StoryboardConflict, StoryboardDraft } from './storyboard'
 import type {
+  IndexRebuildIssueResult,
   MemoryActionResult,
   MemoryEvent,
   MemoryIssueResult,
   MemoryRecallResult,
+  MemoryRebuildIssueResult,
   MemorySendResult,
   MemoryState,
+  RelationGraph,
+  RelationGraphInput,
   WorldFactActionResult,
   WorldFactAddInput,
   WorldFactCloseInput,
@@ -332,6 +336,12 @@ export interface MemoryApi {
   /** 隔离回归（H5）：写向量后的跨角色探针。 */
   isolation(): Promise<IpcResult<{ verified: boolean; probes: Array<{ characterId: string; query: string; hits: number; foreign: number }> }>>
   send(input: { chapterId?: string; text: string }): Promise<IpcResult<MemorySendResult>>
+  /** 按章重建（M1-4）：先签发 author_confirm（10 分钟），作者确认后才执行。 */
+  issueRebuildToken(chapterId?: string): Promise<IpcResult<MemoryRebuildIssueResult>>
+  rebuild(input: { chapterId: string; token: string }): Promise<IpcResult<MemoryActionResult>>
+  /** 索引重建（M1-20）：换模型后把旧向量分批重算；author_confirm。 */
+  issueIndexToken(): Promise<IpcResult<IndexRebuildIssueResult>>
+  reindex(input: { token: string }): Promise<IpcResult<MemoryActionResult>>
   /** 仅未打包构建：E2E 脚手架。 */
   devSeed(input?: {
     scenes?: number
@@ -345,6 +355,8 @@ export interface WorldApi {
   projection(input?: WorldProjectionInput): Promise<IpcResult<WorldProjectionState>>
   addFact(input: WorldFactAddInput): Promise<IpcResult<WorldFactActionResult>>
   closeFact(input: WorldFactCloseInput): Promise<IpcResult<WorldFactActionResult>>
+  /** 关系图（PHASE-14 M1-5）：只读 as-of 回放，含确定性布局坐标。 */
+  relations(input?: RelationGraphInput): Promise<IpcResult<RelationGraph>>
 }
 
 export interface NorythBridge {

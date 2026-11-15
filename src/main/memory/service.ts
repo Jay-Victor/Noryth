@@ -2,6 +2,8 @@ import { AppError } from '../../shared/domain/app-error'
 import type { Settings } from '../../shared/schema/project'
 import type {
   BeliefState,
+  IndexRebuildIssueResult,
+  IndexRebuildState,
   MemoryActionResult,
   MemoryAuditState,
   MemoryChapterSummary,
@@ -10,14 +12,19 @@ import type {
   MemoryJobSummary,
   MemoryProposalState,
   MemoryRecallResult,
+  MemoryRebuildIssueResult,
+  MemoryRebuildPreview,
+  MemoryRebuildState,
   MemorySendResult,
   MemoryState,
   WorldFactState
 } from '../../shared/schema/memory'
 import type { Db } from '../db/project-db'
 import type { Repos } from '../db/repos'
+import type { ChapterRecord } from '../db/repos/chapter'
 import type { JobRecord } from '../db/repos/job'
 import type { MemoryProposalItemRecord } from '../db/repos/memory-proposal'
+import type { ProjectRecord } from '../db/repos/project'
 import { newId } from '../db/repos/common'
 import { sha256Hex } from '../crypto'
 import { resolveBinding } from '../model/bindings'
@@ -31,11 +38,13 @@ import { finalizeChapter } from '../doc/finalize'
 import { checkAuthorGate, consumeAuthorGate, issueAuthorGate } from '../review/gates'
 import { ensureNamespaces } from './namespace'
 import { applyMemoryProposals, invalidateMemoryEntry, proposalJobKey } from './apply'
+import { rebuildChapter, rebuildExtractKey, rebuildJobKey, rebuildResultPayload } from './rebuild'
+import { latestReindexJob, parseReindexProgress, reindexJobKey, reindexProject } from './reindex'
 import type { Embedder } from './embed/types'
 import type { MemoryApplyPort, MemoryApplyPortInput } from '../tools/types'
 import { MemoryModelFactory } from './model'
 import { invalidateRetrievalCache, retrieveOwn } from './retrieve'
-import { runMemoryTurn } from './run'
+import { runMemoryTurn, type MemoryTurnOutcome } from './run'
 import type { ApiKeyLookup } from '../model/keys'
 
 /**
@@ -81,6 +90,26 @@ function parseJson(text: string, fallback: Record<string, unknown> = {}): Record
   } catch {
     return fallback
   }
+}
+
+function numberOr(value: unknown, fallback: number | null): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+/**
+ * 重建任务的对外状态：`memory.rebuild` 的 result_json 只有 applied 才有意义。
+ * succeeded 但没有 applied（例如中途崩溃留下的半成品）对外显示 failed，避免 UI 误报成功。
+ */
+function viewRebuildStatus(job: JobRecord | null): MemoryRebuildState['jobStatus'] {
+  if (!job) return null
+  const result = job.resultJson === null ? {} : parseJson(job.resultJson)
+  if (result.applied === true) return 'applied'
+  if (job.status === 'succeeded') return 'failed'
+  if (job.status === 'interrupted' || job.status === 'paused') return 'failed'
+  if (job.status === 'queued') return 'queued'
+  if (job.status === 'running') return 'running'
+  if (job.status === 'cancelled') return 'cancelled'
+  return 'failed'
 }
 
 function memoryJobKey(projectId: string, revisionId: string): string {
@@ -255,12 +284,15 @@ export class MemoryService {
       },
       running: this.running,
       hasProposals: proposals.length > 0,
+      rebuild: this.rebuildView(host.repos, project.id, selected?.id ?? null, host.readOnly),
+      index: this.indexView(host.repos, project.id, host.readOnly),
       model: this.models.status(host.repos),
       embedding: {
         model: this.deps.embedder.model,
         dim: this.deps.embedder.dim,
         degraded: this.deps.embedder.source === 'hash',
-        vectorCount: host.repos.memoryIndex.countVectors()
+        vectorCount: host.repos.memoryIndex.countVectors(),
+        pendingCount: host.repos.memory.countByModelMismatch(project.id, this.deps.embedder.model)
       }
     }
   }
@@ -351,37 +383,21 @@ export class MemoryService {
     this.abort = new AbortController()
     this.emit({ projectId: project.id, chapterId: chapter.id, jobId: job.id, phase: 'start' })
     try {
-      const outcome = await runMemoryTurn(
-        {
-          db: host.db,
-          repos: host.repos,
-          registry: this.deps.registry,
-          adapter: this.models.adapter(
-            resolveBinding(host.repos, project, 'memory', this.models.capabilitiesLookup())
-          ),
-          capabilitiesLookup: this.models.capabilitiesLookup(),
-          embedder: this.deps.embedder,
-          gateSecret: this.deps.gateSecret,
-          ...(this.abort === null ? {} : { signal: this.abort.signal }),
-          hooks: {
-            onText: (delta, full) => {
-              this.emit({
-                projectId: project.id,
-                chapterId: chapter.id,
-                jobId: job.id,
-                phase: 'delta',
-                delta,
-                full
-              })
-            }
-          }
-        },
-        {
-          chapterId: chapter.id,
-          jobId: job.id,
-          mode: 'extract',
-          revisionId: chapter.finalRevisionId,
-          messageId: newId('mmsg')
+      const outcome = await this.runExtractionTurn(
+        host,
+        project,
+        chapter,
+        job.id,
+        chapter.finalRevisionId,
+        (delta, full) => {
+          this.emit({
+            projectId: project.id,
+            chapterId: chapter.id,
+            jobId: job.id,
+            phase: 'delta',
+            delta,
+            full
+          })
         }
       )
       host.repos.job.setStatus(job.id, outcome.degraded === null ? 'succeeded' : 'failed', {
@@ -681,6 +697,324 @@ export class MemoryService {
     return {
       state: this.state(entry.sourceChapterId),
       detail: '已标记失效（软失效，可追溯，不删除）'
+    }
+  }
+
+  // ── 按章重建（M1-4） ──────────────────────────────────────────────────────
+
+  /** 作者点「按章重建」时签发 author_confirm（10 分钟）；只有真正执行时才消费。 */
+  issueRebuildToken(chapterId?: string): MemoryRebuildIssueResult {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'no project in database')
+    const state = this.state(chapterId)
+    if (state.chapterId === null) throw new AppError('invalid_args', '还没有可重建的章节')
+    const chapter = host.repos.chapter.get(state.chapterId)
+    if (!chapter) throw new AppError('invalid_args', '本章不存在', { chapterId: state.chapterId })
+    const preview = this.rebuildPreview(host.repos, project.id, chapter.id)
+    if (preview.blockers.length > 0) {
+      throw new AppError('gate_required', preview.blockers[0] ?? '当前不能重建')
+    }
+    const issued = issueAuthorGate({
+      repos: host.repos,
+      secret: this.deps.gateSecret,
+      projectId: project.id,
+      gateId: 'author_confirm',
+      entityType: 'chapter',
+      entityId: chapter.id,
+      revision: chapter.finalRevisionId,
+      jobId: `author_rebuild_${newId('att')}`,
+      actor: 'author'
+    })
+    return { token: issued.token, expiresAt: issued.expiresAt, preview }
+  }
+
+  /**
+   * 按章重建：旧条目 inactive，新条目 active，旧事实/边按来源关闭（DEV-PLAN §10.6）。
+   *
+   * 顺序不可换：
+   *   1. 校验令牌与任务（重放直接返回首次结果）；
+   *   2. 事务外重新抽取，提案落到重建专属的 memory.extract job；
+   *   3. 单事务应用（`rebuildChapter` → `applyMemoryProposals`）：清旧 + 写新 + 消费令牌。
+   * 任何一步失败：旧条目仍 active、旧事实/边未关、令牌可重试。
+   */
+  async rebuild(
+    input: { chapterId: string; token: string } | { chapterId: string; gateTokenHash: string; actor: string }
+  ): Promise<MemoryActionResult> {
+    const host = this.requireWritable()
+    if (this.running) throw new AppError('invalid_args', '已有记忆任务在跑，请稍等')
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'no project in database')
+    const chapter = host.repos.chapter.get(input.chapterId)
+    if (!chapter || chapter.projectId !== project.id) {
+      throw new AppError('invalid_args', '本章不存在', { chapterId: input.chapterId })
+    }
+    if (chapter.status !== 'finalized' || chapter.finalRevisionId === null) {
+      throw new AppError('invalid_args', '只有定稿章节才能重建记忆', { status: chapter.status })
+    }
+    const finalRevisionId = chapter.finalRevisionId
+    const key = rebuildJobKey(project.id, chapter.id, finalRevisionId)
+    const existing = host.repos.job.findByIdempotency(project.id, key)
+    if (existing !== null) {
+      const stored = existing.resultJson === null ? {} : parseJson(existing.resultJson)
+      if (stored.applied === true) {
+        return { state: this.state(chapter.id), detail: '重放：返回首次重建结果，未重复写入' }
+      }
+    }
+
+    if ('token' in input) {
+      checkAuthorGate({
+        repos: host.repos,
+        secret: this.deps.gateSecret,
+        gateId: 'author_confirm',
+        entityType: 'chapter',
+        entityId: chapter.id,
+        revision: finalRevisionId,
+        token: input.token
+      })
+    }
+    const gateTokenHash = 'token' in input ? sha256Hex(input.token) : input.gateTokenHash
+    const actor = 'token' in input ? 'author' : input.actor
+
+    const rebuildJob =
+      existing ??
+      host.repos.job.insert({
+        projectId: project.id,
+        type: 'memory.rebuild',
+        status: 'running',
+        expectedRevision: finalRevisionId,
+        epoch: project.writeEpoch,
+        idempotencyKey: key,
+        payloadJson: JSON.stringify({ chapterId: chapter.id, revisionId: finalRevisionId, actor: 'author' })
+      })
+
+    const extractKey = rebuildExtractKey(project.id, key)
+    let proposalJob = host.repos.job.findByIdempotency(project.id, extractKey)
+    const reuseItems =
+      proposalJob === null
+        ? []
+        : host.repos.memoryProposal.listByJob(project.id, proposalJob.id)
+    if (proposalJob === null) {
+      proposalJob = host.repos.job.insert({
+        projectId: project.id,
+        type: 'memory.extract',
+        status: 'queued',
+        expectedRevision: finalRevisionId,
+        epoch: project.writeEpoch,
+        idempotencyKey: extractKey,
+        payloadJson: JSON.stringify({
+          chapterId: chapter.id,
+          revisionId: finalRevisionId,
+          requestedBy: 'author',
+          rebuild: true,
+          rebuildJobId: rebuildJob.id
+        })
+      })
+    }
+    if (proposalJob.status !== 'running') host.repos.job.setStatus(proposalJob.id, 'running')
+
+    this.running = true
+    this.abort = new AbortController()
+    this.emit({ projectId: project.id, chapterId: chapter.id, jobId: rebuildJob.id, phase: 'start' })
+    try {
+      let items = reuseItems
+      if (items.length === 0) {
+        const outcome = await this.runExtractionTurn(host, project, chapter, proposalJob.id, finalRevisionId)
+        host.repos.job.setStatus(proposalJob.id, outcome.degraded === null ? 'succeeded' : 'failed', {
+          resultJson: JSON.stringify({
+            item_count: outcome.itemCount,
+            dropped: outcome.dropped.length,
+            mismatches: outcome.mismatches,
+            applied: false,
+            rebuild: true
+          }),
+          errorCode: outcome.degraded
+        })
+        if (outcome.degraded !== null) {
+          throw new AppError('tool_protocol_error', '重建抽取失败：模型没有按契约提交提案', {
+            degraded: outcome.degraded
+          })
+        }
+        items = host.repos.memoryProposal.listByJob(project.id, proposalJob.id)
+      }
+
+      const outcome = await rebuildChapter(
+        host.db,
+        host.repos,
+        {
+          projectId: project.id,
+          chapterId: chapter.id,
+          rebuildJobId: rebuildJob.id,
+          proposalJobId: proposalJob.id,
+          actor,
+          gateTokenHash,
+          decisions: items.map((item) => ({ itemId: item.id, decision: 'accept' as const }))
+        },
+        this.deps.embedder
+      )
+      host.repos.job.setStatus(rebuildJob.id, 'succeeded', {
+        resultJson: JSON.stringify(rebuildResultPayload(outcome))
+      })
+      invalidateRetrievalCache(project.id)
+      host.repos.memoryMessage.insert({
+        projectId: project.id,
+        chapterId: chapter.id,
+        jobId: proposalJob.id,
+        role: 'system',
+        kind: 'apply',
+        body: `按章重建：旧条目 ${outcome.inactiveCount} 条失效，新条目 ${outcome.rebuiltCount} 条生效${
+          outcome.closedFacts.length + outcome.closedEdges.length > 0
+            ? `，关闭事实 ${outcome.closedFacts.length} / 关系 ${outcome.closedEdges.length}`
+            : ''
+        }`,
+        meta: {
+          rebuildJobId: rebuildJob.id,
+          inactive: outcome.inactive,
+          rebuilt: outcome.memoryIds,
+          closedFacts: outcome.closedFacts,
+          closedEdges: outcome.closedEdges
+        }
+      })
+      this.emit({ projectId: project.id, chapterId: chapter.id, jobId: rebuildJob.id, phase: 'done' })
+      this.log('memory_rebuild', {
+        chapterId: chapter.id,
+        rebuildJobId: rebuildJob.id,
+        inactive: outcome.inactiveCount,
+        rebuilt: outcome.rebuiltCount,
+        closedFacts: outcome.closedFacts.length,
+        closedEdges: outcome.closedEdges.length
+      })
+      return {
+        state: this.state(chapter.id),
+        detail: `已重建 ${outcome.rebuiltCount} 条；旧条目 ${outcome.inactiveCount} 条已失效（可追溯，不删除）`
+      }
+    } catch (error) {
+      const code = error instanceof AppError ? error.code : 'internal_error'
+      host.repos.job.setStatus(rebuildJob.id, 'failed', { errorCode: code })
+      this.emit({ projectId: project.id, chapterId: chapter.id, jobId: rebuildJob.id, phase: 'failed', code })
+      throw error
+    } finally {
+      this.running = false
+      this.abort = null
+    }
+  }
+
+  /**
+   * T40 端口（`memory.rebuild`）：`invokeTool` 已校验 author_confirm 的签名、实体与 job 绑定，
+   * 这里只消费哈希并复用同一条重建链路。作者 IPC 走 `rebuild`（含签名校验，更严格）。
+   */
+  async rebuildFromTokenHash(input: {
+    chapterId: string
+    gateTokenHash: string
+    actor: string
+  }): Promise<{ inactiveCount: number; rebuiltCount: number }> {
+    const result = await this.rebuild(input)
+    return {
+      inactiveCount: result.state.rebuild.inactiveCount,
+      rebuiltCount: result.state.rebuild.rebuiltCount
+    }
+  }
+
+  // ── 索引重建（M1-20） ─────────────────────────────────────────────────────
+
+  issueIndexToken(): IndexRebuildIssueResult {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'no project in database')
+    const pending = host.repos.memory.countByModelMismatch(project.id, this.deps.embedder.model)
+    if (pending === 0) throw new AppError('gate_required', '索引已是当前模型，无需重建')
+    const issued = issueAuthorGate({
+      repos: host.repos,
+      secret: this.deps.gateSecret,
+      projectId: project.id,
+      gateId: 'author_confirm',
+      entityType: 'index',
+      entityId: this.deps.embedder.model,
+      revision: null,
+      jobId: `author_reindex_${newId('att')}`,
+      actor: 'author'
+    })
+    return {
+      token: issued.token,
+      expiresAt: issued.expiresAt,
+      preview: { targetModel: this.deps.embedder.model, pendingCount: pending }
+    }
+  }
+
+  async reindex(input: { token: string }): Promise<MemoryActionResult> {
+    const host = this.requireWritable()
+    if (this.running) throw new AppError('invalid_args', '已有记忆任务在跑，请稍等')
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'no project in database')
+    const pending = host.repos.memory.countByModelMismatch(project.id, this.deps.embedder.model)
+    if (pending === 0) return { state: this.state(), detail: '索引已是当前模型，无需重建' }
+
+    checkAuthorGate({
+      repos: host.repos,
+      secret: this.deps.gateSecret,
+      gateId: 'author_confirm',
+      entityType: 'index',
+      entityId: this.deps.embedder.model,
+      revision: null,
+      token: input.token
+    })
+
+    const recent = host.repos.job.listRecent(project.id, 200).filter((job) => job.type === 'index.rebuild')
+    const latest = recent[0] ?? null
+    const progress = parseReindexProgress(latest)
+    const resumable =
+      latest !== null &&
+      progress !== null &&
+      progress.done !== true &&
+      (latest.status === 'running' ||
+        latest.status === 'queued' ||
+        latest.status === 'interrupted' ||
+        latest.status === 'failed' ||
+        latest.status === 'paused')
+    const job =
+      resumable && latest !== null
+        ? latest
+        : host.repos.job.insert({
+            projectId: project.id,
+            type: 'index.rebuild',
+            status: 'running',
+            expectedRevision: null,
+            epoch: project.writeEpoch,
+            idempotencyKey: reindexJobKey(project.id, recent.length + 1),
+            payloadJson: JSON.stringify({ model: this.deps.embedder.model, actor: 'author' })
+          })
+
+    this.running = true
+    try {
+      const outcome = await reindexProject(
+        host.db,
+        host.repos,
+        {
+          projectId: project.id,
+          jobId: job.id,
+          actor: 'author',
+          gateTokenHash: sha256Hex(input.token)
+        },
+        this.deps.embedder
+      )
+      invalidateRetrievalCache(project.id)
+      this.log('index_rebuild', {
+        jobId: job.id,
+        model: outcome.model,
+        rebuilt: outcome.rebuiltCount,
+        total: outcome.total,
+        remaining: outcome.remaining
+      })
+      return {
+        state: this.state(),
+        detail: `索引重建完成：${outcome.rebuiltCount} / ${outcome.total} 条（${outcome.model}）`
+      }
+    } catch (error) {
+      const code = error instanceof AppError ? error.code : 'internal_error'
+      host.repos.job.setStatus(job.id, 'failed', { errorCode: code })
+      throw error
+    } finally {
+      this.running = false
     }
   }
 
@@ -1057,6 +1391,161 @@ export class MemoryService {
       learnedSeq: belief.learnedSeq,
       sourceType: belief.sourceType,
       status: belief.status
+    }
+  }
+
+  /**
+   * 事务外的模型抽取（`extract` 与 `rebuild` 共用）：只写提案，不写记忆库。
+   * job 状态由调用方决定（首次抽取与重建的 result_json 语义不同）。
+   */
+  private async runExtractionTurn(
+    host: MemoryHost,
+    project: ProjectRecord,
+    chapter: ChapterRecord,
+    jobId: string,
+    revisionId: string,
+    onText?: (delta: string, full: string) => void
+  ): Promise<MemoryTurnOutcome> {
+    return runMemoryTurn(
+      {
+        db: host.db,
+        repos: host.repos,
+        registry: this.deps.registry,
+        adapter: this.models.adapter(
+          resolveBinding(host.repos, project, 'memory', this.models.capabilitiesLookup())
+        ),
+        capabilitiesLookup: this.models.capabilitiesLookup(),
+        embedder: this.deps.embedder,
+        gateSecret: this.deps.gateSecret,
+        rebuildPort: {
+          rebuildFromTokenHash: (input) => this.rebuildFromTokenHash(input)
+        },
+        ...(this.abort === null ? {} : { signal: this.abort.signal }),
+        ...(onText === undefined ? {} : { hooks: { onText } })
+      },
+      { chapterId: chapter.id, jobId, mode: 'extract', revisionId, messageId: newId('mmsg') }
+    )
+  }
+
+  /** 重建预览：会失效多少旧条目、关闭多少事实/边；阻断项先于令牌签发。 */
+  private rebuildPreview(repos: Repos, projectId: string, chapterId: string): MemoryRebuildPreview {
+    const chapter = repos.chapter.get(chapterId)
+    const blockers: string[] = []
+    if (!chapter || chapter.status !== 'finalized' || chapter.finalRevisionId === null) {
+      blockers.push('只有定稿章节才能重建记忆')
+    }
+    if (!this.models.status(repos).ready) blockers.push('记忆模型未配置，先在设置里绑定并测试连接')
+
+    const itemIds = new Set(repos.memoryProposal.listBySource(chapterId).map((item) => item.id))
+    const memoryIds = new Set(repos.memory.listBySource(chapterId).map((entry) => entry.id))
+    const entryCount = repos.memory.listBySource(chapterId).filter((entry) => entry.status === 'active').length
+    const factCount = repos.world
+      .listByProject(projectId)
+      .filter(
+        (fact) =>
+          fact.validToSeq === null &&
+          fact.sourceType === 'memory' &&
+          fact.sourceId !== null &&
+          itemIds.has(fact.sourceId)
+      ).length
+    const edgeCount = repos.relationship
+      .listActiveAll()
+      .filter(
+        (edge) =>
+          edge.sourceType === 'memory' &&
+          edge.sourceId !== null &&
+          (itemIds.has(edge.sourceId) || memoryIds.has(edge.sourceId))
+      ).length
+
+    return {
+      chapterId,
+      revisionId: chapter?.finalRevisionId ?? '',
+      entryCount,
+      factCount,
+      edgeCount,
+      blockers
+    }
+  }
+
+  /** 记忆台「按章重建」按钮的状态（UI-DESIGN §7.4）。 */
+  private rebuildView(
+    repos: Repos,
+    projectId: string,
+    chapterId: string | null,
+    readOnly: boolean
+  ): MemoryRebuildState {
+    if (chapterId === null) {
+      return {
+        allowed: false,
+        reason: '还没有定稿章节',
+        chapterId: null,
+        revisionId: null,
+        entryCount: 0,
+        factCount: 0,
+        edgeCount: 0,
+        jobId: null,
+        jobStatus: null,
+        inactiveCount: 0,
+        rebuiltCount: 0
+      }
+    }
+    const preview = this.rebuildPreview(repos, projectId, chapterId)
+    const chapter = repos.chapter.get(chapterId)
+    const job =
+      chapter && chapter.finalRevisionId !== null
+        ? repos.job.findByIdempotency(projectId, rebuildJobKey(projectId, chapter.id, chapter.finalRevisionId))
+        : null
+    const stored = job?.resultJson === null || job?.resultJson === undefined ? {} : parseJson(job.resultJson)
+    const reason = preview.blockers[0] ?? (readOnly ? '项目当前只读' : this.running ? '已有记忆任务在跑' : null)
+    return {
+      allowed: preview.blockers.length === 0 && !readOnly && !this.running,
+      reason,
+      chapterId,
+      revisionId: chapter?.finalRevisionId ?? null,
+      entryCount: preview.entryCount,
+      factCount: preview.factCount,
+      edgeCount: preview.edgeCount,
+      jobId: job?.id ?? null,
+      jobStatus: viewRebuildStatus(job),
+      inactiveCount: numberOr(stored.inactive_count, 0) ?? 0,
+      rebuiltCount: numberOr(stored.rebuilt_count, 0) ?? 0
+    }
+  }
+
+  /** 索引重建状态：`embedding_model != 当前模型` 的 active 条目数决定按钮可用性。 */
+  private indexView(repos: Repos, projectId: string, readOnly: boolean): IndexRebuildState {
+    const model = this.deps.embedder.model
+    const pendingCount = repos.memory.countByModelMismatch(projectId, model)
+    const totalCount = repos.memory.listByProject(projectId, { status: 'active' }).length
+    const latest = latestReindexJob(repos, projectId)
+    const progress = parseReindexProgress(latest)
+    const jobStatus: IndexRebuildState['jobStatus'] =
+      latest === null
+        ? null
+        : latest.status === 'succeeded'
+          ? 'applied'
+          : latest.status === 'interrupted' || latest.status === 'paused'
+            ? 'failed'
+            : latest.status
+    const reason =
+      pendingCount === 0
+        ? '索引已是当前模型'
+        : readOnly
+          ? '项目当前只读'
+          : this.running
+            ? '已有记忆任务在跑'
+            : null
+    return {
+      allowed: pendingCount > 0 && !readOnly && !this.running,
+      reason,
+      targetModel: model,
+      dim: this.deps.embedder.dim,
+      degraded: this.deps.embedder.source === 'hash',
+      pendingCount,
+      totalCount,
+      jobId: latest?.id ?? null,
+      jobStatus,
+      rebuiltCount: progress?.rebuilt ?? 0
     }
   }
 

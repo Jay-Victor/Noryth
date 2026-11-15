@@ -58,6 +58,7 @@ export interface WorldEdgeView {
   sinceSeq: number
   validToSeq: number | null
   sourceType: string
+  sourceId: string | null
 }
 
 export interface WorldProjection {
@@ -203,7 +204,8 @@ export function projectWorld(input: ProjectWorldInput): WorldProjection {
       value: edge.value,
       sinceSeq: edge.sinceSeq,
       validToSeq: edge.validToSeq,
-      sourceType: edge.sourceType
+      sourceType: edge.sourceType,
+      sourceId: edge.sourceId
     })
   }
 

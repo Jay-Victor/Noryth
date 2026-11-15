@@ -200,6 +200,42 @@ export class MemoryRepo extends BaseRepo {
     runStatement(this.runner, this.runner.db.updateTable('memory_entry').set({ status }).where('id', '=', id))
   }
 
+  /**
+   * 索引重建（PHASE-14 M1-20）：`embedding_model != 当前模型` 的 active 条目，分批取。
+   * 只重建 active：inactive / superseded 不再参与召回，重算它们只烧 CPU。
+   */
+  listByModelMismatch(projectId: string, model: string, limit = 32): MemoryEntryRecord[] {
+    const rows = allRows<MemoryRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('memory_entry')
+        .selectAll()
+        .where('project_id', '=', projectId)
+        .where('status', '=', 'active')
+        .where('embedding_model', '!=', model)
+        .orderBy('learned_seq')
+        .orderBy('id')
+        .limit(Math.max(1, Math.min(200, Math.trunc(limit))))
+    )
+    return rows.map(mapMemory)
+  }
+
+  countByModelMismatch(projectId: string, model: string): number {
+    const row = this.runner.raw
+      .prepare(
+        "SELECT COUNT(*) AS count FROM memory_entry WHERE project_id = ? AND status = 'active' AND embedding_model != ?"
+      )
+      .get(projectId, model) as { count: number } | undefined
+    return row?.count ?? 0
+  }
+
+  setEmbeddingModel(id: string, model: string): void {
+    runStatement(
+      this.runner,
+      this.runner.db.updateTable('memory_entry').set({ embedding_model: model }).where('id', '=', id)
+    )
+  }
+
   setStatus(id: string, status: MemoryStatus): void {
     runStatement(this.runner, this.runner.db.updateTable('memory_entry').set({ status }).where('id', '=', id))
   }

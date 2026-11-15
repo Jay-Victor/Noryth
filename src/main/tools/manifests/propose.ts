@@ -739,17 +739,13 @@ const memoryApply = defineTool({
   }
 })
 
-const notImplemented = (name: string): never => {
-  throw new AppError('tool_unavailable', `${name} 按里程碑开关未启用`)
-}
-
-/** T40（M1）：按章重建记忆；M0 只保留契约。 */
+/** T40（M1 / PHASE-14）：按章重建记忆；旧条目 soft-inactive，不物理删除。 */
 const memoryRebuild = defineTool({
   toolId: 'T40',
   name: 'memory.rebuild',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'propose',
-  summary: '按章重建记忆（M1）：旧 revision 记忆标 inactive，不物理删除',
+  summary: '按章重建记忆（M1）：旧 revision 记忆标 inactive，不物理删除；需 author_confirm',
   actors: ['memory'],
   sideEffect: 'execute',
   agentCallable: true,
@@ -761,7 +757,26 @@ const memoryRebuild = defineTool({
   degrade: degradeFor('propose'),
   audit: AUDIT,
   milestone: 'M1',
-  handler: () => notImplemented('memory.rebuild')
+  enabled: true,
+  handler: async (args, ctx, services) => {
+    if (!ctx.gate || ctx.gate.et !== 'chapter' || ctx.gate.eid !== args.chapter_id) {
+      throw new AppError('stale_revision', 'gate entity mismatch')
+    }
+    const port = services.memoryRebuild
+    if (!port) throw new AppError('tool_unavailable', '按章重建由作者在记忆台触发（端口未装配）')
+    const token = ctx.runtime.gate_token
+    if (token === null || token.length === 0) {
+      throw new AppError('gate_required', '需要 author_confirm 授权', { gateId: 'author_confirm' })
+    }
+    const result = await port.rebuildFromTokenHash({
+      chapterId: args.chapter_id,
+      gateTokenHash: sha256Hex(token),
+      actor: ctx.runtime.actor_id
+    })
+    return {
+      data: { inactive_count: result.inactiveCount, rebuilt_count: result.rebuiltCount }
+    }
+  }
 })
 
 const refusalRaise = defineTool({

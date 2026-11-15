@@ -117,10 +117,17 @@ export const IPC = {
   memoryIsolation: 'memory.isolation',
   memorySend: 'memory.send',
   memoryDevSeed: 'memory.devSeed',
+  // 按章重建 / 索引重建（PHASE-14 M1-4 / M1-20）：author_confirm 一次性令牌
+  memoryRebuildIssue: 'memory.rebuild.issue',
+  memoryRebuild: 'memory.rebuild',
+  memoryIndexIssue: 'memory.index.issue',
+  memoryIndexRebuild: 'memory.index.rebuild',
   // 世界状态（PHASE-13 M1-3 / M1-18）：as-of 投影与作者事实
   worldProjection: 'world.projection',
   worldFactAdd: 'world.fact.add',
-  worldFactClose: 'world.fact.close'
+  worldFactClose: 'world.fact.close',
+  // 关系图（PHASE-14 M1-5）：as-of 回放 + 确定性圆环布局
+  worldRelations: 'world.relations'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]

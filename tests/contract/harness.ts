@@ -12,7 +12,7 @@ import type { AnyToolDefinition } from '../../src/main/tools/define'
 import type { AgentInstanceKey, ChoiceResolver, ToolServices } from '../../src/main/tools/types'
 import { AGENT_KEYS } from '../../src/main/tools/types'
 import { CONTRACT_FIXTURES, type ContractFixture } from './fixtures'
-import { memoryApplyPort, openContractWorld, type ContractWorld } from './support/world'
+import { memoryApplyPort, memoryRebuildPort, openContractWorld, type ContractWorld } from './support/world'
 import { createHashEmbedder } from '../../src/main/memory/embed/hash'
 
 /**
@@ -131,6 +131,7 @@ export function contractSuite(name: string, fixture: ContractFixture): void {
         now: () => Date.now(),
         embedder: createHashEmbedder(),
         memory: memoryApplyPort(world),
+        memoryRebuild: memoryRebuildPort(),
         choices: options.choices ?? {
           ask: async (_question, choices) => choices[0] ?? null
         }

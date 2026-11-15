@@ -28,9 +28,9 @@ describe('tool registry', () => {
     expect(registry.unavailable).toEqual([])
   })
 
-  it('M0 注册 36 个，M1 已打开 T23；六个 Agent 的 M0 基线与 PRD §4.11 一致', () => {
+  it('M0 注册 36 个，M1 已打开 T23 / T40；六个 Agent 的 M0 基线与 PRD §4.11 一致', () => {
     const enabled = AGENT_TOOLS.filter((tool) => tool.enabled)
-    expect(enabled).toHaveLength(37)
+    expect(enabled).toHaveLength(38)
     for (const agent of AGENT_KEYS) {
       // PRD §4.11 的 M0 基线不受 M1 开关影响；当前 allowlist = 基线 + 已打开的 M1 工具。
       expect(M0_TOOL_COUNTS[agent], agent).toBe(EXPECTED_COUNTS[agent])
@@ -38,9 +38,14 @@ describe('tool registry', () => {
       expect(TOOL_ALLOWLIST[agent]).toEqual(registry.baselineFor(agent).map((tool) => tool.name))
     }
     for (const agent of ['orchestrator', 'reviewer', 'memory'] as const) {
-      expect(TOOL_COUNTS[agent], agent).toBe(EXPECTED_COUNTS[agent] + 1)
       expect(TOOL_ALLOWLIST[agent]).toContain('timeline.query')
     }
+    for (const agent of ['orchestrator', 'reviewer'] as const) {
+      expect(TOOL_COUNTS[agent], agent).toBe(EXPECTED_COUNTS[agent] + 1)
+    }
+    // 记忆管理：T23 timeline.query + T40 memory.rebuild
+    expect(TOOL_COUNTS.memory).toBe(EXPECTED_COUNTS.memory + 2)
+    expect(TOOL_ALLOWLIST.memory).toContain('memory.rebuild')
   })
 
   it('旁白快照恰好 5 个，审批 18 个（17 + T23）', () => {
@@ -71,15 +76,9 @@ describe('tool registry', () => {
     }
   })
 
-  it('5 个里程碑工具保留契约但不注册、不下发', () => {
+  it('4 个里程碑工具保留契约但不注册、不下发', () => {
     const deferred = ALL_MANIFESTS.filter((tool) => !tool.system && !tool.enabled).map((tool) => tool.name).sort()
-    expect(deferred).toEqual([
-      'coverage.check',
-      'foreshadow.list_open',
-      'impact.analyze',
-      'memory.rebuild',
-      'voice.metrics'
-    ])
+    expect(deferred).toEqual(['coverage.check', 'foreshadow.list_open', 'impact.analyze', 'voice.metrics'])
     for (const name of deferred) {
       expect(registry.get(name)).toBeUndefined()
       for (const agent of AGENT_KEYS) {

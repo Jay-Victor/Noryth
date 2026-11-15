@@ -682,3 +682,126 @@
   flex-wrap: wrap;
 }
 
+
+/* 关系图（PHASE-14 M1-5）：确定性圆环 + 三轴分色；虚线 = 单向 */
+.memory-relations {
+  overflow: auto;
+  padding: 10px 12px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.memory-relations__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.memory-relations__bar label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memory-relations__bar input[type='range'] {
+  width: 180px;
+}
+
+.memory-relations__bar select {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--fg);
+  font-size: 12px;
+  padding: 3px 6px;
+}
+
+.memory-relations__canvas {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+}
+
+.memory-relations__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.memory-relations__edge {
+  stroke: var(--muted);
+  opacity: 0.72;
+  cursor: pointer;
+}
+
+.memory-relations__edge[data-axis='trust'] {
+  stroke: #5a8fdc;
+}
+
+.memory-relations__edge[data-axis='intimacy'] {
+  stroke: #c9749b;
+}
+
+.memory-relations__edge[data-axis='tension'] {
+  stroke: #c9a24a;
+}
+
+.memory-relations__edge.is-active {
+  opacity: 1;
+}
+
+.memory-relations__hit {
+  fill: transparent;
+  stroke: none;
+  cursor: pointer;
+  pointer-events: all;
+}
+
+.memory-relations__node {
+  fill: var(--card);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.memory-relations__label {
+  fill: var(--fg-soft);
+  font-size: 11px;
+}
+
+.memory-relations__arrow {
+  fill: var(--muted);
+}
+
+.memory-relations__source {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+
+.memory-index-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.memory-detail__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 100%;
+  border-top: 1px dashed var(--border);
+  padding-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}

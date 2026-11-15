@@ -1,5 +1,7 @@
 import { AppError } from '../../shared/domain/app-error'
 import type {
+  RelationGraphInput,
+  RelationGraph as RelationGraphState,
   WorldFactActionResult,
   WorldFactAddInput,
   WorldFactCloseInput,
@@ -11,6 +13,7 @@ import type { Repos } from '../db/repos'
 import { applyAuthorFact, closeAuthorFact } from '../memory/apply'
 import { buildAuthorFactCloseInput, buildAuthorFactInput } from './author-facts'
 import { projectWorld } from './projection'
+import { buildRelationGraph } from './relations'
 
 /**
  * 世界状态服务（PHASE-13 M1-3 / M1-18）。
@@ -77,7 +80,7 @@ export class WorldService {
       asOf,
       facts: host.repos.world.listByProject(project.id),
       beliefs: host.repos.belief.listByProject(project.id),
-      edges: host.repos.relationship.listActiveAll()
+      edges: host.repos.relationship.listByProject(project.id)
     })
 
     return {
@@ -93,6 +96,65 @@ export class WorldService {
         name: character.name
       })),
       ...projected
+    }
+  }
+
+  /**
+   * 关系图（PHASE-14 M1-5）：与 `projection` 同一个 as-of 口径，只是额外做圆环布局。
+   * 数据源仍是 `relationship_edge` + active 角色；不读记忆正文。
+   */
+  relations(input: RelationGraphInput = {}): RelationGraphState {
+    const host = this.requireHost()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'project row missing')
+
+    const chapter = input.chapterId === undefined ? null : host.repos.chapter.get(input.chapterId)
+    if (input.chapterId !== undefined && (!chapter || chapter.projectId !== project.id)) {
+      throw new AppError('invalid_args', '本章不存在', { chapterId: input.chapterId })
+    }
+
+    const asOf = clampAsOf(
+      input.asOf ?? (chapter ? chapter.coveredUntilSeq : project.seqHead),
+      project.seqHead
+    )
+    const graph = buildRelationGraph({
+      asOf,
+      characters: host.repos.character
+        .list(project.id, { status: 'active' })
+        .map((character) => ({ id: character.id, name: character.name })),
+      edges: host.repos.relationship.listByProject(project.id),
+      focusId: input.focusId ?? null
+    })
+
+    const chapterTitle = (chapterId: string | null): string => {
+      if (chapterId === null) return '未知章'
+      const target = host.repos.chapter.get(chapterId)
+      if (!target) return '未知章'
+      return host.repos.outline.get(target.outlineNodeId)?.title ?? `第 ${target.ord} 章`
+    }
+    // 来源只给「章 · 记忆/拍」级别，不回传记忆正文（PRD §8.2 审批引用规则）。
+    const sourceLabel = (edge: (typeof graph.edges)[number]): string => {
+      if (edge.sourceType === 'author') return '作者设定'
+      if (edge.sourceType === 'memory') {
+        const entry = edge.sourceId === null ? null : host.repos.memory.get(edge.sourceId)
+        if (entry) return `${chapterTitle(entry.sourceChapterId)} · 记忆`
+        const item = edge.sourceId === null ? null : host.repos.memoryProposal.get(edge.sourceId)
+        if (item) return `${chapterTitle(item.sourceChapterId)} · 提案`
+        return '记忆（来源已失效）'
+      }
+      const beat = edge.sourceId === null ? null : host.repos.beat.get(edge.sourceId)
+      return beat ? `${chapterTitle(beat.chapterId)} · 拍` : '事件（来源已失效）'
+    }
+
+    return {
+      projectId: project.id,
+      seqHead: project.seqHead,
+      chapterId: chapter?.id ?? null,
+      chapterOrd: chapter?.ord ?? null,
+      coverage: chapter ? chapter.coveredUntilSeq : null,
+      readOnly: host.readOnly,
+      ...graph,
+      edges: graph.edges.map((edge) => ({ ...edge, sourceLabel: sourceLabel(edge) }))
     }
   }
 

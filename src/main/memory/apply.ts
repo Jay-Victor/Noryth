@@ -39,7 +39,18 @@ export interface ApplyInput {
   decisions: readonly ApplyDecision[]
   /** G7 令牌哈希；传入则在同一事务里消费，失败整体回滚。 */
   gateTokenHash?: string | null
+  /**
+   * 按章重建（PHASE-14 M1-4）：应用前先把本章旧条目软失效、旧事实/边按来源关闭。
+   * 与普通 apply 共用同一个事务与写入原语，不存在第二条写路径。
+   */
+  rebuild?: RebuildScope | null
   now?: string
+}
+
+export interface RebuildScope {
+  chapterId: string
+  /** 本章认知水位：重建后不再出现的事实/边关闭在这里。 */
+  closeAtSeq: number
 }
 
 export interface ApplyResult {
@@ -53,6 +64,10 @@ export interface ApplyResult {
   factIds: string[]
   beliefIds: string[]
   edgeIds: string[]
+  /** 重建专用：被关闭的旧事实/边、被软失效的旧信念。 */
+  closedFacts: string[]
+  closedEdges: string[]
+  inactiveBeliefs: string[]
 }
 
 interface PreparedItem {
@@ -124,14 +139,23 @@ export async function applyMemoryProposals(
       memoryIds: Array.isArray(stored.memoryIds) ? stored.memoryIds.filter((id): id is string => typeof id === 'string') : [],
       factIds: Array.isArray(stored.factIds) ? stored.factIds.filter((id): id is string => typeof id === 'string') : [],
       beliefIds: Array.isArray(stored.beliefIds) ? stored.beliefIds.filter((id): id is string => typeof id === 'string') : [],
-      edgeIds: Array.isArray(stored.edgeIds) ? stored.edgeIds.filter((id): id is string => typeof id === 'string') : []
+      edgeIds: Array.isArray(stored.edgeIds) ? stored.edgeIds.filter((id): id is string => typeof id === 'string') : [],
+      closedFacts: Array.isArray(stored.closedFacts) ? stored.closedFacts.filter((id): id is string => typeof id === 'string') : [],
+      closedEdges: Array.isArray(stored.closedEdges) ? stored.closedEdges.filter((id): id is string => typeof id === 'string') : [],
+      inactiveBeliefs: Array.isArray(stored.inactiveBeliefs)
+        ? stored.inactiveBeliefs.filter((id): id is string => typeof id === 'string')
+        : []
     }
   }
 
   const items = repos.memoryProposal.listByJob(input.projectId, input.proposalJobId)
-  if (items.length === 0) throw new AppError('invalid_args', '提案没有任何条目')
+  if (items.length === 0 && input.rebuild === undefined) {
+    throw new AppError('invalid_args', '提案没有任何条目')
+  }
   const byId = new Map(items.map((item) => [item.id, item]))
-  if (input.decisions.length === 0) throw new AppError('invalid_args', '没有可应用的条目')
+  if (input.decisions.length === 0 && input.rebuild === undefined) {
+    throw new AppError('invalid_args', '没有可应用的条目')
+  }
 
   const project = repos.project.getById(input.projectId)
   if (!project) throw new AppError('project_not_found', 'project row missing')
@@ -187,7 +211,9 @@ export async function applyMemoryProposals(
     })
   }
 
-  if (prepared.length === 0 && rejected.length === 0) throw new AppError('invalid_args', '没有可应用的条目')
+  if (prepared.length === 0 && rejected.length === 0 && input.rebuild === undefined) {
+    throw new AppError('invalid_args', '没有可应用的条目')
+  }
 
   // 2) 先算 embedding：只给「记忆条目」算，事实/信念/边不需要向量。
   const vectorItems = prepared.filter((item) => item.kind !== 'world_fact' && item.kind !== 'belief')
@@ -220,7 +246,10 @@ export async function applyMemoryProposals(
     memoryIds: [],
     factIds: [],
     beliefIds: [],
-    edgeIds: []
+    edgeIds: [],
+    closedFacts: [],
+    closedEdges: [],
+    inactiveBeliefs: []
   }
 
   withTransaction(db, () => {
@@ -228,6 +257,11 @@ export async function applyMemoryProposals(
     if (input.gateTokenHash !== undefined && input.gateTokenHash !== null) {
       const consumed = repos.gate.consumeToken(input.gateTokenHash)
       if (!consumed) throw new AppError('gate_consumed', '该确认已使用')
+    }
+
+    // 3.5) 按章重建：先把本章旧推导物软失效/关闭，再写新条目（同一事务）。
+    if (input.rebuild !== undefined && input.rebuild !== null) {
+      invalidateChapterDerivations(repos, input, prepared, result)
     }
 
     for (const itemId of rejected) {
@@ -437,6 +471,28 @@ export async function applyMemoryProposals(
       result.appliedCount += 1
     }
 
+    // 重建汇总：一条 rebuild 记录（旧/新 revision、失效数、重建数、操作者）。
+    if (input.rebuild !== undefined && input.rebuild !== null) {
+      repos.memoryAudit.insert({
+        projectId: input.projectId,
+        jobId: input.applyJobId,
+        action: 'rebuild',
+        actor: input.actor,
+        entityType: 'proposal',
+        entityId: input.proposalJobId,
+        detail: {
+          chapterId: input.rebuild.chapterId,
+          revisionId: proposalJob.expectedRevision,
+          closeAtSeq: input.rebuild.closeAtSeq,
+          inactive: result.inactive.length,
+          rebuilt: result.memoryIds.length,
+          closedFacts: result.closedFacts.length,
+          closedEdges: result.closedEdges.length,
+          inactiveBeliefs: result.inactiveBeliefs.length
+        }
+      })
+    }
+
     // 提案 job 记下「已应用」，重放据此返回 duplicate。
     repos.job.setStatus(proposalJob.id, 'succeeded', {
       resultJson: JSON.stringify({
@@ -460,6 +516,159 @@ export async function applyMemoryProposals(
   })
 
   return result
+}
+
+/**
+ * 按章重建的「清旧」步骤（PHASE-14 M1-4 / DEV-PLAN §10.6）。
+ *
+ * 在同一个事务里、写新条目之前执行，保证「旧条目 inactive + 新条目 active」要么
+ * 一起成功，要么一起回滚。规则：
+ *   1. 记忆条目：`source_chapter_id = 本章` 且 active → inactive（不物理删除）；
+ *   2. 信念：来源提案属于本章 → inactive（信念是推导物，重建后不能并存两套）；
+ *   3. 事实 / 关系边按来源映射回本章：`memory` → 提案条目所属章；`event` → 拍所属章；
+ *      **`author` 不因重建失效**（作者手写优先）。
+ *
+ * 关闭序（`valid_to_seq`）取 `min(本章水位, 新提案里同槽位最早的叙事序)`：
+ * 重建后仍会出现同一槽位时，旧值在「新值出现的那一刻」结束，as_of 回放不会出现两个值；
+ * 不再出现的旧值关在本章水位，从章末起消失。
+ */
+function invalidateChapterDerivations(
+  repos: Repos,
+  input: ApplyInput,
+  prepared: readonly PreparedItem[],
+  result: ApplyResult
+): void {
+  const scope = input.rebuild
+  if (scope === undefined || scope === null) return
+  const closeAt = Math.max(0, Math.trunc(scope.closeAtSeq))
+  const chapterItems = repos.memoryProposal.listBySource(scope.chapterId)
+  const chapterOfItem = new Map(chapterItems.map((item) => [item.id, item.sourceChapterId]))
+  // 事实的来源是提案条目 id；关系边的来源是记忆条目 id（apply 里两处口径不同），
+  // 所以两张表都要建，否则重建时旧边永远不会被关闭。
+  const chapterOfMemory = new Map(
+    repos.memory.listBySource(scope.chapterId).map((entry) => [entry.id, entry.sourceChapterId])
+  )
+
+  const factSlots = new Map<string, number>()
+  const edgeSlots = new Map<string, number>()
+  for (const item of prepared) {
+    if (item.kind === 'world_fact') {
+      const subject = stringOr(item.payload.subject)
+      const predicate = stringOr(item.payload.predicate)
+      if (subject === null || predicate === null) continue
+      const truth = item.payload.truth === 'objective' ? 'objective' : 'claim'
+      const singleValue = numberOr(item.payload.single_value, 1) === 0 ? 0 : 1
+      if (truth !== 'objective' || singleValue !== 1) continue
+      const key = `${subject}|${predicate}`
+      const previous = factSlots.get(key)
+      if (previous === undefined || item.learnedSeq < previous) factSlots.set(key, item.learnedSeq)
+    }
+    if (item.kind === 'relationship') {
+      const toId = stringOr(item.payload.to_id)
+      const axisRaw = stringOr(item.payload.axis)
+      if (item.characterId === null || toId === null || axisRaw === null) continue
+      const axis = axisRaw === 'intimacy' || axisRaw === 'tension' ? axisRaw : 'trust'
+      const key = `${item.characterId}|${toId}|${axis}`
+      const previous = edgeSlots.get(key)
+      if (previous === undefined || item.learnedSeq < previous) edgeSlots.set(key, item.learnedSeq)
+    }
+  }
+
+  const closeSeqOf = (validFrom: number, slotSeq: number | undefined): number => {
+    const target = slotSeq === undefined ? closeAt : Math.min(closeAt, slotSeq)
+    return Math.max(validFrom, target)
+  }
+
+  for (const entry of repos.memory.listBySource(scope.chapterId)) {
+    if (entry.status !== 'active') continue
+    repos.memory.markInvalid(entry.id, 'inactive')
+    result.inactive.push(entry.id)
+    repos.memoryAudit.insert({
+      projectId: input.projectId,
+      jobId: input.applyJobId,
+      action: 'invalidate',
+      actor: input.actor,
+      entityType: 'memory_entry',
+      entityId: entry.id,
+      detail: { reason: 'rebuild', previous: entry.status, text: entry.text, chapterId: scope.chapterId }
+    })
+  }
+
+  for (const belief of repos.belief.listByProject(input.projectId)) {
+    if (belief.status !== 'active' || belief.sourceId === null) continue
+    if (chapterOfItem.get(belief.sourceId) !== scope.chapterId) continue
+    repos.belief.setStatus(belief.id, 'inactive')
+    result.inactiveBeliefs.push(belief.id)
+    repos.memoryAudit.insert({
+      projectId: input.projectId,
+      jobId: input.applyJobId,
+      action: 'invalidate',
+      actor: input.actor,
+      entityType: 'belief',
+      entityId: belief.id,
+      detail: { reason: 'rebuild', characterId: belief.characterId, text: belief.beliefText }
+    })
+  }
+
+  const sourceChapterOf = (
+    sourceType: string,
+    sourceId: string | null
+  ): string | null => {
+    if (sourceType === 'author' || sourceId === null) return null
+    if (sourceType === 'memory') return chapterOfItem.get(sourceId) ?? chapterOfMemory.get(sourceId) ?? null
+    return repos.beat.get(sourceId)?.chapterId ?? null
+  }
+
+  for (const fact of repos.world.listByProject(input.projectId)) {
+    if (fact.validToSeq !== null) continue
+    if (sourceChapterOf(fact.sourceType, fact.sourceId) !== scope.chapterId) continue
+    const slotSeq =
+      fact.truth === 'objective' && fact.singleValue === 1
+        ? factSlots.get(`${fact.subject}|${fact.predicate}`)
+        : undefined
+    const seq = closeSeqOf(fact.validFromSeq, slotSeq)
+    repos.world.closeValidity(fact.id, seq)
+    result.closedFacts.push(fact.id)
+    repos.memoryAudit.insert({
+      projectId: input.projectId,
+      jobId: input.applyJobId,
+      action: 'invalidate',
+      actor: input.actor,
+      entityType: 'world_fact',
+      entityId: fact.id,
+      detail: {
+        reason: 'rebuild',
+        subject: fact.subject,
+        predicate: fact.predicate,
+        object: fact.object,
+        truth: fact.truth,
+        closedAtSeq: seq
+      }
+    })
+  }
+
+  for (const edge of repos.relationship.listActiveAll()) {
+    if (sourceChapterOf(edge.sourceType, edge.sourceId) !== scope.chapterId) continue
+    const seq = closeSeqOf(edge.sinceSeq, edgeSlots.get(`${edge.fromId}|${edge.toId}|${edge.axis}`))
+    repos.relationship.closeValidity(edge.id, seq)
+    result.closedEdges.push(edge.id)
+    repos.memoryAudit.insert({
+      projectId: input.projectId,
+      jobId: input.applyJobId,
+      action: 'invalidate',
+      actor: input.actor,
+      entityType: 'relationship',
+      entityId: edge.id,
+      detail: {
+        reason: 'rebuild',
+        from: edge.fromId,
+        to: edge.toId,
+        axis: edge.axis,
+        value: edge.value,
+        closedAtSeq: seq
+      }
+    })
+  }
 }
 
 /**

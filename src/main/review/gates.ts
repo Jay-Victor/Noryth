@@ -17,9 +17,9 @@ import type { ToolGateId } from '../tools/types'
  * 看到当前 revision、当前报告之后做出的，而不是旧窗口里的一个残留按钮。
  */
 
-export type AuthorGateId = Extract<ToolGateId, 'G5' | 'G6' | 'G7'>
+export type AuthorGateId = Extract<ToolGateId, 'G5' | 'G6' | 'G7' | 'author_confirm'>
 
-export type AuthorGateEntity = 'chapter' | 'revision' | 'proposal'
+export type AuthorGateEntity = 'chapter' | 'revision' | 'proposal' | 'index'
 
 export interface AuthorGateIssueInput {
   repos: Repos

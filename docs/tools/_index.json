@@ -5,7 +5,7 @@
   "tool_count": 42,
   "system_count": 8,
   "m0_tool_count": 36,
-  "toolset_version": "4c02ed70be445bd5ff79b5399abc8f12fe2a3bfebfdea02fe1b8734c7a6ae708",
+  "toolset_version": "3d5376952c400185c361654b1a71538d822eae8666e003e4ec9d39d19f808b39",
   "allowlist": {
     "planner": [
       "author.request_choice",
@@ -83,6 +83,7 @@
       "memory.apply",
       "memory.namespace.create",
       "memory.proposal.submit",
+      "memory.rebuild",
       "outline.get_subtree",
       "project.get_meta",
       "relationship.get_edges",

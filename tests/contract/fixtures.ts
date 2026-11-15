@@ -158,6 +158,13 @@ export const CONTRACT_FIXTURES: Record<string, ContractFixture> = {
     gate: { gateId: 'G7', entityType: 'proposal', entityId: 'job_prop' },
     emptyArgs: null
   },
+  'memory.rebuild': {
+    args: { chapter_id: 'ch_final' },
+    agent: 'memory',
+    context: { chapterId: 'ch_final', expectedRevision: 'rev_final' },
+    gate: { gateId: 'author_confirm', entityType: 'chapter', entityId: 'ch_final' },
+    emptyArgs: null
+  },
   'refusal.raise': {
     args: { code: 'out_of_knowledge', reason: '她不知道账本在哪里' },
     agent: 'character:chr_lin'

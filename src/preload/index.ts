@@ -145,7 +145,8 @@ const bridge: NorythBridge = {
   world: {
     projection: (input) => invoke(IPC.worldProjection, input ?? {}),
     addFact: (input) => invoke(IPC.worldFactAdd, input),
-    closeFact: (input) => invoke(IPC.worldFactClose, input)
+    closeFact: (input) => invoke(IPC.worldFactClose, input),
+    relations: (input) => invoke(IPC.worldRelations, input ?? {})
   },
   memory: {
     state: (chapterId) => invoke(IPC.memoryState, chapterId === undefined ? {} : { chapterId }),
@@ -158,6 +159,10 @@ const bridge: NorythBridge = {
     recall: (input) => invoke(IPC.memoryRecall, input),
     isolation: () => invoke(IPC.memoryIsolation, {}),
     send: (input) => invoke(IPC.memorySend, input),
+    issueRebuildToken: (chapterId) => invoke(IPC.memoryRebuildIssue, chapterId === undefined ? {} : { chapterId }),
+    rebuild: (input) => invoke(IPC.memoryRebuild, input),
+    issueIndexToken: () => invoke(IPC.memoryIndexIssue, {}),
+    reindex: (input) => invoke(IPC.memoryIndexRebuild, input),
     devSeed: (input) => invoke(IPC.memoryDevSeed, input ?? {})
   },
   app: {

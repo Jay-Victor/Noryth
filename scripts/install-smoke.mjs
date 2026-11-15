@@ -6,7 +6,7 @@
 // 说明：只在 Windows 上有意义；CI 里按 tag 跑 package job 时手工触发。
 
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import Database from 'better-sqlite3'
@@ -56,6 +56,11 @@ async function main() {
     fail('安装包缺少 resources/models（嵌入模型目录）')
     return
   }
+  // PHASE-14 M1-20：bge 权重随包（q8 / 512 维）
+  if (!existsSync(join(installDir, 'resources', 'models', 'bge-small-zh-v1.5', 'onnx', 'model_quantized.onnx'))) {
+    fail('安装包缺少 bge 权重（resources/models/bge-small-zh-v1.5/onnx/model_quantized.onnx）')
+    return
+  }
 
   log('启动安装版')
   const app = await electron.launch({ executablePath: exe, args: [], env: { ...process.env, NORYTH_USER_DATA: userData, NORYTH_SINGLE_INSTANCE: '0' } })
@@ -69,6 +74,28 @@ async function main() {
     }
     log(`app.info：version=${info.data.version} schema=${info.data.schemaVersion} packaged=${info.data.packaged}`)
     if (info.data.schemaVersion < 8) fail(`schemaVersion=${info.data.schemaVersion}，期望 >= 8`)
+
+    // 日志确认嵌入装配走了真模型（不是哈希降级）：source=model + bge 模型名
+    const appLog = join(userData, 'logs', 'app.log')
+    let embedLine = ''
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      if (existsSync(appLog)) {
+        const text = readFileSync(appLog, 'utf8')
+        embedLine =
+          text
+            .split(/\r?\n/)
+            .find((line) => line.includes('embedder_ready') && line.includes('bge-small-zh-v1.5')) ?? ''
+        if (embedLine.length > 0) break
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
+    if (embedLine.length === 0) {
+      fail('运行日志里没有 embedder_ready（bge-small-zh-v1.5）')
+    } else if (!embedLine.includes('"source":"model"')) {
+      fail(`嵌入器没有用真模型：${embedLine.slice(0, 200)}`)
+    } else {
+      log(`嵌入器：${embedLine.slice(embedLine.indexOf('"model"'), embedLine.indexOf('"dim"') + 12)}`)
+    }
 
     const created = await page.evaluate(
       async ({ parentDir }) =>
@@ -97,27 +124,34 @@ async function main() {
       const vec = db.prepare('SELECT COUNT(*) AS count FROM memory_vec').get()
       const version = db.prepare('PRAGMA user_version').get()
       log(`memory_vec COUNT=${vec.count}；PRAGMA user_version=${version.user_version}`)
-      if (version.user_version !== 7) fail(`安装版迁移版本 ${version.user_version} != 7`)
+      if (version.user_version !== info.data.schemaVersion) {
+        fail(`安装版迁移版本 ${version.user_version} != ${info.data.schemaVersion}`)
+      }
     } finally {
       db.close()
     }
   } finally {
     await app.close()
   }
+  // Electron 退出是异步的：给主进程一点时间释放可执行文件，否则卸载器删不掉 Noryth.exe。
+  await new Promise((resolvePromise) => setTimeout(resolvePromise, 2_000))
 
   log('卸载')
   const uninstaller = join(installDir, 'Uninstall Noryth.exe')
   if (existsSync(uninstaller)) {
     try {
-      execFileSync(uninstaller, ['/S'], { stdio: 'ignore' })
+      execFileSync(uninstaller, ['/S', `_?=${installDir}`], { stdio: 'ignore' })
     } catch (error) {
       log(`卸载器返回非 0（可能已自删）：${error instanceof Error ? error.message : String(error)}`)
     }
   } else {
     fail('找不到卸载器 Uninstall Noryth.exe')
   }
-  // NSIS 卸载是异步的，给它一点时间
-  await new Promise((resolvePromise) => setTimeout(resolvePromise, 3_000))
+  // NSIS 卸载是异步的：轮询到主程序消失（最多 20s）
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (!existsSync(join(installDir, 'Noryth.exe'))) break
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 500))
+  }
   if (existsSync(join(installDir, 'Noryth.exe'))) {
     fail('卸载后 Noryth.exe 仍在')
   } else {
