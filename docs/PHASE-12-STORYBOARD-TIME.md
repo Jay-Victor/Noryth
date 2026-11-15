@@ -103,14 +103,14 @@ CREATE INDEX scene_timeline ON scene(project_id, timeline, ord);
 
 ## 6 验收清单
 
-- [ ] 两章链接同一空场景：不报错、不产生 beat；给演出章链接已有正文的场景 → 要求 fork。
-- [ ] 引用章的 revision 清单与 hash 不含该场拍（不共享正文）；在引用章生成/编辑 → `invalid_args`。
-- [ ] fork 后新章可写；原章 revision 与正文不变；`db.verify()` 无 `scene_cross_chapter_beats`。
-- [ ] 0008 迁移旧项目：所有 scene `timeline='main'`；`db.verify()` 绿。
-- [ ] T23 三轴分开；`as_of` 超过章水位被拒绝。
-- [ ] `E2E-M1-TIME-01`：第 3 章标 flashback（`story_start` 早于第 1 章）→ T23 返回 `timeline='flashback'`；审批报告无 `timeline_non_monotonic` 或 timeline 阻断，`consistency.check` 不报。
-- [ ] allowlist 快照：orchestrator / reviewer / memory 各 +T23；`gen:check` 0 diff。
-- [ ] `python docs/scripts/check_tool_spec.py` 仍 PASS。
+- [x] 两章链接同一空场景：不报错、不产生 beat；给演出章链接已有正文的场景 → 要求 fork（`tests/unit/scheduler/scene-library.test.ts`：空场景双链 0 拍；已演出场景链接别章 `invalid_args` + `details.needsFork`）。
+- [x] 引用章的 revision 清单与 hash 不含该场拍（不共享正文）；在引用章生成/编辑 → `invalid_args`（同上：「引用章的 revision 清单与 hash 不含该场拍」+「引用章不能写正文」）。
+- [x] fork 后新章可写；原章 revision 与正文不变；`db.verify()` 无 `scene_cross_chapter_beats`（同上 fork 两例 + `verify` 用例；E2E 里第 1 章 revision 与正文逐字不变）。
+- [x] 0008 迁移旧项目：所有 scene `timeline='main'`；`db.verify()` 绿（`tests/unit/migrator.test.ts` 在 0007 库上加列回填；`tests/unit/db/verify.test.ts` 旧 fixture 迁到 0008 后全绿）。
+- [x] T23 三轴分开；`as_of` 超过章水位被拒绝（`tests/unit/tools/timeline.test.ts`；契约夹具 37 个工具）。
+- [x] `E2E-M1-TIME-01`：第 3 章标 flashback（`story_start` 早于第 1 章）→ T23 返回 `timeline='flashback'`；审批报告无 `timeline_non_monotonic` 或 timeline 阻断，`consistency.check` 不报（`tests/e2e/time.spec.ts`；另在单测里直接跑 T24 断言无 `timeline_non_monotonic`）。
+- [x] allowlist 快照：orchestrator / reviewer / memory 各 +T23；`gen:check` 0 diff（17 / 18 / 14；`TOOL_COUNTS` 与 `TOOL_ALLOWLIST` 由生成器校验）。
+- [x] `python docs/scripts/check_tool_spec.py` 仍 PASS（PRD 42 / 清单 50 / M0 36）。
 
 ## 7 风险与回退
 

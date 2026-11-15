@@ -17,7 +17,7 @@
 | 09 | `docs/PHASE-09-MEMORY.md` | done | H1–H5：抽取（只读 final + 证据子串 + 代码级分类）、提案 UI（逐条接受/编辑/拒绝 + 来源 + 讨论）、`MemoryExecutor` 单事务 apply（文本/事实/信念/边/向量/审计 + G7）、记忆浏览与软失效、向量后隔离回归；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 249 modules / unit 578 / integration 32 / e2e 13 / build / gen:check / 规格脚本）+ CI run `43681891589`（verify 与 e2e 均绿；package 按规则跳过） | bge 模型与 onnxruntime 未随包（阶段 10）；当前用确定性 `hash-bigram-v1` 降级，模型名写进每条 `embedding_model`；按章重建（T40）与 as-of/关系图 M1；世界状态作者编辑器 M1；`tool_call` 审计面板阶段 10 |
 | 10 | `docs/PHASE-10-DELIVERY.md` | done | I1–I4：safeStorage Key/密钥库、逐 Agent 绑定+批次审计+回滚、测试连接与计价、外观 token；J1–J6：fixture 假服务器、`E2E-M0-A` 14 步、`E2E-M0-PROVIDER`、`CHAOS-01..08`、NSIS+安装冒烟+更新检查、PERF-01、安全/无障碍/200% 缩放；导出 Markdown/TXT；新增 `0007_settings.sql`（`LATEST_SCHEMA_VERSION = 7`）；`docs/M0-ACCEPTANCE.md` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 266 modules / unit 604 / integration 35 / chaos 7 / e2e 17 / build / gen:check / 规格脚本）+ 安装冒烟 PASS（127MB NSIS） | 真实第二家供应商仍待 Key 补测；bge 权重不随包（M1，ADR-0004）；文件树抽屉未实现（M1）；Win10 22H2 未测；更新通道无发布地址 |
 | 11 | `docs/PHASE-11-SCALE.md` | done | M1-12 多项目切换（`project.busy` 探针 + `project_open.cancelRunning` + 切换确认框 + 事件按 projectId 丢弃）；M1-9 章节摘要查询（2 条聚合，不再逐章读正文）+ `VirtualList`（32/8/roving）+ `PERF-M1-01`；M1-16 文件树抽屉（320 overlay + 焦点陷阱 + `project.tree`）；M1-24 `openLastProject` + `project.autoOpen` 探测（失效/锁/schema/失败回首页）+ 诊断包 zip（纯 JS store、无 Key/正文）；`E2E-M1-SWITCH-01`、`E2E-M1-TREE-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 274 modules / unit 620 / integration 35 / chaos 7 / e2e 21 / build / gen:check / 规格脚本 / perf 2） | 真机 30 章冷启动尚未在安装包复跑（perf 走测试夹具）；W1 常驻树暂不支持 Ctrl+B 收起 |
-| 12 | `docs/PHASE-12-STORYBOARD-TIME.md` | todo | — | — | — |
+| 12 | `docs/PHASE-12-STORYBOARD-TIME.md` | done | M1-1 场景库（链接/解链/排序/fork/删除 + 只读引用 + 演出前 fork 守卫）、M1-2 时间三轴（`story_start/end`、`timeline`，`idx` 取章序）、T23 `timeline.query` 实现并打开（编排/审批/记忆各 +1）、verify `scene_cross_chapter_beats`、G2 物化回写 `scene_id`；`E2E-M1-TIME-01`、`E2E-M1-SCENE-01`；新增 `0008_story_time.sql`（`LATEST_SCHEMA_VERSION = 8`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 278 modules / unit 646 / integration 35 / chaos 7 / e2e 23 / build / gen:check / 规格脚本 / perf 2） | 故事时间仍是自由文本（M1 只展示，格式校验与自动推断 M2）；引用场在 G2 后统一排到草案场次之后（只读，不参与演出顺序）；场景库无批量操作；`tool_call` 审计面板仍缺（M1 阶段 18） |
 | 13 | `docs/PHASE-13-ASOF-WORLD.md` | todo | — | — | — |
 | 14 | `docs/PHASE-14-REBUILD-GRAPH.md` | todo | — | — | — |
 | 15 | `docs/PHASE-15-COVERAGE-IMPACT.md` | todo | — | — | — |
@@ -84,13 +84,38 @@
 | CI（复跑） | GitHub Actions run `43700004809`（`c2ef570`） | verify + e2e 均绿；package 按规则跳过（非 `v*` tag） |
 | 阶段标签 | `phase-11-done` → `c2ef570` | 已推送 origin |
 
+## 验证记录（阶段 12，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 278 modules / 1356 deps，0 违规 |
+| Lint | `pnpm lint` | 通过 |
+| 单元 + 契约 | `pnpm test:unit` | 646 passed（新增 scene-library 13 / timeline 5 / verify 1 / migrator 1；contract 夹具 37 个工具） |
+| 集成 | `pnpm vitest run tests/integration` | 35 passed |
+| 混沌 | `pnpm test:chaos` | 7 passed / CHAOS-01..08 |
+| E2E | `pnpm test:e2e` | 23 passed（新增 `E2E-M1-TIME-01`、`E2E-M1-SCENE-01`） |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→…→0008；0008 在 0007 旧库上回填 `timeline='main'`、两轴 NULL、`scene_timeline` 索引存在、CHECK 拒绝非法值 |
+| 迁移升级 | `tests/unit/db/verify.test.ts` | 旧 fixture 迁到 0008 后 `db.verify()` 全绿 |
+| 多对多 | `tests/unit/scheduler/scene-library.test.ts` | 空场景可同时链接两章且 0 拍；已演出场景链接到别章 → `invalid_args`（`needsFork`）；解链/排序/删除的拒绝条件；fork 复制 scene + 拍（新 id、`waiting_for_human`）且原章 revision/hash/正文不变 |
+| 引用只读 | 同上 | 引用章 `commitBeat` → `invalid_args` 且零写入；`readChapterStoryboard` 不再返回别章的拍 |
+| 归属校验 | `tests/unit/db/verify.test.ts` | 同一场景 live 拍跨章 → `scene_cross_chapter_beats` |
+| T23 | `tests/unit/tools/timeline.test.ts` | `idx` 取章序；`story_start/end` 取第一个 main 场景；`timeline[]` 按 `beat.seq` 带 `story_time` 与时间轴；闪回早于第 1 章不产生 `timeline_non_monotonic`（`consistency.check` 只比 seq）；`as_of` 超章水位 → `stale_revision` |
+| 注册与生成物 | `tests/contract/registry.test.ts`、`tests/unit/catalog.test.ts` | 37 个启用工具（36 M0 + T23）；orchestrator 17 / reviewer 18 / memory 14；`M0_TOOL_COUNTS` 仍 36；`TOOL_COUNTS` 记录当前值；`gen:check` 0 diff |
+| 时间线 E2E | `tests/e2e/time.spec.ts` | `E2E-M1-TIME-01`：3 章，第 1 章「民国二十三年 三月初七 夜」，第 3 章「闪回 · 民国二十年 冬」；T23 返回 `idx=3`、`storyStart=null`、`scenes[0].timeline='flashback'`、每拍 `storyTime='民国二十年 冬'`；审批报告无 `type='timeline'` 条目；DB 里 1 main + 1 flashback，0 跨章拍 |
+| 场景库 E2E | 同上 | `E2E-M1-SCENE-01`：第 2 章场景库显示「第 1 章演出」+ fork；直接链接被拒（`details.needsFork`）；fork 后新场景 2 拍进第 2 章、`waiting_for_human`，第 2 章可确认；第 1 章 revision 与正文逐字不变 |
+| 性能 | `pnpm test:perf` | PERF-01：切章 P95 1ms、检索 P95 25ms、导出 14ms、RSS 259MB；PERF-M1-01：切章 P95 1ms、列表摘要 P95 1ms、RSS 148MB |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T23 输出 schema 扩展、DraftScene 允许空拍 → T27/T34 清单变化） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+
 ## 当前可运行命令
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（620：unit+contract） / `pnpm vitest run tests/integration`（35）
+- `pnpm test:unit`（646：unit+contract） / `pnpm vitest run tests/integration`（35）
 - `pnpm test:perf`（PERF-01 + PERF-M1-01 基线；nightly，不进提交门）
-- `pnpm test:chaos`（7 条 / CHAOS-01..08） / `pnpm test:e2e`（21）
+- `pnpm test:chaos`（7 条 / CHAOS-01..08） / `pnpm test:e2e`（23）
 - `node scripts/install-smoke.mjs`（安装冒烟：装 → 建项 → 卸载）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
 - `python docs/scripts/check_ui_spec.py` / `python docs/scripts/check_tool_spec.py`
@@ -397,10 +422,17 @@
 | 诊断包 zip | 纯 JS store 压缩（PKZIP 单盘、无 data descriptor），避免原生模块进打包；内容 = README + diagnostics.json + logs/app.log；条目名限 ASCII；正文/secrets/exports 一律不读；日志与 JSON 都过 `scrubSecrets` | `observability/zip.ts`、`observability/diagnostics.ts` |
 | 假适配器取消 | 创作台假适配器按真实适配器契约检查 `signal.aborted`，否则「取消」在 E2E 里永远测不到（取消后仍会提交） | `scheduler/fake-adapter.ts` |
 | 开发种子 | `write.devSeed` 增 `chapters`（≤40）：只给 E2E 铺多章，生产包不注册该通道；第一章仍带分镜 | `scheduler/service.ts`、`shared/schema/write.ts` |
+| 场景多对多 | 规划期空场景可链接多章；演出后 live 拍只属一个演出章；别的章是只读引用，链接/生成都要求先 fork；有 live 拍时改章内顺序必须走分镜 + 重新开演（正文顺序是 revision 的一部分） | `scheduler/scene-library.ts`、`db/repos/scene.ts` |
+| 引用场 | 引用场不进本章 revision 清单与 hash；`readChapterStoryboard` 只返回本章拍；G2 物化保留引用链接并排在草案场次之后 | `scheduler/storyboard.ts`、`doc/commit-beat.ts` |
+| fork | 复制 scene + live 拍（新 id、`waiting_for_human`/`proposed`）+ 新建本章 revision；不复制 `supersedes_id`（新血统，避免 `beat_supersedes_once` 与追溯链分叉）；原章不动 | `scheduler/scene-library.ts` |
+| 时间三轴 | `story_start/end` 自由文本只展示；`idx` = `chapter.ord`；`timeline` = main/flashback/dream；闪回永不参与故事时间比较；`timeline_non_monotonic` 仍只看 `beat.seq` | 迁移 `0008_story_time.sql`、`db/repos/scene.ts` |
+| T23 | 与 `write.timeline` 共用 `queryTimeline`；输出是 §5.2 形状的超集（每拍多 `timeline`，另加 `scenes[]`）；`as_of` 超章水位 → `stale_revision`；`enabled: true` 打开 | `tools/support/timeline.ts`、`tools/manifests/knowledge.ts` |
+| 工具计数 | `M0_TOOL_COUNTS` 只数 `milestone=M0`（PRD §4.11 基线 36 不变）；新增 `TOOL_COUNTS` 记录当前启用数；`check_tool_spec.py` 仍数 `m0=true` | `scripts/gen-tools.mjs`、`generated/allowlist.ts` |
+| G2 回写 | 物化后把 `scene_id` 写回分镜草案：编辑器据此显示三轴、场景库据此判定「已在本章演出」，重复保存不会重复建场景 | `scheduler/storyboard.ts` |
 
 ## 当前阻塞
 
-- 无阻塞。阶段 11 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 274 modules / unit 620 / integration 35 / chaos 7 / e2e 21 / build / gen:check / 规格脚本 / perf 2）+ CI run `43700004809`（verify 与 e2e 均绿），标签 `phase-11-done` → `c2ef570` 已推送 origin。
+- 无阻塞。阶段 12 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 278 modules / unit 646 / integration 35 / chaos 7 / e2e 23 / build / gen:check / 规格脚本 / perf 2），`LATEST_SCHEMA_VERSION = 8`。
 - 遗留观察（不阻塞）：阶段 11 首次推送的 CI run `43699407599` 在 e2e 失败，且当次没有日志（现在已加日志 annotation 与 artifact）。复跑绿；具体失败用例未定位，若再次出现先看 `e2e.log` artifact 与 check-run annotations。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录（M1 阶段 18，M1-26）。
@@ -417,17 +449,15 @@
 
 ## 下一阶段交接
 
-- 阶段 11 已 `done`（2026-11-15）。M0 验收报告仍是 `docs/M0-ACCEPTANCE.md`；M1 阶段 11 的证据见本文件「验证记录（阶段 11，本地）」。
-- 阶段 12 直接复用（规模底座已就位）：
-  - **多项目**：首页 `requestSwitch()` 是唯一入口（先 `project.busy()` 再决定直开/确认）；新增域如果要能被切换打断，必须实现 `abortAllAndWait()` 并挂进 `settleRunningWork()`。
-  - **章列表**：任何列表页都走 `chapter.listSummaries()` / `VirtualList`，不要在 renderer 里 map 全量拍；列表行禁止带 `body`（`WriteChapterSummary` 已按此收口）。
-  - **抽屉**：`useTree` + `project.tree` 是文件树单一入口；新增可点开的对象（场景、时间轴、关系图）只需在 `project/tree.ts` 加节点，抽屉与 W1 常驻树都自动出现。
-  - **启动**：`project.autoOpen` 的探测顺序（missing → locked → schema_newer → quick_check → 打开后转只读即关）是安全边界，迁移失败/只读锁不得自动打开。
-  - **诊断包**：`exportDiagnosticsZip` 是唯一导出；新增内容只进 `diagnostics.json`，绝不把正文或 `secrets.bin` 塞进条目。
-- M1 阶段文档已建并推送（2026-11-15，commit `1ed4e90`，origin/dev）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`；阶段 11 已标 `done`，其余仍为 `todo`；顺序与任务 ID 见 `docs/DEV-PLAN.md` §12.4 / §12.6。
-- M1 开工顺序：11 规模底座 → 12 场景与时间三轴 → 13 as-of 与世界状态 → 14 重建/关系图/bge → 15 覆盖/影响/伏笔 → 16 分支/重开/摘要 → 17 DOCX → 18 分发与验收。阶段 11 未动 schema（仍是 0007 / `LATEST_SCHEMA_VERSION = 7`）；0008 从阶段 12 开始。
+- 阶段 12 已 `done`（2026-11-15）。M1 阶段 11–12 的证据见本文件对应「验证记录」。下一阶段从 `docs/PHASE-13-ASOF-WORLD.md` 开工（as-of 与世界状态，迁移 0009 之前先读 `DEV-PLAN` §10 / `PHASE-13`）。
+- 阶段 13 直接复用（阶段 12 新增）：
+  - **场景归属**：任何「这一拍属于哪一章」的判断都用 `repos.scene.ownerChapter(sceneId)` / `listUsageByProject(projectId)`；不要用 `chapter_scene` 反推演出章（引用链接会误导）。
+  - **写正文守卫**：`commitBeat` 已拒绝「场景在别的章演出」的写入；新增写入路径（patch apply / 导入）也要先过同一判定。
+  - **时间轴**：`world/timeline` 语义在 `tools/support/timeline.ts`（`queryTimeline`），工具与 IPC 共用；阶段 13 的世界时间线 UI 直接消费它，不要另写一套三轴映射。
+  - **引用与 fork**：引用场只读、`revision_beat` 只含本章拍；需要在新章演出时走 `forkSceneIntoChapter`，不要手工复制 beat（会漏 revision 与 outbox）。
+  - **迁移**：0008 已应用，阶段 13 从 0009 起；迁移测试 `tests/unit/migrator.test.ts` 的 `applied` 列表要同步。
 - M1 的关键回归：
-  1. `E2E-M1-TIME-01`（闪回不误报，阶段 12）。
+  1. `E2E-M1-TIME-01`（闪回不误报，阶段 12）✅
   2. `E2E-M1-ASOF-01`（第 3 章读不到第 20 章事实，阶段 13）。
   3. `E2E-M1-REBUILD-01`（按章重建旧记忆 inactive，阶段 14）。
   4. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）。

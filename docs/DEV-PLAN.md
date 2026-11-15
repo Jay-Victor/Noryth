@@ -292,6 +292,12 @@ contextBridge.exposeInMainWorld('noryth', {
 | write | `regenerate` | beatId、expectedRevision | `{jobId}` | G3 |
 | write | `editBeat` | beatId、text、expectedRevision、range 策略 | `{revisionId}` | G3 |
 | write | `switchMode` | chapterId、mode | `{mode}` | — |
+| write | `scene.link` / `scene.unlink`（M1-1） | chapterId、sceneId | `{state, detail}`；已在别的章演出 → `invalid_args`（`details.needsFork`） | — |
+| write | `scene.fork`（M1-1） | chapterId、sceneId | `{state, detail}`；复制 scene + live 拍到本章，原章不变 | — |
+| write | `scene.reorder`（M1-1） | chapterId、sceneIds[] | `{state, detail}`；只改 `chapter_scene.ord` | — |
+| write | `scene.remove`（M1-1） | chapterId、sceneId | `{state, detail}`；有 live 拍或被别章引用 → `invalid_args` | — |
+| write | `scene.time`（M1-2） | chapterId、sceneId、storyStart?、storyEnd?、timeline? | `{state, detail}`；省略 = 不改，`null` = 清空 | — |
+| write | `timeline`（M1-2） | chapterId | `{idx, storyStart/End, scenes[], timeline[]}`；T23 的只读投影 | — |
 | review | `run` | chapterId、revisionId | `{jobId}` | G4 |
 | review | `authorizePatches` | reportId | `{jobId}` | G5 |
 | review | `decidePatch` | patchId、accept/reject | `{revisionId?}` | G5 |
@@ -878,8 +884,9 @@ title: 祠堂夜谈
 2. 孤儿检查：`beat.created_revision_id` 不存在、`revision_beat.beat_id` 不存在、`chapter.current_revision_id` 不存在。
 3. 单调检查：同一章 `beat.seq` 随 `(scene_ord, beat_ord)` 不减；`project.seq_head >= max(seq)`。
 4. 双活检查：同 `(scene_id, ord)` 存在 >1 条非 superseded 拍。
-5. 镜像检查：`manuscript/*.md` 的 hash 与当前 revision 一致（不一致只告警，不自动改）。
-6. 结果写 `logs/verify-<date>.json`；失败时 UI 显示「项目需要修复」并给出诊断包入口。
+5. 归属检查：`(beat.chapter_id, beat.scene_id)` 必在 `chapter_scene` 中（`beat_scene_unlinked`）；同一场景的 live 拍跨章（`scene_cross_chapter_beats`，PHASE-12）。
+6. 镜像检查：`manuscript/*.md` 的 hash 与当前 revision 一致（不一致只告警，不自动改）。
+7. 结果写 `logs/verify-<date>.json`；失败时 UI 显示「项目需要修复」并给出诊断包入口。
 
 ### 5.12 容量与性能估算
 
@@ -1109,6 +1116,24 @@ CREATE INDEX memory_message_by_chapter ON memory_message(chapter_id, created_at)
 - **apply 幂等**：提案 job 的 `result_json.applied=true` 表示已应用；重放返回 `duplicate:true`，不再写第二遍。`memory.apply` job 的 `idempotency_key = memory.apply:<project>:<提案 job>`。
 - **令牌消费在事务内**：G7 与 G5/G6 同格式（`gate_record`、HMAC、只存 hash、10 分钟）；apply 事务里消费，失败整体回滚，令牌可重试。
 - **向量与文本同事务**：`memory_vec`（vec0, 512 维）与 `memory_fts`（bigram, ascii）在 apply 的同一事务里写；先算 embedding，失败则整个 apply 不写任何行。
+
+### 5.17 场景与时间三轴（迁移 0008）
+
+```sql
+ALTER TABLE scene ADD COLUMN story_start TEXT;
+ALTER TABLE scene ADD COLUMN story_end TEXT;
+ALTER TABLE scene ADD COLUMN timeline TEXT NOT NULL DEFAULT 'main'
+  CHECK (timeline IN ('main', 'flashback', 'dream'));
+CREATE INDEX scene_timeline ON scene(project_id, timeline, ord);
+```
+
+规则（PHASE-12 / M1-1、M1-2）：
+
+- **三轴不合成一个 `story_time`**：`story_start/end` 是故事内时间（自由文本，M1 只展示不比较）；`idx` 取 `chapter.ord`，不新增列；`timeline` 是场景级标签。
+- **旧项目回填**：`timeline` 默认 `main`，两轴为 `NULL`（未标注）。SQLite 允许 `ADD COLUMN ... NOT NULL DEFAULT ... CHECK`，迁移在单事务内执行。
+- **闪回不参与时序**：任何故事时间比较只看 `main` 场景；`consistency.check` 的 `timeline_non_monotonic` 检查的是 `beat.seq`（叙事序），与两轴无关，本阶段不改。
+- **章↔场景多对多**：`chapter_scene` 仍是章内顺序的唯一真相；规划期空场景可链接多章，演出后只有演出章持有拍；别的章是只读引用，演出前必须 fork（`scheduler/scene-library.ts`）。
+- **verify 扩展**：`(beat.chapter_id, beat.scene_id)` 必在 `chapter_scene` 中（`beat_scene_unlinked`）；一个场景的 live 拍跨章 → `scene_cross_chapter_beats`。
 
 ---
 
@@ -1405,7 +1430,7 @@ export function contractSuite(manifest: ToolManifest, fixtures: ToolFixtures) {
 | T20 | `manuscript.get_final_chapter` | `manuscript` | ✅ | 无定稿返回空，不回退草稿 |
 | T21 | `draft.get_chapter` | `manuscript` | ✅ | 只读；revision 必须属于当前章 |
 | T22 | `foreshadow.list_open` | — | P1 | 先定契约，M0 不注册实现 |
-| T23 | `timeline.query` | `world/timeline` | M1 | 三轴分开返回 |
+| T23 | `timeline.query` | `world/timeline`（`tools/support/timeline.ts`） | M1 ✅ | 三轴分开返回；as_of 不越章水位（阶段 12） |
 | T24 | `consistency.check` | `validator/deterministic` | ✅ | 只报可判定项；语义标 candidate |
 | T25 | `voice.metrics` | — | M2 | 阈值需中文语料重标 |
 | T26 | `coverage.check` | — | P1 | 建议项，不阻断 G1 |
@@ -1427,6 +1452,8 @@ export function contractSuite(manifest: ToolManifest, fixtures: ToolFixtures) {
 | T42 | `author.request_choice` | `agents/planner` | ✅ | 自动模式/批处理中拒绝 |
 
 **M0 注册 36 个，6 个按里程碑开关。** 每个 Agent 在 M0 的有效工具数（`generated/allowlist.ts` 的断言值）：
+
+> 阶段 12 起 `timeline.query`（T23）已打开：编排 / 审批 / 记忆各 +1（17 / 18 / 14）。`M0_TOOL_COUNTS` 仍保留 PRD §4.11 的 36 个基线，`TOOL_COUNTS` 记录当前生效数量；`check_tool_spec.py` 只数 `m0=true`，仍是 36。
 
 | Agent | PRD 全集 | M0 有效 | 差额 |
 |---|---:|---:|---|
@@ -2955,6 +2982,7 @@ jobs:
 
 ## 变更记录
 
+- **v0.6（阶段 12 实施）**：迁移 `0008_story_time.sql`（scene 三轴 + `scene_timeline` 索引，`LATEST_SCHEMA_VERSION = 8`）；§5.17 记录三轴与多对多规则；§5.11 verify 增加 `scene_cross_chapter_beats`；§4.3 IPC 增加 `write.scene.*` 与 `write.timeline`；§6.9 标注 T23 已实现。**未改 PRD 契约**：`timeline.query` 仍是只读、无闸门；T23 的输出是 §5.2 形状的超集（每行多一个 `timeline` 标签，另加 `scenes[]`）。
 - **v0.5（M1 阶段文档）**：新增 `PHASE-11-SCALE.md` 至 `PHASE-18-DELIVERY-M1.md`，把 PRD §10 M1 的范围拆成 8 个阶段（多项目/30 章 → 场景与时间三轴 → as-of 与世界状态 → 记忆重建/关系图/bge → 覆盖/影响/伏笔 → 分支/重开/摘要 → DOCX → 分发与 M1 验收）。§12.4 增加阶段 11–18，§12.6 增加 M1-16–M1-26。未改 PRD 契约、工具 `input_schema`、闸门语义；M1 需要的迁移编号从 `0008` 起，`LATEST_SCHEMA_VERSION` 阶段 12/15/16 分别到 8/9/10。
 - **v0.4（阶段 01 实施）**：S1 确认 sqlite-vec Plan A（ADR-0001），S2 确认 bge-small-zh-v1.5 q8/512 维（ADR-0004）；S3 按 DeepSeek 一家收口（ADR-0003），第二家顺延阶段 04；阶段 01 已通过本地门禁与 Windows CI（run `43585776532`）并打标签 `phase-01-done`。`_migration` 由迁移器创建，`0001_init.sql` 不再重复建表；新增 4 个错误码（`project_not_found` / `project_create_failed` / `vector_unavailable` / `internal_error`）；`docs/tools/*.json` 首版是契约外壳（`contract_complete:false`），input/output schema 由阶段 03 C5 补齐。
 - **v0.3**：移除全部进度估算，只保留阶段顺序、范围、依赖与验收。
