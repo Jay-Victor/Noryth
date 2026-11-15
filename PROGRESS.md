@@ -239,7 +239,7 @@
 | 构建 | `pnpm build` | 通过（新增 `out/main/memory-embed-worker.js` 入口） |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T37/T39 升 1.1.0） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `4fca40c`（feat） | 已推送 origin/dev |
+| 提交 | `4fca40c`（feat）、`f87b7dd`（docs） | 已推送 origin/dev |
 | CI | GitHub Actions run `43681891589`（`4fca40c`） | verify 与 e2e 均绿；package 按规则跳过 |
 | 阶段标签 | `phase-09-done` → `4fca40c` | 已推送 origin |
 
