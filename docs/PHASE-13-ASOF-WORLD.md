@@ -104,14 +104,14 @@
 
 ## 6 验收清单
 
-- [ ] 同一事实在两个 as-of 下可见性不同；事实与信念分节展示。
-- [ ] `E2E-M1-ASOF-01`：第 3 章审批上下文无第 20 章**新产生**的 fact（`valid_from_seq=ch20.seq`）；第 20 章可见；ch20 才揭示的旧事实按「读者未知」处理，不混同「不存在」。
-- [ ] `manuscript.search_final` 在 ch3 不返回 ch4+；`get_final_chapter` 同。
-- [ ] 作者新增 objective 事实后，单值槽旧值 `valid_to_seq` 正确；审计有 author 记录。
-- [ ] 上下文检查器显示块 / tokens / 裁剪原因，数值与 `turn_metric` 一致。
-- [ ] UI-DESIGN §11「as-of 切换后事实与信念分别展示」勾选。
-- [ ] 没有把 `as_of` 放回 `input_schema`；工具身份注入不变。
-- [ ] `E2E-M1-ASOF-01` 同时断言：审批报告引用的证据全部 ≤ ch3 水位。
+- [x] 同一事实在两个 as-of 下可见性不同；事实与信念分节展示（`tests/unit/world/projection.test.ts`：两个 as_of 的事实/信念/边集合不同、`futureFacts` 与 `notYetRevealed` 分开；`tests/integration/asof.spec.ts` 第 3 章 vs 第 20 章投影；UI `WorldStateView` 三节分开）。
+- [x] `E2E-M1-ASOF-01`：第 3 章审批上下文无第 20 章**新产生**的 fact（`valid_from_seq=ch20.seq`）；第 20 章可见；ch20 才揭示的旧事实按「读者未知」处理，不混同「不存在」（`tests/integration/asof.spec.ts` 断言工具结果 as_of=24、含「早夭的名字」、不含「祠堂夹层」；第 20 章 as_of=92 可见；`tests/e2e/asof.spec.ts` 同一链路走真实 IPC/UI）。
+- [x] `manuscript.search_final` 在 ch3 不返回 ch4+；`get_final_chapter` 同（`tests/unit/tools/manuscript-asof.test.ts`：ch1 上下文 0 命中、ch2 上下文只命中 ch2；显式请求更晚章 `invalid_args` 且 details 带 `currentOrd`；契约夹具改为按当前章上下文调用）。
+- [x] 作者新增 objective 事实后，单值槽旧值 `valid_to_seq` 正确；审计有 author 记录（`tests/unit/world/author-facts.test.ts`：单值槽旧值关闭、重复三元组 duplicate、`memory_audit(actor='author')`、唯一索引兜底；E2E 在 DB 里核对 `source_type='author'` 与审计行数）。
+- [x] 上下文检查器显示块 / tokens / 裁剪原因，数值与 `turn_metric` 一致（`tests/unit/scheduler/context-inspection.test.ts`：块/层/裁剪/prefix/as_of/ratio 与 `context_json` 对齐、坏 JSON 不崩；`tests/e2e/context.spec.ts`：UI 数字与 DB 里 `turn_metric.context_json` 逐项一致）。
+- [x] UI-DESIGN §11「as-of 切换后事实与信念分别展示」勾选（`docs/UI-DESIGN.md` 已勾选，指向 `WorldTimeline.tsx` + `WorldStateView.tsx`）。
+- [x] 没有把 `as_of` 放回 `input_schema`；工具身份注入不变（T13/T14/T15 的 `as_of` 仍是模型可见但被 clamp 的既有参数；本阶段新增的 `world.projection` / `world.fact.*` / `write.context` 是 IPC，不改变任何工具 input_schema；`gen:check` 0 diff）。
+- [x] `E2E-M1-ASOF-01` 同时断言：审批报告引用的证据全部 ≤ ch3 水位（`tests/e2e/asof.spec.ts` 逐条查 `beat.chapter_id === 第 3 章` 且 `seq <= ch3.asOf`，覆盖阻断与建议；集成测试同口径）。
 
 ## 7 风险与回退
 
