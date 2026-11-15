@@ -42,7 +42,10 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `5e21fce`（I1–I4）、`80d7f56`（导出+J1+设置 E2E）、`e40fb2f`（M0-A+PROVIDER+补丁回归）、本阶段收口提交 | 已推送 origin/dev |
+| 提交 | `5e21fce`（I1–I4）、`80d7f56`（导出+J1+设置 E2E）、`e40fb2f`（M0-A+PROVIDER+补丁回归）、`bf1df72`（J3–J6+M0 验收）、`965f0ba`/`5ae3f38`（CI 可观测性与 perf 移出提交门） | 已推送 origin/dev |
+| CI | GitHub Actions run `43689085620`（`5ae3f38`） | verify 2m08（lint/typecheck/depcruise/unit 604/chaos 7/spec/gen/build）+ e2e 2m23，均绿；package 按规则跳过（非 tag） |
+| 阶段标签 | `phase-10-done` → `5ae3f38` | 已推送 origin |
+| 安装包 | `release/Noryth-0.1.0-setup.exe` | 127MB + `latest.yml`；`node scripts/install-smoke.mjs` PASS |
 
 ## 当前可运行命令
 
