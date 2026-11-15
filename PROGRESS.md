@@ -200,6 +200,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T22/T26/T29 启用与输出扩展、T31 升 1.1.0） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 提交 | `ad52579`（feat）、`be72ee7`（docs） | 已推送 origin/dev |
+| CI（首次） | GitHub Actions run `43728834631`（`be72ee7`） | verify 2m09 全绿；e2e 3m17 失败：前 3 条（`a11y.spec`、`app.spec` 外壳 / 向导）失败，随后 13 条（含 `E2E-M1-BLUEPRINT-01`、`E2E-M1-FORESHADOW-01`）全绿 → 判定为 runner 冷启动偶发（与阶段 11/12/14 同形态） |
+| CI（复跑） | GitHub Actions run `43729850861`（`048ab10`，空提交） | verify + e2e 均绿（28/28）；package 按规则跳过（非 `v*` tag） |
 
 ## 当前可运行命令
 
