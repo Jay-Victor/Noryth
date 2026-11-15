@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { WriteActionResult, WriteEvent, WriteState } from '../../shared/schema/write'
+import type { WriteActionResult, WriteEvent, WriteState, WriteTimeline } from '../../shared/schema/write'
 import { getBridge } from '../lib/bridge'
 import { useApp } from './app'
 
@@ -39,6 +39,19 @@ interface WriteStoreState {
   resolveStale(choice: 'replace' | 'rerun' | 'branch'): Promise<void>
   saveStoryboard(scenes: WriteState['storyboard']['scenes']): Promise<void>
   confirmG2(): Promise<void>
+  /** 场景库（M1-1）与时间三轴（M1-2）。 */
+  linkScene(sceneId: string): Promise<void>
+  unlinkScene(sceneId: string): Promise<void>
+  forkScene(sceneId: string): Promise<void>
+  removeScene(sceneId: string): Promise<void>
+  setSceneTime(input: {
+    sceneId: string
+    storyStart?: string | null
+    storyEnd?: string | null
+    timeline?: 'main' | 'flashback' | 'dream'
+  }): Promise<void>
+  reorderScenes(sceneIds: string[]): Promise<void>
+  timeline(): Promise<WriteTimeline | null>
   startAuto(): Promise<void>
   pause(): Promise<void>
   resume(): Promise<void>
@@ -269,6 +282,60 @@ export const useWrite = create<WriteStoreState>((set, get) => {
       const bridge = getBridge()
       if (!bridge) return
       await run(() => bridge.write.confirmG2(state.chapterId))
+    },
+
+    async linkScene(sceneId) {
+      const state = get().state
+      const bridge = getBridge()
+      if (!state || !bridge) return
+      await run(() => bridge.write.linkScene({ chapterId: state.chapterId, sceneId }))
+    },
+
+    async unlinkScene(sceneId) {
+      const state = get().state
+      const bridge = getBridge()
+      if (!state || !bridge) return
+      await run(() => bridge.write.unlinkScene({ chapterId: state.chapterId, sceneId }))
+    },
+
+    async forkScene(sceneId) {
+      const state = get().state
+      const bridge = getBridge()
+      if (!state || !bridge) return
+      await run(() => bridge.write.forkScene({ chapterId: state.chapterId, sceneId }))
+    },
+
+    async removeScene(sceneId) {
+      const state = get().state
+      const bridge = getBridge()
+      if (!state || !bridge) return
+      await run(() => bridge.write.removeScene({ chapterId: state.chapterId, sceneId }))
+    },
+
+    async setSceneTime(input) {
+      const state = get().state
+      const bridge = getBridge()
+      if (!state || !bridge) return
+      await run(() => bridge.write.setSceneTime({ chapterId: state.chapterId, ...input }))
+    },
+
+    async reorderScenes(sceneIds) {
+      const state = get().state
+      const bridge = getBridge()
+      if (!state || !bridge) return
+      await run(() => bridge.write.reorderScenes({ chapterId: state.chapterId, sceneIds }))
+    },
+
+    async timeline() {
+      const state = get().state
+      const bridge = getBridge()
+      if (!state || !bridge) return null
+      const result = await bridge.write.timeline(state.chapterId)
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        return null
+      }
+      return result.data
     },
 
     async startAuto() {

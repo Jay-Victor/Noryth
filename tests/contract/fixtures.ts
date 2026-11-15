@@ -57,6 +57,11 @@ export const CONTRACT_FIXTURES: Record<string, ContractFixture> = {
     emptyArgs: { chapter_id: 'ch_draft' }
   },
   'draft.get_chapter': { args: { revision_id: 'rev_draft' }, emptyArgs: null },
+  'timeline.query': {
+    args: { chapter_id: 'ch_draft', as_of: 2 },
+    context: { asOf: 2 },
+    emptyArgs: { chapter_id: 'ch_draft', as_of: 0 }
+  },
   'consistency.check': { args: { revision_id: 'rev_draft' } },
   'storyboard.validate': { args: { draft: { scenes: [draftScene] } }, emptyArgs: null },
   'exit_dsl.validate': { args: { expr: 'all(fact("黑漆匣子","位置","祠堂供桌下面"), beats(2))' }, emptyArgs: null },

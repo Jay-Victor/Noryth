@@ -100,6 +100,15 @@ export function commitBeat(db: Db, repos: Repos, input: CommitBeatInput): Commit
         chapterId: chapter.id
       })
     }
+    // 引用章只读：场景的 live 拍属于别的章时，本章不能写正文（必须先 fork，PHASE-12 §5.1）。
+    const owner = repos.scene.ownerChapter(input.sceneId)
+    if (owner !== null && owner.chapterId !== chapter.id) {
+      throw new AppError('invalid_args', '场景已在别的章演出；引用章不能写正文，先 fork 到本章', {
+        chapterId: chapter.id,
+        sceneId: input.sceneId,
+        ownerChapterOrd: owner.chapterOrd
+      })
+    }
 
     const body = input.body
     if (body.trim().length === 0) {

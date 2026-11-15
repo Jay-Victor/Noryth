@@ -8,7 +8,8 @@ import type {
   WriteMessageState,
   WriteSendResult,
   WriteState,
-  WriteStoryboardState
+  WriteStoryboardState,
+  WriteTimeline
 } from '../../shared/schema/write'
 import type { StoryboardConflict } from '../../shared/schema/storyboard'
 import type { Db } from '../db/project-db'
@@ -37,6 +38,16 @@ import {
   validateChapterStoryboard,
   validateScenes
 } from './storyboard'
+import {
+  forkSceneIntoChapter,
+  linkSceneToChapter,
+  removeScene,
+  reorderChapterScenes,
+  sceneLibraryEntries,
+  unlinkSceneFromChapter,
+  updateSceneTime
+} from './scene-library'
+import { queryTimeline } from '../tools/support/timeline'
 import { runBeatTurn, type BeatRunOutcome } from './beat'
 import { runOrchestratorTurn } from './orchestrator'
 import { WriteModelFactory } from './model'
@@ -134,6 +145,13 @@ export class WriteService {
     const session = this.sessionOf(chapter.id)
     const scenes = host.repos.scene.listByChapter(chapter.id)
     const beats = host.repos.beat.listLiveByChapter(chapter.id)
+    // 引用判定：场景 live 拍归谁；一次查询覆盖整章（PHASE-12 M1-1）。
+    const usageByScene = new Map<string, { chapterId: string; chapterOrd: number }>()
+    for (const row of host.repos.scene.listUsageByProject(project.id)) {
+      if (!usageByScene.has(row.sceneId)) {
+        usageByScene.set(row.sceneId, { chapterId: row.chapterId, chapterOrd: row.chapterOrd })
+      }
+    }
     const draft = readStoryboardDraft(host.repos, chapter.id)
     const conflicts = validateChapterStoryboard(host.repos, chapter.id)
     const g2 = previewG2(host.repos, chapter.id)
@@ -146,6 +164,8 @@ export class WriteService {
       const sceneBeats = beats.filter((beat) => beat.sceneId === entry.scene.id)
       const exit = evaluateSceneExit(host.repos, chapter, entry, sceneBeats)
       const exitText = exitTextOf(entry.scene.exitJson)
+      const owner = usageByScene.get(entry.scene.id) ?? null
+      const referenceChapterOrd = owner !== null && owner.chapterId !== chapter.id ? owner.chapterOrd : null
       return {
         id: entry.scene.id,
         ord: entry.chapterOrd,
@@ -156,6 +176,10 @@ export class WriteService {
         ),
         goal: entry.scene.goal,
         entry: entry.scene.entry,
+        timeline: entry.scene.timeline,
+        storyStart: entry.scene.storyStart,
+        storyEnd: entry.scene.storyEnd,
+        referenceChapterOrd,
         exitText,
         exitValid: exit.decidable,
         exitReason: exit.reason,
@@ -204,6 +228,7 @@ export class WriteService {
         name: character.name
       })),
       scenes: sceneStates,
+      library: sceneLibraryEntries(host.repos, project.id, chapter.id),
       storyboard,
       g2: {
         ready: g2.ready,
@@ -250,7 +275,7 @@ export class WriteService {
       updatedBy: 'author'
     })
     const chapter = host.repos.chapter.get(input.chapterId)!
-    const conflicts = validateScenes(host.repos, chapter.projectId, draft.scenes)
+    const conflicts = validateScenes(host.repos, chapter.projectId, draft.scenes, chapter.id)
     return { state: this.state(input.chapterId), conflicts }
   }
 
@@ -260,7 +285,7 @@ export class WriteService {
     if (!chapter) throw new AppError('invalid_args', '本章不存在', { chapterId: input.chapterId })
     const parsed = Array.isArray(input.scenes) ? input.scenes : []
     if (parsed.length === 0) return []
-    return validateScenes(host.repos, chapter.projectId, parsed as never)
+    return validateScenes(host.repos, chapter.projectId, parsed as never, chapter.id)
   }
 
   g2Preview(chapterId: string) {
@@ -272,7 +297,13 @@ export class WriteService {
    * 未打包构建的 E2E 脚手架：建一章 + 3×8 分镜草案（不经过 G1）。
    * 生产包不注册该通道；只用于 `tests/e2e/write.spec.ts`。
    */
-  devSeed(input: { scenes?: number; beatsPerScene?: number; chapters?: number; exit?: string } = {}): WriteState {
+  devSeed(input: {
+    scenes?: number
+    beatsPerScene?: number
+    chapters?: number
+    seedEveryChapter?: boolean
+    exit?: string
+  } = {}): WriteState {
     const host = this.requireWritable()
     const project = host.repos.project.get()
     if (!project) throw new AppError('project_not_found', 'no project in database')
@@ -323,6 +354,7 @@ export class WriteService {
       status: 'planned'
     })
     // 性能/文件树 E2E：额外章只有节点与章行，不带分镜（devSeed 仍然只演第一章）。
+    const extraChapterIds: string[] = []
     for (let ord = 2; ord <= chapterCount; ord += 1) {
       const extra = host.repos.outline.insert({
         projectId: project.id,
@@ -333,12 +365,13 @@ export class WriteService {
         content: '',
         status: 'draft'
       })
-      host.repos.chapter.insert({
+      const extraChapter = host.repos.chapter.insert({
         projectId: project.id,
         outlineNodeId: extra.id,
         ord,
         status: 'planned'
       })
+      extraChapterIds.push(extraChapter.id)
     }
     host.repos.world.insert({
       projectId: project.id,
@@ -350,24 +383,30 @@ export class WriteService {
       validFromSeq: 0,
       sourceType: 'author'
     })
+    const seedScenes = Array.from({ length: sceneCount }, (_, sceneIndex) => ({
+      location: `地点 ${sceneIndex + 1}`,
+      participants: [characterId],
+      goal: `第 ${sceneIndex + 1} 场目标`,
+      entry: '',
+      exit,
+      max_beats: Math.max(beatsPerScene, 4),
+      beats: Array.from({ length: beatsPerScene }, (_, beatIndex) => ({
+        speaker_type: beatIndex % 2 === 1 ? 'narrator' : 'character',
+        speaker_id: beatIndex % 2 === 1 ? 'narrator' : characterId,
+        intent: `场景 ${sceneIndex + 1} 第 ${beatIndex + 1} 拍`,
+        max_words: 200
+      }))
+    }))
     saveStoryboardDraft(host.repos, {
       chapterId: chapter.id,
       updatedBy: 'author',
-      scenes: Array.from({ length: sceneCount }, (_, sceneIndex) => ({
-        location: `地点 ${sceneIndex + 1}`,
-        participants: [characterId],
-        goal: `第 ${sceneIndex + 1} 场目标`,
-        entry: '',
-        exit,
-        max_beats: Math.max(beatsPerScene, 4),
-        beats: Array.from({ length: beatsPerScene }, (_, beatIndex) => ({
-          speaker_type: beatIndex % 2 === 1 ? 'narrator' : 'character',
-          speaker_id: beatIndex % 2 === 1 ? 'narrator' : characterId,
-          intent: `场景 ${sceneIndex + 1} 第 ${beatIndex + 1} 拍`,
-          max_words: 200
-        }))
-      }))
+      scenes: seedScenes
     })
+    if (input.seedEveryChapter === true) {
+      for (const extraId of extraChapterIds) {
+        saveStoryboardDraft(host.repos, { chapterId: extraId, updatedBy: 'author', scenes: seedScenes })
+      }
+    }
     return this.state(chapter.id)
   }
 
@@ -380,6 +419,79 @@ export class WriteService {
       state: this.state(chapterId),
       detail: `G2 通过：${result.sceneCount} 场 / ${result.beatCount} 拍`
     }
+  }
+
+  // ── M1-1 场景库：链接/解链/排序/fork/删除（PHASE-12 §5.1） ────────────────
+
+  linkScene(input: { chapterId: string; sceneId: string }): WriteActionResult {
+    const host = this.requireSceneEditable()
+    linkSceneToChapter(host.db, host.repos, input)
+    const scene = host.repos.scene.get(input.sceneId)
+    this.log('write_scene_linked', { chapterId: input.chapterId, sceneId: input.sceneId })
+    return {
+      state: this.state(input.chapterId),
+      detail: `已链接「${scene?.location ?? input.sceneId}」到本章；补上拍之后再开演`
+    }
+  }
+
+  unlinkScene(input: { chapterId: string; sceneId: string }): WriteActionResult {
+    const host = this.requireSceneEditable()
+    unlinkSceneFromChapter(host.db, host.repos, input)
+    this.log('write_scene_unlinked', { chapterId: input.chapterId, sceneId: input.sceneId })
+    return { state: this.state(input.chapterId), detail: '已解链；场景本身还在场景库里' }
+  }
+
+  reorderScenes(input: { chapterId: string; sceneIds: string[] }): WriteActionResult {
+    const host = this.requireSceneEditable()
+    reorderChapterScenes(host.db, host.repos, input)
+    return { state: this.state(input.chapterId), detail: '章内顺序已更新' }
+  }
+
+  forkScene(input: { chapterId: string; sceneId: string }): WriteActionResult {
+    const host = this.requireSceneEditable()
+    const result = forkSceneIntoChapter(host.db, host.repos, input)
+    this.log('write_scene_forked', {
+      chapterId: input.chapterId,
+      sceneId: input.sceneId,
+      newSceneId: result.sceneId,
+      beatCount: result.beatCount
+    })
+    return {
+      state: this.state(input.chapterId),
+      detail: `已 fork：新场景带着 ${result.beatCount} 拍进入本章，原章不动`
+    }
+  }
+
+  deleteScene(input: { chapterId: string; sceneId: string }): WriteActionResult {
+    const host = this.requireSceneEditable()
+    removeScene(host.db, host.repos, input)
+    this.log('write_scene_removed', { chapterId: input.chapterId, sceneId: input.sceneId })
+    return { state: this.state(input.chapterId), detail: '场景已删除' }
+  }
+
+  setSceneTime(input: {
+    chapterId: string
+    sceneId: string
+    storyStart?: string | null
+    storyEnd?: string | null
+    timeline?: 'main' | 'flashback' | 'dream'
+  }): WriteActionResult {
+    const host = this.requireSceneEditable()
+    const scene = updateSceneTime(host.repos, input)
+    const label = scene.timeline === 'main' ? '主线' : scene.timeline === 'flashback' ? '闪回' : '梦境'
+    return { state: this.state(input.chapterId), detail: `「${scene.location}」时间轴：${label}` }
+  }
+
+  /** T23 的只读投影（PHASE-12 M1-2）；与工具共用 `queryTimeline`。 */
+  timeline(chapterId: string): WriteTimeline {
+    const host = this.requireHost()
+    const chapter = host.repos.chapter.get(chapterId)
+    if (!chapter) throw new AppError('invalid_args', '本章不存在', { chapterId })
+    return queryTimeline(host.repos, {
+      projectId: chapter.projectId,
+      chapterId: chapter.id,
+      asOf: chapter.coveredUntilSeq
+    })
   }
 
   // ── F2/F4 发牌、确认、重生成、编辑 ───────────────────────────────────────
@@ -1008,6 +1120,13 @@ export class WriteService {
   private requireWritable(): WriteHost {
     const host = this.requireHost()
     if (host.readOnly) throw new AppError('project_locked', '项目当前只读')
+    return host
+  }
+
+  /** 场景库写入：只读、生成中都拒绝（生成中改场景会让当前拍找不到自己的场景）。 */
+  private requireSceneEditable(): WriteHost {
+    const host = this.requireWritable()
+    if (this.running || this.autoRunning) throw new AppError('invalid_args', '生成中不能改场景，请先暂停或等本拍结束')
     return host
   }
 

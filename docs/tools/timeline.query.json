@@ -1,8 +1,8 @@
 {
   "name": "timeline.query",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "family": "knowledge",
-  "summary": "按章或 as_of 查询时间线（M1），story_start/end 与 idx 分轴返回",
+  "summary": "按章查询时间线：故事时间、叙事序与时间轴分轴返回，闪回不参与先后判定",
   "actors": [
     "orchestrator",
     "reviewer",
@@ -49,6 +49,16 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
+      "chapter_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "idx": {
+        "type": "integer",
+        "minimum": -9007199254740991,
+        "maximum": 9007199254740991
+      },
       "story_start": {
         "type": [
           "string",
@@ -61,10 +71,51 @@
           "null"
         ]
       },
-      "idx": {
-        "type": "integer",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991
+      "scenes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "scene_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "ord": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "timeline": {
+              "type": "string",
+              "enum": [
+                "main",
+                "flashback",
+                "dream"
+              ]
+            },
+            "story_start": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "story_end": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "scene_id",
+            "ord",
+            "timeline",
+            "story_start",
+            "story_end"
+          ],
+          "additionalProperties": false
+        }
       },
       "timeline": {
         "type": "array",
@@ -81,20 +132,31 @@
                 "string",
                 "null"
               ]
+            },
+            "timeline": {
+              "type": "string",
+              "enum": [
+                "main",
+                "flashback",
+                "dream"
+              ]
             }
           },
           "required": [
             "seq",
-            "story_time"
+            "story_time",
+            "timeline"
           ],
           "additionalProperties": false
         }
       }
     },
     "required": [
+      "chapter_id",
+      "idx",
       "story_start",
       "story_end",
-      "idx",
+      "scenes",
       "timeline"
     ],
     "additionalProperties": false

@@ -125,14 +125,38 @@ export function characterCardViews(
 }
 
 /** 全量校验：分镜编辑器、G2 预览、T34 提案共用。 */
-export function validateScenes(repos: Repos, projectId: string, scenes: readonly DraftScene[]): StoryboardConflict[] {
-  return validateStoryboard(
-    { scenes: [...scenes] },
-    {
-      registry: buildExitRegistry(repos, projectId),
-      characters: characterCardViews(repos, projectId)
-    }
-  )
+export function validateScenes(
+  repos: Repos,
+  projectId: string,
+  scenes: readonly DraftScene[],
+  chapterId?: string
+): StoryboardConflict[] {
+  const ownership: StoryboardConflict[] = []
+  if (chapterId !== undefined) {
+    scenes.forEach((scene, index) => {
+      if (!scene.scene_id) return
+      // 引用章只读：别的章演出过的场景不能直接进本章分镜，必须先 fork（PHASE-12 §5.1）。
+      const owner = repos.scene.ownerChapter(scene.scene_id)
+      if (owner !== null && owner.chapterId !== chapterId) {
+        ownership.push({
+          code: 'scene_performed_elsewhere',
+          severity: 'hard',
+          message: `场景「${scene.location}」已在第 ${owner.chapterOrd} 章演出；先 fork 到本章`,
+          scene_ord: index + 1
+        })
+      }
+    })
+  }
+  return [
+    ...ownership,
+    ...validateStoryboard(
+      { scenes: [...scenes] },
+      {
+        registry: buildExitRegistry(repos, projectId),
+        characters: characterCardViews(repos, projectId)
+      }
+    )
+  ]
 }
 
 export function validateChapterStoryboard(repos: Repos, chapterId: string): StoryboardConflict[] {
@@ -142,15 +166,16 @@ export function validateChapterStoryboard(repos: Repos, chapterId: string): Stor
   if (!draft) {
     return [{ code: 'no_storyboard', severity: 'hard', message: '本章还没有分镜草案', scene_ord: 0 }]
   }
-  return validateScenes(repos, chapter.projectId, draft.scenes)
+  return validateScenes(repos, chapter.projectId, draft.scenes, chapterId)
 }
 
-/** 章内现行分镜（G2 之后才有行）。 */
+/** 章内现行分镜（G2 之后才有行）；引用场不返回别的章的拍。 */
 export function readChapterStoryboard(repos: Repos, chapterId: string): ChapterStoryboardScene[] {
+  const beats = repos.beat.listLiveByChapter(chapterId)
   return repos.scene.listByChapter(chapterId).map((entry) => ({
     scene: entry.scene,
     chapterOrd: entry.chapterOrd,
-    beats: repos.beat.listLiveByScene(entry.scene.id)
+    beats: beats.filter((beat) => beat.sceneId === entry.scene.id)
   }))
 }
 
@@ -202,6 +227,21 @@ export function materializeStoryboard(
 
     input.scenes.forEach((draft, index) => {
       const chapterOrd = index + 1
+      if (draft.scene_id) {
+        // 别的章演出过的场景不能在本章物化：引用章只读，演出前必须 fork（PHASE-12 §5.1）。
+        const owner = repos.scene.ownerChapter(draft.scene_id)
+        const owned = repos.scene.get(draft.scene_id)
+        if (owned !== null && owned.projectId !== chapter.projectId) {
+          throw new AppError('invalid_args', '分镜引用了其他项目的场景', { sceneId: draft.scene_id })
+        }
+        if (owner !== null && owner.chapterId !== chapter.id) {
+          throw new AppError('invalid_args', `场景已在第 ${owner.chapterOrd} 章演出；先 fork 到本章`, {
+            sceneId: draft.scene_id,
+            needsFork: true,
+            ownerChapterOrd: owner.chapterOrd
+          })
+        }
+      }
       const match = draft.scene_id ? existingBySceneId.get(draft.scene_id) : existing[index]
       const sceneId = match?.scene.id ?? draft.scene_id ?? newId('scn')
       if (match) {
@@ -231,9 +271,19 @@ export function materializeStoryboard(
       planned.push({ sceneId, chapterOrd, beats: draft.beats })
     })
 
-    // 重置章内场景顺序：先清空再按草案顺序插入（PK 是 (chapter_id, ord)）。
+    const plannedIds = new Set(planned.map((entry) => entry.sceneId))
+    // 引用场：本章链接、但拍属于别的章；草案里没有它们也算数，物化时保留链接。
+    const references = existing.filter((entry) => !plannedIds.has(entry.scene.id)).filter((entry) => {
+      const owner = repos.scene.ownerChapter(entry.scene.id)
+      return owner !== null && owner.chapterId !== chapter.id
+    })
+
+    // 重置章内场景顺序：先清空再按草案顺序插入；引用场排在后面（只读，不参与演出）。
     for (const entry of existing) repos.scene.unlinkFromChapter(chapter.id, entry.scene.id)
     for (const entry of planned) repos.scene.linkToChapter(chapter.id, entry.sceneId, entry.chapterOrd)
+    references.forEach((entry, index) => {
+      repos.scene.linkToChapter(chapter.id, entry.scene.id, planned.length + index + 1)
+    })
 
     const liveBefore = repos.beat.listLiveByChapter(chapter.id)
     const slotOf = (sceneId: string, ord: number): BeatRecord | undefined =>
@@ -332,6 +382,18 @@ export function materializeStoryboard(
       }))
     )
     repos.chapter.setCurrentRevision(chapter.id, revisionId)
+
+    // 物化后把 scene_id 写回草案（PHASE-12 M1-1/M1-2）：编辑器据此显示三轴、
+    // 场景库据此判断「这一场已经在本章演出」，下次保存也不会重复建场景。
+    repos.storyboard.save({
+      chapterId: chapter.id,
+      projectId: chapter.projectId,
+      scenesJson: JSON.stringify({
+        chapter_id: chapter.id,
+        scenes: input.scenes.map((scene, index) => ({ ...scene, scene_id: planned[index]!.sceneId }))
+      }),
+      updatedBy: 'author'
+    })
 
     const mirrorHash = hashText(renderChapterMarkdown(db, { chapterId: chapter.id, revisionId }))
     repos.outbox.enqueue({

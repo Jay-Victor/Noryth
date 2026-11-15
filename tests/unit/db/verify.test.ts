@@ -122,6 +122,27 @@ describe('db.verify()', () => {
     expect(codes(report)).toContain('mirror_hash_mismatch')
   })
 
+  it('同一场景的 live 拍跨章 → scene_cross_chapter_beats', () => {
+    const { handle, seed, dir } = setup()
+    // 绕过服务层的 fork 判定，直接把第 1 章的场景链接到第 2 章并塞一拍：
+    // 这正是「共享可变正文」的坏状态，verify 必须拦住。
+    const scene = seed.chapters[0]!.sceneIds[0]!
+    handle.repos.scene.linkToChapter(seed.chapterIds[1]!, scene, 4)
+    handle.repos.beat.insert({
+      chapterId: seed.chapterIds[1]!,
+      sceneId: scene,
+      ord: 99,
+      speakerType: 'narrator',
+      speakerId: 'narrator',
+      body: '跨章共享',
+      status: 'draft',
+      createdRevisionId: seed.chapters[1]!.revisionId
+    })
+    const report = verifyDatabase(handle.db, { projectDir: dir })
+    expect(codes(report)).toContain('scene_cross_chapter_beats')
+    expect(report.ok).toBe(false)
+  })
+
   it('foreign_key_check 能发现禁用外键时插入的坏行', () => {
     const { handle, dir } = setup()
     handle.db.pragma('foreign_keys = OFF')

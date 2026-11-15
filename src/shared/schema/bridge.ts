@@ -61,7 +61,8 @@ import type {
   WriteEvent,
   WritePreflightState,
   WriteSendResult,
-  WriteState
+  WriteState,
+  WriteTimeline
 } from './write'
 import type {
   AppInfo,
@@ -232,8 +233,30 @@ export interface WriteApi {
   resume(chapterId: string): Promise<IpcResult<WriteActionResult>>
   cancel(chapterId: string): Promise<IpcResult<WriteActionResult>>
   send(input: { chapterId: string; text: string }): Promise<IpcResult<WriteSendResult>>
+  /** 场景库（M1-1）：链接/解链/排序/fork/删除。 */
+  linkScene(input: { chapterId: string; sceneId: string }): Promise<IpcResult<WriteActionResult>>
+  unlinkScene(input: { chapterId: string; sceneId: string }): Promise<IpcResult<WriteActionResult>>
+  reorderScenes(input: { chapterId: string; sceneIds: string[] }): Promise<IpcResult<WriteActionResult>>
+  forkScene(input: { chapterId: string; sceneId: string }): Promise<IpcResult<WriteActionResult>>
+  removeScene(input: { chapterId: string; sceneId: string }): Promise<IpcResult<WriteActionResult>>
+  /** 时间三轴（M1-2）：省略 = 不改，null = 清空。 */
+  setSceneTime(input: {
+    chapterId: string
+    sceneId: string
+    storyStart?: string | null
+    storyEnd?: string | null
+    timeline?: 'main' | 'flashback' | 'dream'
+  }): Promise<IpcResult<WriteActionResult>>
+  /** T23 的只读投影（M1-2）。 */
+  timeline(chapterId: string): Promise<IpcResult<WriteTimeline>>
   /** 仅未打包构建：E2E 脚手架，生产包调用返回 invalid_args。 */
-  devSeed(input?: { scenes?: number; beatsPerScene?: number; chapters?: number; exit?: string }): Promise<IpcResult<WriteState>>
+  devSeed(input?: {
+    scenes?: number
+    beatsPerScene?: number
+    chapters?: number
+    seedEveryChapter?: boolean
+    exit?: string
+  }): Promise<IpcResult<WriteState>>
 }
 
 /** 审批台 API（PHASE-08）。G5/G6 的令牌都在主进程签发，renderer 只持有一次性 token。 */

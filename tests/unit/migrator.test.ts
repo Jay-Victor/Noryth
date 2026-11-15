@@ -23,7 +23,7 @@ describe('migrator', () => {
       const db = newDb(dir.path)
       try {
         const first = migrate(db, MIGRATIONS)
-        expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7])
+        expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
         expect(first.to).toBe(LATEST_SCHEMA_VERSION)
         expect(currentVersion(db)).toBe(LATEST_SCHEMA_VERSION)
         expect(db.pragma('user_version', { simple: true })).toBe(LATEST_SCHEMA_VERSION)
@@ -76,6 +76,43 @@ describe('migrator', () => {
       const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>
       expect(tables.map((row) => row.name)).not.toContain('ok_table')
       expect(currentVersion(db)).toBe(0)
+    } finally {
+      db.close()
+    }
+  })
+
+  it('0008 迁移旧项目：scene 回填 timeline=main，两轴为 NULL', () => {
+    const dir = tempDir()
+    cleanups.push(dir.cleanup)
+    const db = newDb(dir.path)
+    try {
+      // 先迁到 7（0007 = 阶段 11 的库），写一行旧 scene，再迁 0008。
+      migrate(
+        db,
+        MIGRATIONS.filter((migration) => migration.version <= 7)
+      )
+      db.prepare(
+        `INSERT INTO project (id, title, pov, embedding_model, embedding_dim, default_preset, schema_version, created_at, updated_at)
+         VALUES ('prj_old', '旧项目', 'third_limited', 'bge', 512, 'deepseek', 7, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare(
+        `INSERT INTO scene (id, project_id, ord, location, participants_json, goal, exit_json, status, created_at, updated_at)
+         VALUES ('scn_old', 'prj_old', 1, '祠堂', '[]', '旧场景', '{}', 'planned', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+
+      const result = migrate(db, MIGRATIONS)
+      expect(result.applied).toEqual([8])
+      const row = db.prepare('SELECT timeline, story_start, story_end FROM scene WHERE id = ?').get('scn_old') as {
+        timeline: string
+        story_start: string | null
+        story_end: string | null
+      }
+      expect(row).toEqual({ timeline: 'main', story_start: null, story_end: null })
+      const index = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name = 'scene_timeline'")
+        .get() as { name?: string } | undefined
+      expect(index?.name).toBe('scene_timeline')
+      expect(() => db.prepare("UPDATE scene SET timeline = 'nope' WHERE id = 'scn_old'").run()).toThrow()
     } finally {
       db.close()
     }

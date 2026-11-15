@@ -77,6 +77,11 @@ export interface SceneTable {
   exit_json: string
   status: string
   max_beats: Generated<number>
+  /** 故事内时间，自由文本；0008 起（PHASE-12 M1-2）。 */
+  story_start: string | null
+  story_end: string | null
+  /** 时间轴：main | flashback | dream；默认 main，闪回永不参与故事时间先后判定。 */
+  timeline: Generated<string>
   created_at: string
   updated_at: string
 }

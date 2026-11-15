@@ -198,6 +198,7 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
                   <span className={`write-scene-dot is-${scene.status}`} />
                   <span className="write-scene-name">
                     场景 {scene.ord} · {scene.location}
+                    {scene.referenceChapterOrd !== null ? `（引用第 ${scene.referenceChapterOrd} 章）` : ''}
                   </span>
                   <span className="write-scene-count">
                     {scene.confirmed}/{scene.maxBeats}

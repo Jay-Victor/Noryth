@@ -4,6 +4,7 @@ import type { Repos } from '../../db/repos'
 import type { MemoryEntryRecord, MemoryKind } from '../../db/repos/memory'
 import type { WorldFactRecord } from '../../db/repos/world'
 import { retrieveOwn } from '../../memory/retrieve'
+import { queryTimeline } from '../support/timeline'
 import { defineTool } from '../define'
 import { makeRef } from '../support/refs'
 import { clampAsOf, scoreText } from '../support/text'
@@ -701,13 +702,13 @@ const foreshadowListOpen = defineTool({
   handler: () => notImplemented('foreshadow.list_open')
 })
 
-/** T23（M1）：三轴分开返回；M0 只保留契约。 */
+/** T23（M1 / PHASE-12）：三轴分开返回；as_of 不越章水位。 */
 const timelineQuery = defineTool({
   toolId: 'T23',
   name: 'timeline.query',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'knowledge',
-  summary: '按章或 as_of 查询时间线（M1），story_start/end 与 idx 分轴返回',
+  summary: '按章查询时间线：故事时间、叙事序与时间轴分轴返回，闪回不参与先后判定',
   actors: ['orchestrator', 'reviewer', 'memory'],
   sideEffect: 'none',
   agentCallable: true,
@@ -715,16 +716,71 @@ const timelineQuery = defineTool({
   idempotency: 'natural',
   input: z.strictObject({ chapter_id: Id.optional(), as_of: z.number().int().min(0).optional() }),
   output: z.strictObject({
+    chapter_id: Id,
+    idx: z.number().int(),
     story_start: z.string().nullable(),
     story_end: z.string().nullable(),
-    idx: z.number().int(),
-    timeline: z.array(z.strictObject({ seq: z.number().int(), story_time: z.string().nullable() }))
+    scenes: z.array(
+      z.strictObject({
+        scene_id: Id,
+        ord: z.number().int(),
+        timeline: z.enum(['main', 'flashback', 'dream']),
+        story_start: z.string().nullable(),
+        story_end: z.string().nullable()
+      })
+    ),
+    timeline: z.array(
+      z.strictObject({
+        seq: z.number().int(),
+        story_time: z.string().nullable(),
+        timeline: z.enum(['main', 'flashback', 'dream'])
+      })
+    )
   }),
   limits: limitsFor('knowledge'),
   degrade: degradeFor('knowledge'),
   audit: AUDIT,
   milestone: 'M1',
-  handler: () => notImplemented('timeline.query')
+  enabled: true,
+  handler: (args, ctx, services) => {
+    const chapterId = args.chapter_id ?? ctx.chapterId
+    if (!chapterId) throw new AppError('invalid_args', 'chapter context missing')
+    if (args.as_of !== undefined && args.as_of > ctx.runtime.as_of) {
+      throw new AppError('stale_revision', `as_of ${args.as_of} 超过运行时水位 ${ctx.runtime.as_of}`, {
+        asOf: args.as_of,
+        asOfCeiling: ctx.runtime.as_of
+      })
+    }
+    const view = queryTimeline(services.repos, {
+      projectId: ctx.runtime.project_id,
+      chapterId,
+      asOf: args.as_of ?? ctx.runtime.as_of
+    })
+    return {
+      data: {
+        chapter_id: view.chapterId,
+        idx: view.idx,
+        story_start: view.storyStart,
+        story_end: view.storyEnd,
+        scenes: view.scenes.map((scene) => ({
+          scene_id: scene.sceneId,
+          ord: scene.ord,
+          timeline: scene.timeline,
+          story_start: scene.storyStart,
+          story_end: scene.storyEnd
+        })),
+        timeline: view.timeline.map((row) => ({
+          seq: row.seq,
+          story_time: row.storyTime,
+          timeline: row.timeline
+        }))
+      },
+      refs: view.scenes
+        .filter((scene) => scene.storyStart !== null)
+        .map((scene) => makeRef('outline', scene.sceneId, `${scene.timeline} · ${scene.storyStart ?? ''}`)),
+      degraded: view.timeline.length === 0 ? ('empty' as const) : ('none' as const)
+    }
+  }
 })
 
 export const KNOWLEDGE_TOOLS = [

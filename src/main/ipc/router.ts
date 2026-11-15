@@ -59,6 +59,10 @@ import {
   WriteEditInputSchema,
   WriteG2InputSchema,
   WriteSendInputSchema,
+  WriteSceneLinkInputSchema,
+  WriteSceneReorderInputSchema,
+  WriteSceneTimeInputSchema,
+  WriteTimelineInputSchema,
   WriteStaleChoiceInputSchema,
   WriteDevSeedInputSchema,
   WriteStoryboardSaveInputSchema,
@@ -633,6 +637,40 @@ export function registerIpc(deps: IpcDeps): void {
     schema: WriteSendInputSchema,
     mutation: true,
     handler: (payload) => write.send(payload)
+  })
+  register(IPC.writeSceneLink, {
+    schema: WriteSceneLinkInputSchema,
+    mutation: true,
+    handler: (payload) => write.linkScene(payload)
+  })
+  register(IPC.writeSceneUnlink, {
+    schema: WriteSceneLinkInputSchema,
+    mutation: true,
+    handler: (payload) => write.unlinkScene(payload)
+  })
+  register(IPC.writeSceneReorder, {
+    schema: WriteSceneReorderInputSchema,
+    mutation: true,
+    handler: (payload) => write.reorderScenes(payload)
+  })
+  register(IPC.writeSceneFork, {
+    schema: WriteSceneLinkInputSchema,
+    mutation: true,
+    handler: (payload) => write.forkScene(payload)
+  })
+  register(IPC.writeSceneRemove, {
+    schema: WriteSceneLinkInputSchema,
+    mutation: true,
+    handler: (payload) => write.deleteScene(payload)
+  })
+  register(IPC.writeSceneTime, {
+    schema: WriteSceneTimeInputSchema,
+    mutation: true,
+    handler: (payload) => write.setSceneTime(payload)
+  })
+  register(IPC.writeTimeline, {
+    schema: WriteTimelineInputSchema,
+    handler: (payload) => write.timeline(payload.chapterId)
   })
   if (deps.devTools) {
     register(IPC.writeDevSeed, {

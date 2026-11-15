@@ -68,7 +68,7 @@ async function main() {
       return
     }
     log(`app.info：version=${info.data.version} schema=${info.data.schemaVersion} packaged=${info.data.packaged}`)
-    if (info.data.schemaVersion !== 7) fail(`schemaVersion=${info.data.schemaVersion}，期望 7`)
+    if (info.data.schemaVersion < 8) fail(`schemaVersion=${info.data.schemaVersion}，期望 >= 8`)
 
     const created = await page.evaluate(
       async ({ parentDir }) =>

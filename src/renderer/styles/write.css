@@ -796,3 +796,137 @@
 .write-tree .plan-tree-file {
   font-size: 11px;
 }
+
+/* 场景库（PHASE-12 M1-1） */
+
+.write-library {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  background: var(--bg-raised);
+}
+
+.write-library__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 11px;
+}
+
+.write-library__chevron {
+  margin-left: auto;
+  color: var(--faint);
+}
+
+.write-library__body {
+  border-top: 1px solid var(--border);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.write-library__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.write-library__item {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+}
+
+.write-library__item.is-linked {
+  border-color: color-mix(in oklab, var(--accent) 28%, transparent);
+  background: var(--accent-weak);
+}
+
+.write-library__row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.write-library__location {
+  font-size: 11px;
+}
+
+.write-library__meta,
+.write-library__time {
+  font-size: 10px;
+  color: var(--faint);
+}
+
+.write-library__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+
+/* 时间轴徽标与引用场（PHASE-12 M1-2 / §5.4） */
+
+.write-badge {
+  font-size: 9.5px;
+  border-radius: 999px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.write-badge--timeline {
+  color: var(--accent-strong);
+  border-color: color-mix(in oklab, var(--accent) 40%, transparent);
+  background: var(--accent-weak);
+}
+
+.write-badge--reference {
+  color: var(--warn);
+  border-color: color-mix(in oklab, var(--warn) 40%, transparent);
+  background: var(--warn-weak);
+}
+
+.write-scene-block__time {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin: 4px 0;
+  flex-wrap: wrap;
+}
+
+.write-scene-block__time label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.write-scene-block.is-reference {
+  border-style: dashed;
+  background: transparent;
+}
+
+.write-scene-ref-name {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.write-storyboard-references {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

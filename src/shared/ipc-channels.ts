@@ -82,6 +82,14 @@ export const IPC = {
   writeResume: 'write.resume',
   writeCancel: 'write.cancel',
   writeSend: 'write.send',
+  // 场景库与时间三轴（PHASE-12 M1-1 / M1-2）
+  writeSceneLink: 'write.scene.link',
+  writeSceneUnlink: 'write.scene.unlink',
+  writeSceneReorder: 'write.scene.reorder',
+  writeSceneFork: 'write.scene.fork',
+  writeSceneRemove: 'write.scene.remove',
+  writeSceneTime: 'write.scene.time',
+  writeTimeline: 'write.timeline',
   // 未打包构建的 E2E 脚手架（生产包不注册）
   writeDevSeed: 'write.devSeed',
   // 审批台（PHASE-08）

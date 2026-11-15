@@ -52,7 +52,8 @@ interface ChapterRevisionRow {
  * 2. 孤儿：beat.created_revision_id / revision_beat / chapter.current_revision_id
  * 3. seq：章内唯一 + seq_head >= max(seq) + 同一槽位单调（新版本 seq 必须大于被替换版本）
  * 4. 双活：同 (scene_id, ord) 多条非 superseded
- * 5. 镜像：outbox 最新行与 manuscript 文件 hash（只告警，不改 DB）
+ * 5. 归属：拍所在场景必须链接到该章；一个场景的 live 拍只能属于一个演出章（PHASE-12）
+ * 6. 镜像：outbox 最新行与 manuscript 文件 hash（只告警，不改 DB）
  *
  * 第 3 条按 ADR-0005 §4 修正：不再要求「阅读顺序 seq 递增」——重生成/编辑较早的拍
  * 会分配更大的 seq，阅读顺序单调会把合法操作报成错误（DEV-PLAN §5.3 只要求 as_of 单调）。
@@ -136,6 +137,23 @@ export function verifyDatabase(db: Db, options: VerifyOptions = {}): VerifyRepor
     .all() as Array<{ id: string; chapter_id: string; scene_id: string }>
   if (unlinkedBeats.length > 0) {
     error('beat_scene_unlinked', `${unlinkedBeats.length} beat(s) belong to a scene not linked to their chapter`, unlinkedBeats)
+  }
+
+  // 演出唯一（PHASE-12 §5.1）：一个场景的 live 拍只能属于一个演出章。
+  // 引用章只读，正文不跨章共享；跨章共享会让一章改稿静默改掉另一章的 final。
+  const crossChapterScenes = db
+    .prepare(
+      `SELECT scene_id, COUNT(DISTINCT chapter_id) AS chapters
+       FROM beat WHERE status <> 'superseded'
+       GROUP BY scene_id HAVING COUNT(DISTINCT chapter_id) > 1 LIMIT 20`
+    )
+    .all() as Array<{ scene_id: string; chapters: number }>
+  if (crossChapterScenes.length > 0) {
+    error(
+      'scene_cross_chapter_beats',
+      `${crossChapterScenes.length} scene(s) have live beats in more than one chapter`,
+      crossChapterScenes
+    )
   }
 
   const doubleLive = db

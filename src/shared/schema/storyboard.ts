@@ -29,7 +29,8 @@ export const DraftSceneSchema = z.strictObject({
   exit: z.unknown().optional(),
   /** 场景拍数上限（DEV-PLAN §8.2 max_beats）。 */
   max_beats: z.number().int().min(1).max(200).optional(),
-  beats: z.array(DraftBeatSchema).min(1).max(40)
+  /** 允许空拍：场景库链接进来的空场景先存草案，开演前由 empty_scene 硬冲突拦住。 */
+  beats: z.array(DraftBeatSchema).max(40)
 })
 export type DraftScene = z.infer<typeof DraftSceneSchema>
 

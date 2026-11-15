@@ -82,6 +82,12 @@ export const WriteSceneSchema = z.strictObject({
   participantNames: z.array(z.string()),
   goal: z.string(),
   entry: z.string(),
+  /** 时间三轴（PHASE-12 M1-2）：idx 由章序派生，故事时间只展示不比较。 */
+  timeline: z.enum(['main', 'flashback', 'dream']),
+  storyStart: z.string().nullable(),
+  storyEnd: z.string().nullable(),
+  /** 引用场：拍属于别的章（只读）；非 null 时演出前必须 fork。 */
+  referenceChapterOrd: z.number().int().nullable(),
   exitText: z.string(),
   exitValid: z.boolean(),
   exitReason: z.string().nullable(),
@@ -174,6 +180,55 @@ export const WriteChapterSummarySchema = z.strictObject({
 })
 export type WriteChapterSummary = z.infer<typeof WriteChapterSummarySchema>
 
+/** 场景库一行（PHASE-12 M1-1）：项目级场景 + 链接与演出归属。 */
+export const WriteSceneLibraryItemSchema = z.strictObject({
+  id: z.string(),
+  ord: z.number().int(),
+  location: z.string(),
+  goal: z.string(),
+  status: z.string(),
+  timeline: z.enum(['main', 'flashback', 'dream']),
+  storyStart: z.string().nullable(),
+  storyEnd: z.string().nullable(),
+  /** 场景 live 拍数（= 已演出）。 */
+  liveBeats: z.number().int().nonnegative(),
+  /** 演出章序；未演出 null。 */
+  ownerChapterOrd: z.number().int().nullable(),
+  /** 链接到的章序（升序）。 */
+  linkedChapterOrds: z.array(z.number().int()),
+  linkedToCurrent: z.boolean(),
+  ownedByCurrent: z.boolean()
+})
+export type WriteSceneLibraryItem = z.infer<typeof WriteSceneLibraryItemSchema>
+
+/** 时间三轴视图（T23 的只读投影，供创作台与 E2E 使用）。 */
+export const WriteTimelineSchema = z.strictObject({
+  chapterId: z.string(),
+  /** 叙事顺序 = chapter.ord（全书统一编号）。 */
+  idx: z.number().int(),
+  /** 章内第一个 main 场景的故事时间范围；没有 main 场景时为 null。 */
+  storyStart: z.string().nullable(),
+  storyEnd: z.string().nullable(),
+  scenes: z.array(
+    z.strictObject({
+      sceneId: z.string(),
+      ord: z.number().int(),
+      timeline: z.enum(['main', 'flashback', 'dream']),
+      storyStart: z.string().nullable(),
+      storyEnd: z.string().nullable()
+    })
+  ),
+  /** 按 beat.seq 排序：故事时间取所属场景的 story_start，另带该场景时间轴。 */
+  timeline: z.array(
+    z.strictObject({
+      seq: z.number().int(),
+      storyTime: z.string().nullable(),
+      timeline: z.enum(['main', 'flashback', 'dream'])
+    })
+  )
+})
+export type WriteTimeline = z.infer<typeof WriteTimelineSchema>
+
 export const WriteStateSchema = z.strictObject({
   projectId: z.string(),
   projectTitle: z.string(),
@@ -191,6 +246,8 @@ export const WriteStateSchema = z.strictObject({
   /** 角色 id → 名字（分镜编辑器与拍卡显示用）。 */
   characters: z.array(z.strictObject({ id: z.string(), name: z.string() })),
   scenes: z.array(WriteSceneSchema),
+  /** 项目级场景库（PHASE-12 M1-1）：链接、fork 与时间轴编辑的数据源。 */
+  library: z.array(WriteSceneLibraryItemSchema),
   storyboard: WriteStoryboardSchema,
   g2: WriteG2Schema,
   progress: z.strictObject({
@@ -237,6 +294,25 @@ export const WriteStoryboardValidateInputSchema = z.strictObject({
   scenes: z.array(DraftSceneSchema).min(0).max(10)
 })
 export const WriteG2InputSchema = z.strictObject({ chapterId: z.string().min(1) })
+
+/** 场景库（PHASE-12 M1-1）：链接/解链/排序/fork/删除/时间三轴。 */
+export const WriteSceneLinkInputSchema = z.strictObject({
+  chapterId: z.string().min(1),
+  sceneId: z.string().min(1)
+})
+export const WriteSceneReorderInputSchema = z.strictObject({
+  chapterId: z.string().min(1),
+  sceneIds: z.array(z.string().min(1)).min(1).max(20)
+})
+export const WriteSceneTimeInputSchema = z.strictObject({
+  chapterId: z.string().min(1),
+  sceneId: z.string().min(1),
+  /** 省略 = 不改；null = 清空。 */
+  storyStart: z.string().max(80).nullable().optional(),
+  storyEnd: z.string().max(80).nullable().optional(),
+  timeline: z.enum(['main', 'flashback', 'dream']).optional()
+})
+export const WriteTimelineInputSchema = z.strictObject({ chapterId: z.string().min(1) })
 export const WriteBeatInputSchema = z.strictObject({ beatId: z.string().min(1) })
 export const WriteEditInputSchema = z.strictObject({
   beatId: z.string().min(1),
@@ -254,8 +330,10 @@ export const WriteSendInputSchema = z.strictObject({
 export const WriteDevSeedInputSchema = z.strictObject({
   scenes: z.number().int().min(1).max(10).optional(),
   beatsPerScene: z.number().int().min(1).max(20).optional(),
-  /** 只给性能/文件树 E2E 用：一次铺 N 章（只有第一章带分镜）。 */
+  /** 只给性能/文件树 E2E 用：一次铺 N 章（默认只有第一章带分镜）。 */
   chapters: z.number().int().min(1).max(40).optional(),
+  /** 每章都带同一套分镜草案（PHASE-12 的多章时间线 E2E 用）。 */
+  seedEveryChapter: z.boolean().optional(),
   exit: z.string().min(1).max(500).optional()
 })
 

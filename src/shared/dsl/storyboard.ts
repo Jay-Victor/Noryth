@@ -117,6 +117,15 @@ export function validateStoryboard(
       })
     }
 
+    if (scene.beats.length === 0) {
+      // 场景库链接进来的空场景可以保存（规划期），但不能开演。
+      conflicts.push({
+        code: 'empty_scene',
+        severity: 'hard',
+        message: `场景「${scene.location}」还没有拍`,
+        scene_ord: sceneOrd
+      })
+    }
     scene.beats.forEach((beat, beatIndex) => {
       totalBeats += 1
       const beatOrd = beat.ord ?? beatIndex + 1

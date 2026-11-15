@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ALL_MANIFESTS, AGENT_TOOLS, SYSTEM_TOOLS } from '../../src/main/tools/manifests'
 import { buildRegistry } from '../../src/main/tools/registry'
 import { AGENT_KEYS } from '../../src/main/tools/types'
-import { M0_TOOL_COUNTS, TOOL_ALLOWLIST } from '../../src/main/tools/generated/allowlist'
+import { M0_TOOL_COUNTS, TOOL_ALLOWLIST, TOOL_COUNTS } from '../../src/main/tools/generated/allowlist'
 import { TOOLSET_VERSION } from '../../src/main/tools/generated/toolset-version'
 import { ERROR_CODES, ERROR_MESSAGES } from '../../src/shared/domain/errors'
 
@@ -28,17 +28,22 @@ describe('tool registry', () => {
     expect(registry.unavailable).toEqual([])
   })
 
-  it('M0 注册 36 个，六个 Agent 的工具数与 PRD §4.11 一致', () => {
+  it('M0 注册 36 个，M1 已打开 T23；六个 Agent 的 M0 基线与 PRD §4.11 一致', () => {
     const enabled = AGENT_TOOLS.filter((tool) => tool.enabled)
-    expect(enabled).toHaveLength(36)
+    expect(enabled).toHaveLength(37)
     for (const agent of AGENT_KEYS) {
-      expect(registry.baselineFor(agent).length, agent).toBe(EXPECTED_COUNTS[agent])
+      // PRD §4.11 的 M0 基线不受 M1 开关影响；当前 allowlist = 基线 + 已打开的 M1 工具。
       expect(M0_TOOL_COUNTS[agent], agent).toBe(EXPECTED_COUNTS[agent])
+      expect(TOOL_COUNTS[agent], agent).toBe(registry.baselineFor(agent).length)
       expect(TOOL_ALLOWLIST[agent]).toEqual(registry.baselineFor(agent).map((tool) => tool.name))
+    }
+    for (const agent of ['orchestrator', 'reviewer', 'memory'] as const) {
+      expect(TOOL_COUNTS[agent], agent).toBe(EXPECTED_COUNTS[agent] + 1)
+      expect(TOOL_ALLOWLIST[agent]).toContain('timeline.query')
     }
   })
 
-  it('旁白快照恰好 5 个，审批 17 个', () => {
+  it('旁白快照恰好 5 个，审批 18 个（17 + T23）', () => {
     expect(registry.baselineFor('narrator').map((tool) => tool.name)).toEqual([
       'canon.search_public',
       'character.get_public_profile',
@@ -46,7 +51,7 @@ describe('tool registry', () => {
       'storyboard.get_beat',
       'world.get_reader_known'
     ])
-    expect(registry.baselineFor('reviewer')).toHaveLength(17)
+    expect(registry.baselineFor('reviewer')).toHaveLength(18)
   })
 
   it('commit 工具永不下发给 Agent', () => {
@@ -66,14 +71,13 @@ describe('tool registry', () => {
     }
   })
 
-  it('6 个里程碑工具保留契约但不注册、不下发', () => {
+  it('5 个里程碑工具保留契约但不注册、不下发', () => {
     const deferred = ALL_MANIFESTS.filter((tool) => !tool.system && !tool.enabled).map((tool) => tool.name).sort()
     expect(deferred).toEqual([
       'coverage.check',
       'foreshadow.list_open',
       'impact.analyze',
       'memory.rebuild',
-      'timeline.query',
       'voice.metrics'
     ])
     for (const name of deferred) {

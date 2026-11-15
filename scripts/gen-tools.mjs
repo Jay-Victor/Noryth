@@ -10,6 +10,7 @@ import { createServer } from 'vite'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const AGENTS = ['planner', 'orchestrator', 'character', 'narrator', 'reviewer', 'memory']
+// PRD §4.11 的 M0 基线：只统计 milestone=M0 的工具；M1 打开的开关不改变这组数字。
 const M0_COUNTS = { planner: 8, orchestrator: 16, character: 9, narrator: 5, reviewer: 17, memory: 13 }
 
 async function loadModules() {
@@ -37,6 +38,17 @@ function allowlistOf(tools, agent) {
     .sort()
 }
 
+/** M0 基线：只数 milestone=M0（PRD §4.11）；与当前 allowlist 分开校验。 */
+function m0AllowlistOf(tools, agent) {
+  return tools
+    .filter(
+      (tool) =>
+        tool.enabled && !tool.system && tool.agentCallable && tool.actors.includes(agent) && tool.milestone === 'M0'
+    )
+    .map((tool) => tool.name)
+    .sort()
+}
+
 export async function buildArtifacts() {
   const { AGENT_TOOLS, ALL_MANIFESTS, toManifestJson, computeToolsetVersion } = await loadModules()
 
@@ -47,12 +59,13 @@ export async function buildArtifacts() {
     if (tool.validationErrors.length > 0) problems.push(`${tool.name}: ${tool.validationErrors.join(' | ')}`)
   }
   const allowlist = Object.fromEntries(AGENTS.map((agent) => [agent, allowlistOf(AGENT_TOOLS, agent)]))
+  const m0Allowlist = Object.fromEntries(AGENTS.map((agent) => [agent, m0AllowlistOf(AGENT_TOOLS, agent)]))
   for (const agent of AGENTS) {
-    if (allowlist[agent].length !== M0_COUNTS[agent]) {
-      problems.push(`${agent}: M0 工具数 ${allowlist[agent].length} != ${M0_COUNTS[agent]}`)
+    if (m0Allowlist[agent].length !== M0_COUNTS[agent]) {
+      problems.push(`${agent}: M0 工具数 ${m0Allowlist[agent].length} != ${M0_COUNTS[agent]}`)
     }
   }
-  const m0Count = AGENT_TOOLS.filter((tool) => tool.enabled && !tool.system).length
+  const m0Count = AGENT_TOOLS.filter((tool) => tool.enabled && !tool.system && tool.milestone === 'M0').length
   if (m0Count !== 36) problems.push(`M0 有效工具 ${m0Count} != 36`)
   if (problems.length > 0) {
     throw new Error(`工具契约不合法：\n  - ${problems.join('\n  - ')}`)
@@ -93,7 +106,13 @@ export async function buildArtifacts() {
       ...AGENTS.map((agent) => `  ${agent}: [${allowlist[agent].map((name) => `'${name}'`).join(', ')}],`),
       '}',
       '',
+      '/** PRD §4.11 的 M0 基线数量（只数 milestone=M0）；M1 打开的开关不改变它。 */',
       'export const M0_TOOL_COUNTS: Record<AgentKey, number> = {',
+      ...AGENTS.map((agent) => `  ${agent}: ${m0Allowlist[agent].length},`),
+      '}',
+      '',
+      '/** 当前生效的 allowlist 数量（含 M1 已打开的开关）。 */',
+      'export const TOOL_COUNTS: Record<AgentKey, number> = {',
       ...AGENTS.map((agent) => `  ${agent}: ${allowlist[agent].length},`),
       '}',
       ''

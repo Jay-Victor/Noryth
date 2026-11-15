@@ -119,6 +119,13 @@ const bridge: NorythBridge = {
     resume: (chapterId) => invoke(IPC.writeResume, { chapterId }),
     cancel: (chapterId) => invoke(IPC.writeCancel, { chapterId }),
     send: (input) => invoke(IPC.writeSend, input),
+    linkScene: (input) => invoke(IPC.writeSceneLink, input),
+    unlinkScene: (input) => invoke(IPC.writeSceneUnlink, input),
+    reorderScenes: (input) => invoke(IPC.writeSceneReorder, input),
+    forkScene: (input) => invoke(IPC.writeSceneFork, input),
+    removeScene: (input) => invoke(IPC.writeSceneRemove, input),
+    setSceneTime: (input) => invoke(IPC.writeSceneTime, input),
+    timeline: (chapterId) => invoke(IPC.writeTimeline, { chapterId }),
     devSeed: (input) => invoke(IPC.writeDevSeed, input ?? {})
   },
   review: {

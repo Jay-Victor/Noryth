@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DraftScene, StoryboardConflict } from '../../../shared/schema/storyboard'
-import type { WriteState } from '../../../shared/schema/write'
+import type { WriteSceneState, WriteState } from '../../../shared/schema/write'
 import { useWrite } from '../../stores/write'
+import { SceneLibrary } from './SceneLibrary'
 
 /**
- * 分镜编辑器（UI-DESIGN §5.4「分镜 tab」/ PHASE-07 F1）：
+ * 分镜编辑器（UI-DESIGN §5.4「分镜 tab」/ PHASE-07 F1 / PHASE-12 §5.4）：
  * - 表：场次 / 拍号 / speaker / intent / 字数上限 / 出口条件；行可拖排序。
  * - 冲突行内联：speaker 不在场、意图与角色卡矛盾、出口条件不可判定。
  * - `notes` 固定说明「不进任何 Agent 上下文」。
+ * - 每场头部有三轴：时间轴（主线/闪回/梦境）+ 故事开始/结束；未标注不阻塞 G2。
+ * - 引用场（拍属于别的章）显示「只读引用（第 N 章）」+ [fork 到本章]，拍不可编辑。
  * - 开演按钮在 header：硬冲突 0 才能用；点击弹 G2 确认。
  */
 
@@ -25,8 +28,16 @@ const CONFLICT_CODES: Record<string, string> = {
   beat_too_long: '单拍字数过长',
   too_many_participants: '在场者过多',
   duplicate_scene: '场景重复',
+  empty_scene: '场景还没有拍',
+  scene_performed_elsewhere: '场景已在别的章演出',
   no_scenes: '没有场景',
   no_storyboard: '没有分镜'
+}
+
+const TIMELINE_LABELS: Record<WriteSceneState['timeline'], string> = {
+  main: '主线',
+  flashback: '闪回',
+  dream: '梦境'
 }
 
 function emptyScene(): DraftScene {
@@ -43,6 +54,40 @@ function emptyScene(): DraftScene {
 function conflictsFor(conflicts: readonly StoryboardConflict[], sceneOrd: number, beatOrd?: number): StoryboardConflict[] {
   return conflicts.filter(
     (conflict) => conflict.scene_ord === sceneOrd && (beatOrd === undefined ? conflict.beat_ord === undefined : conflict.beat_ord === beatOrd)
+  )
+}
+
+/** 故事时间输入：本地草稿 + 失焦/回车提交，避免逐字符打 IPC。 */
+function TimeInput(props: {
+  label: string
+  value: string
+  testId: string
+  disabled: boolean
+  onCommit: (value: string | null) => void
+}): React.JSX.Element {
+  const [draft, setDraft] = useState(props.value)
+  useEffect(() => setDraft(props.value), [props.value])
+  const commit = (): void => {
+    const next = draft.trim()
+    if (next === props.value) return
+    props.onCommit(next.length === 0 ? null : next)
+  }
+  return (
+    <label>
+      {props.label}
+      <input
+        className="write-input"
+        data-testid={props.testId}
+        value={draft}
+        placeholder="未标注"
+        disabled={props.disabled}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.nativeEvent.isComposing) commit()
+        }}
+      />
+    </label>
   )
 }
 
@@ -64,6 +109,8 @@ export function StoryboardTable({ state }: { state: WriteState }): React.JSX.Ele
   const hardConflicts = conflicts.filter((conflict) => conflict.severity === 'hard')
   const hardCount = hardConflicts.length
   const characters = state.characters
+  const dbScenes = useMemo(() => new Map(state.scenes.map((scene) => [scene.id, scene])), [state.scenes])
+  const references = state.scenes.filter((scene) => scene.referenceChapterOrd !== null)
 
   const update = (mutate: (draft: DraftScene[]) => void): void => {
     setScenes((current) => {
@@ -82,12 +129,13 @@ export function StoryboardTable({ state }: { state: WriteState }): React.JSX.Ele
     })
   }
 
-  if (state.storyboard.scenes.length === 0) {
+  if (state.storyboard.scenes.length === 0 && references.length === 0) {
     return (
       <div className="write-storyboard" data-testid="write-storyboard">
+        <SceneLibrary state={state} />
         <div className="pane-empty">
           <h3>还没有分镜草案</h3>
-          <p>可以在编排对话里说「给我三场戏」，或直接手动加一场。</p>
+          <p>可以在编排对话里说「给我三场戏」，或直接手动加一场，也可以从场景库链接一个已有场景。</p>
           <button
             type="button"
             className="plan-btn"
@@ -108,12 +156,112 @@ export function StoryboardTable({ state }: { state: WriteState }): React.JSX.Ele
 
   return renderTable()
 
+  function renderTimeFields(scene: DraftScene, sceneOrd: number): React.JSX.Element | null {
+    if (!scene.scene_id) return null
+    const dbScene = dbScenes.get(scene.scene_id)
+    if (!dbScene) return null
+    const disabled = state.readOnly || busy
+    return (
+      <div className="write-scene-block__time" data-testid={`write-scene-time-${sceneOrd}`}>
+        <label>
+          时间轴
+          <select
+            className="write-input"
+            data-testid={`write-scene-timeline-${sceneOrd}`}
+            value={dbScene.timeline}
+            disabled={disabled}
+            onChange={(event) =>
+              void useWrite.getState().setSceneTime({
+                sceneId: dbScene.id,
+                timeline: event.target.value as WriteSceneState['timeline']
+              })
+            }
+          >
+            <option value="main">主线</option>
+            <option value="flashback">闪回</option>
+            <option value="dream">梦境</option>
+          </select>
+        </label>
+        <TimeInput
+          label="故事开始"
+          testId={`write-scene-story-start-${sceneOrd}`}
+          value={dbScene.storyStart ?? ''}
+          disabled={disabled}
+          onCommit={(value) => void useWrite.getState().setSceneTime({ sceneId: dbScene.id, storyStart: value })}
+        />
+        <TimeInput
+          label="故事结束"
+          testId={`write-scene-story-end-${sceneOrd}`}
+          value={dbScene.storyEnd ?? ''}
+          disabled={disabled}
+          onCommit={(value) => void useWrite.getState().setSceneTime({ sceneId: dbScene.id, storyEnd: value })}
+        />
+        {dbScene.timeline !== 'main' ? (
+          <span className="write-badge write-badge--timeline" data-testid={`write-scene-timeline-badge-${sceneOrd}`}>
+            {TIMELINE_LABELS[dbScene.timeline]}
+          </span>
+        ) : null}
+        {dbScene.storyStart === null && dbScene.storyEnd === null ? (
+          <span className="write-note" data-testid={`write-scene-time-unmarked-${sceneOrd}`}>
+            未标注（不阻塞 G2）
+          </span>
+        ) : null}
+      </div>
+    )
+  }
+
+  function renderReferences(): React.JSX.Element | null {
+    if (references.length === 0) return null
+    return (
+      <div className="write-storyboard-references" data-testid="write-storyboard-references">
+        <div className="write-subhead">只读引用</div>
+        {references.map((scene) => (
+          <div
+            key={scene.id}
+            className="write-scene-block is-reference"
+            data-testid={`write-reference-scene-${scene.ord}`}
+          >
+            <div className="write-scene-block__head">
+              <span className="write-scene-ord">场景 {scene.ord}</span>
+              <span className="write-scene-ref-name">{scene.location}</span>
+              <span className="write-badge write-badge--reference" data-testid={`write-reference-badge-${scene.ord}`}>
+                只读引用（第 {scene.referenceChapterOrd} 章）
+              </span>
+              {scene.timeline !== 'main' ? (
+                <span className="write-badge write-badge--timeline">{TIMELINE_LABELS[scene.timeline]}</span>
+              ) : null}
+              <button
+                type="button"
+                className="plan-mini-btn"
+                data-testid={`write-reference-fork-${scene.ord}`}
+                disabled={state.readOnly || busy}
+                title="复制场景与拍到本章；原章正文不变"
+                onClick={() => void useWrite.getState().forkScene(scene.id)}
+              >
+                fork 到本章
+              </button>
+            </div>
+            <p className="write-note">
+              这一场的拍属于第 {scene.referenceChapterOrd} 章，本章不计入正文与 hash；要在这里演出请 fork。
+            </p>
+            <div className="write-scene-block__meta">
+              <span>目标：{scene.goal}</span>
+              {scene.storyStart ? <span className="mono">时间：{scene.storyStart}</span> : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   function renderTable(): React.JSX.Element {
     return (
       <div className="write-storyboard" data-testid="write-storyboard">
+        <SceneLibrary state={state} />
         <div className="write-storyboard-head">
           <span data-testid="write-storyboard-summary">
             {scenes.length} 场 · {scenes.reduce((sum, scene) => sum + scene.beats.length, 0)} 拍
+            {references.length > 0 ? ` · ${references.length} 场引用` : ''}
             {hardCount > 0 ? ` · ${hardCount} 条硬冲突` : ' · 无硬冲突'}
           </span>
           <div className="write-storyboard-actions">
@@ -298,6 +446,8 @@ export function StoryboardTable({ state }: { state: WriteState }): React.JSX.Ele
                   </label>
                 </div>
 
+                {renderTimeFields(scene, sceneOrd)}
+
                 {sceneConflicts.length > 0 ? (
                   <ul className="write-conflict-list" data-testid={`write-scene-conflicts-${sceneOrd}`}>
                     {sceneConflicts.map((conflict, index) => (
@@ -321,6 +471,13 @@ export function StoryboardTable({ state }: { state: WriteState }): React.JSX.Ele
                     </tr>
                   </thead>
                   <tbody>
+                    {scene.beats.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="write-note" data-testid={`write-scene-empty-${sceneOrd}`}>
+                          这一场还没有拍；补一拍再开演。
+                        </td>
+                      </tr>
+                    ) : null}
                     {scene.beats.map((beat, beatIndex) => {
                       const beatOrd = beatIndex + 1
                       const beatConflicts = conflictsFor(conflicts, sceneOrd, beatOrd)
@@ -432,6 +589,7 @@ export function StoryboardTable({ state }: { state: WriteState }): React.JSX.Ele
               </div>
             )
           })}
+          {renderReferences()}
         </div>
       </div>
     )

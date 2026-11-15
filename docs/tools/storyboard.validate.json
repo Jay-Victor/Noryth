@@ -79,7 +79,6 @@
                   "maximum": 200
                 },
                 "beats": {
-                  "minItems": 1,
                   "maxItems": 40,
                   "type": "array",
                   "items": {
