@@ -13,7 +13,7 @@
 | 05 | `docs/PHASE-05-SLICE.md` | done | V1–V3：`commitBeat` + trace 归档 + 拍状态迁移 + 启动恢复/outbox 补发；fixture、假适配器、`#/dev/slice` 切片页；`E2E-SLICE-01` 与强杀重启 | 全部通过：本地门禁 + CI run `43597992157`（verify 与 e2e 均绿） | `verify` 的 seq 单调检查会误报「改早期拍」（ADR-0005 §4，阶段 07 修） |
 | 06 | `docs/PHASE-06-PLANNING.md` | done | E1–E5：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表、G1 注册与建库、覆盖检查占位；`E2E-PLAN-01/02` | 全部通过：本地门禁 + CI run `43603698391`（verify 与 e2e 均绿） | 真实供应商 Key 未接（阶段 10）；覆盖检查/影响分析仅占位（P1）；会话重命名/归档只有后端，UI 未接 |
 | 07 | `docs/PHASE-07-WRITING.md` | done | F1–F7：分镜草案/G2、11 状态迁移表、出口 DSL AST、调度循环与自动模式、正文/拍卡/确认条/分镜编辑器、拒演/耗尽/预算/模型错误四类暂停；`E2E-WRITE-01/02`；新增 `0004_writing.sql`（`LATEST_SCHEMA_VERSION = 4`） | 全部通过：本地门禁全绿（unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本）+ CI run `43609438344`（verify 与 e2e 均绿） | 真实模型未接（Key 在阶段 10）；影响分析仅 M1；分支树只有线性 revision；「上下文检查器」按钮占位 |
-| 08 | `docs/PHASE-08-REVIEW.md` | done | G1–G5：报告 schema/运行/展示、维度分与 issue 定位、patch 提案+三视图+逐条决定、G5/G6 与定稿、复检维度映射+3 轮上限、版本列表与只读对比；新增 `0005_review.sql`（`LATEST_SCHEMA_VERSION = 5`）；`E2E-REVIEW-01` | 全部通过：本地门禁全绿（unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本 / depcruise 221 modules）；CI 待推送后确认 | 异构复检（换模型）M1；「重新打开定稿」后端未接（DEV-PLAN §9.6）；版本对比没有分支树；报告证据是子串校验，语义越界仍为概率检测 |
+| 08 | `docs/PHASE-08-REVIEW.md` | done | G1–G5：报告 schema/运行/展示、维度分与 issue 定位、patch 提案+三视图+逐条决定、G5/G6 与定稿、复检维度映射+3 轮上限、版本列表与只读对比；新增 `0005_review.sql`（`LATEST_SCHEMA_VERSION = 5`）；`E2E-REVIEW-01` | 全部通过：本地门禁全绿（unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本 / depcruise 221 modules）+ CI run `43676789043`（verify 1m19 / e2e 1m52，均绿；package 按规则跳过） | 异构复检（换模型）M1；「重新打开定稿」后端未接（DEV-PLAN §9.6）；版本对比没有分支树；报告证据是子串校验，语义越界仍为概率检测 |
 | 09 | `docs/PHASE-09-MEMORY.md` | todo | — | — | — |
 | 10 | `docs/PHASE-10-DELIVERY.md` | todo | — | — | — |
 
@@ -215,6 +215,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T35/T36 升 1.1.0） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 提交 | `48cd5c6`（feat）、`4639eb9`（docs/agents） | 已推送 origin/dev |
+| CI | GitHub Actions run `43676789043`（`4639eb9`） | verify 1m19 / e2e 1m52，均绿；package 按规则跳过 |
+| 阶段标签 | `phase-08-done` → `4639eb9` | 已推送 origin |
 
 ## 关键决策
 
@@ -278,14 +281,14 @@
 
 ## 当前阻塞
 
-- 无阻塞。阶段 08 已完成开发与本地验收（2026-11-14）：typecheck / lint / depcruise / unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本全绿；**推送 origin/dev、CI 与 `phase-08-done` 标签待作者确认后执行**。
+- 无阻塞。阶段 08 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise / unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本）+ CI run `43676789043`（verify 与 e2e 均绿），标签 `phase-08-done` → `4639eb9`，已推送 origin。
 - 真实模型未配置 Key（不阻塞）：创作台与审批台沿用阶段 06 的环境变量口径（`NORYTH_WRITE_API_KEY` / `NORYTH_REVIEW_API_KEY` / `NORYTH_<PROVIDER>_API_KEY` / `NORYTH_PLAN_API_KEY`）；未配置时生成/审批失败为 `model_auth`，不伪造报告或正文。E2E 用 `NORYTH_WRITE_FAKE=1` / `NORYTH_REVIEW_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 09）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
 - 已知缺口（不阻塞）：创作台的「上下文检查器」按钮是占位（只显示 traceRef）；M0 分支只有线性 revision，没有分支树 UI；跨章影响分析在 M1；审批的异构复检（换模型/换供应商）在 M1；「重新打开定稿」后端未接（DEV-PLAN §9.6），UI 只提示不可在此回退。
 
 ## 下一阶段交接
 
-- 阶段 08 已 `done`（2026-11-14）。新增迁移 `0005_review.sql`，`LATEST_SCHEMA_VERSION = 5`；`DEV-PLAN §5.15` 已同步（approval_report.scope_json / review_message）。
+- 阶段 08 已 `done`（2026-11-15）。提交 `48cd5c6` + `4639eb9`；CI run `43676789043` 全绿；标签 `phase-08-done` → `4639eb9`。新增迁移 `0005_review.sql`，`LATEST_SCHEMA_VERSION = 5`；`DEV-PLAN §5.15` 已同步（approval_report.scope_json / review_message）。
 - 阶段 09 直接复用：
   - 定稿已经入队 `memory.extract`（`job.status = 'queued'`，`expected_revision` = final revision id，payload `{chapterId, revisionId}`）；`MemoryExecutor` 从这里开始，不需要再读 chapter 状态。
   - 记忆只从定稿抽取：`repos.chapter.finalRevisionId` 是唯一入口；`repos.revision.manifest(finalId)` 拿到定稿正文与拍 id。
