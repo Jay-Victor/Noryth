@@ -20,7 +20,7 @@ import {
   PlanSessionRepo
 } from './plan'
 import { ProjectRepo } from './project'
-import { ReviewRepo, GateRepo } from './review'
+import { ReviewRepo, GateRepo, ReviewMessageRepo } from './review'
 import { RevisionRepo } from './revision'
 import { SceneRepo } from './scene'
 import { ToolCallRepo } from './tool-call'
@@ -59,6 +59,7 @@ export function createRepos(db: Db, options: RepoOptions = {}) {
     belief: new CharacterBeliefRepo(runner, now),
     relationship: new RelationshipRepo(runner),
     review: new ReviewRepo(runner, now),
+    reviewMessage: new ReviewMessageRepo(runner, now),
     gate: new GateRepo(runner, now),
     job: new JobRepo(runner, now),
     toolCall: new ToolCallRepo(runner, now),

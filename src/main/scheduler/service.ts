@@ -368,6 +368,9 @@ export class WriteService {
     if (!beat) throw new AppError('invalid_args', `beat ${beatId} not found`)
     const chapter = host.repos.chapter.get(beat.chapterId)
     if (!chapter) throw new AppError('invalid_args', '章不存在')
+    if (chapter.status === 'finalized') {
+      throw new AppError('already_finalized', '本章已定稿，不能再生成正文', { chapterId: chapter.id })
+    }
     const scene = host.repos.scene.get(beat.sceneId)
     if (!scene) throw new AppError('invalid_args', '场景不存在')
     if (scene.status === 'closed') {

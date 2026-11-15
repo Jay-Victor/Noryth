@@ -82,6 +82,10 @@ export function commitBeat(db: Db, repos: Repos, input: CommitBeatInput): Commit
 
     const chapter = repos.chapter.get(input.chapterId)
     if (!chapter) throw new AppError('project_not_found', `chapter ${input.chapterId} not found`)
+    if (chapter.status === 'finalized') {
+      // 定稿后的正文不可改：patch / 编辑 / 重生成都必须在定稿前完成（PHASE-08 §1 第 5 条）。
+      throw new AppError('already_finalized', '本章已定稿，正文不可修改', { chapterId: chapter.id })
+    }
     if (chapter.currentRevisionId !== input.expectedRevision) {
       throw new AppError('stale_revision', 'chapter revision changed', {
         reason: 'revision',

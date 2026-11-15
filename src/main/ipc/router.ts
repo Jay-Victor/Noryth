@@ -52,11 +52,20 @@ import {
   WriteStoryboardSaveInputSchema,
   WriteStoryboardValidateInputSchema
 } from '../../shared/schema/write'
+import {
+  ReviewChapterInputSchema,
+  ReviewCompareInputSchema,
+  ReviewDecideInputSchema,
+  ReviewDevSeedInputSchema,
+  ReviewFinalizeInputSchema,
+  ReviewSendInputSchema
+} from '../../shared/schema/review'
 import { probeProvider } from '../model/probe'
 import type { Logger } from '../observability/logger'
 import { exportDiagnostics } from '../observability/diagnostics'
 import type { PlanService } from '../plan/service'
 import type { ProjectService } from '../project/service'
+import type { ReviewService } from '../review/service'
 import type { SettingsStore } from '../settings/store'
 import type { SliceService } from '../slice/service'
 import type { WriteService } from '../scheduler/service'
@@ -77,6 +86,7 @@ export interface IpcDeps {
   /** 仅未打包构建：注册 E2E 脚手架通道。 */
   devTools?: boolean
   write: WriteService
+  review: ReviewService
 }
 
 interface HandlerDefinition<S extends z.ZodTypeAny, R> {
@@ -445,6 +455,66 @@ export function registerIpc(deps: IpcDeps): void {
       mutation: true,
       handler: (payload) => {
         const state = write.devSeed(payload)
+        deps.project.refreshState()
+        return state
+      }
+    })
+  }
+
+  const review = deps.review
+  register(IPC.reviewState, {
+    schema: ReviewChapterInputSchema.partial(),
+    handler: (payload) => review.state(payload.chapterId)
+  })
+  register(IPC.reviewRun, {
+    schema: ReviewChapterInputSchema,
+    mutation: true,
+    handler: (payload) => review.run(payload.chapterId)
+  })
+  register(IPC.reviewSend, {
+    schema: ReviewSendInputSchema,
+    mutation: true,
+    handler: (payload) => review.send(payload.chapterId, payload.text)
+  })
+  register(IPC.reviewG5, {
+    schema: ReviewChapterInputSchema,
+    mutation: true,
+    handler: (payload) => review.authorizeRevision(payload.chapterId)
+  })
+  register(IPC.reviewDecide, {
+    schema: ReviewDecideInputSchema,
+    mutation: true,
+    handler: (payload) => review.decide(payload)
+  })
+  register(IPC.reviewRecheck, {
+    schema: ReviewChapterInputSchema,
+    mutation: true,
+    handler: (payload) => review.recheck(payload.chapterId)
+  })
+  register(IPC.reviewCompare, {
+    schema: ReviewCompareInputSchema,
+    handler: (payload) => review.compare(payload)
+  })
+  register(IPC.reviewG6Preview, {
+    schema: ReviewChapterInputSchema,
+    handler: (payload) => review.finalizePreview(payload.chapterId)
+  })
+  register(IPC.reviewG6Issue, {
+    schema: ReviewChapterInputSchema,
+    mutation: true,
+    handler: (payload) => review.issueFinalizeToken(payload.chapterId)
+  })
+  register(IPC.reviewFinalize, {
+    schema: ReviewFinalizeInputSchema,
+    mutation: true,
+    handler: (payload) => review.finalize(payload)
+  })
+  if (deps.devTools) {
+    register(IPC.reviewDevSeed, {
+      schema: ReviewDevSeedInputSchema,
+      mutation: true,
+      handler: (payload) => {
+        const state = review.devSeed(payload)
         deps.project.refreshState()
         return state
       }

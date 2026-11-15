@@ -84,7 +84,10 @@ export const CONTRACT_FIXTURES: Record<string, ContractFixture> = {
       report: {
         verdict: 'pass_with_notes',
         blocking: [],
-        suggestions: [{ issue_ref: 'ISSUE-1', suggestion: '补一句环境' }]
+        suggestions: [
+          { issue_id: 'iss_01', type: 'prose', beat_id: 'bt_b', why: '这一拍缺少环境描写', suggestion: '补一句环境' }
+        ],
+        dimensions: { prose: 3 }
       }
     },
     context: { chapterId: 'ch_draft', expectedRevision: 'rev_draft' },

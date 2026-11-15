@@ -1,6 +1,6 @@
 {
   "name": "patch.propose",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "family": "propose",
   "summary": "凭 G5 令牌提交草稿 patch；只改已有拍，不加戏、不加场景",
   "actors": [

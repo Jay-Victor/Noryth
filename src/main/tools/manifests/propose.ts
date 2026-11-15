@@ -1,7 +1,10 @@
 import { z } from 'zod'
 import { AppError } from '../../../shared/domain/app-error'
+import { ReportDraftSchema } from '../../../shared/schema/report'
+import { sameText } from '../../../shared/text/normalize'
 import { newId } from '../../db/repos/common'
 import type { ProposalKind } from '../../db/repos/memory-proposal'
+import { submitPlainReport, submitReport } from '../../review/report'
 import { defineTool } from '../define'
 import { canonicalJson } from '../idempotency'
 import { sha256Hex } from '../../crypto'
@@ -375,33 +378,14 @@ const storyboardPropose = defineTool({
   }
 })
 
-const BlockingItem = z.strictObject({
-  issue_ref: z.string().min(1).max(80),
-  dimension: z.string().min(1).max(40),
-  beat_id: Id,
-  evidence: z.string().min(1).max(1000)
-})
-
-const SuggestionItem = z.strictObject({
-  issue_ref: z.string().min(1).max(80),
-  dimension: z.string().min(1).max(40).optional(),
-  suggestion: z.string().min(1).max(1000)
-})
-
-const StructuredReport = z.strictObject({
-  verdict: z.enum(['pass', 'pass_with_notes', 'fail']),
-  blocking: z.array(BlockingItem).max(30).default([]),
-  suggestions: z.array(SuggestionItem).max(30).default([]),
-  dimensions: z.record(z.string(), z.number()).optional(),
-  model: z.string().max(120).optional()
-})
+const StructuredReport = ReportDraftSchema
 
 const PlainReport = z.strictObject({ plain_text: z.string().min(1).max(20_000) })
 
 const reportSubmit = defineTool({
   toolId: 'T35',
   name: 'report.submit',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'propose',
   summary: '提交审批报告；结构化失败时接受纯文本并标降级，阻断项必须定位到拍',
   actors: ['reviewer'],
@@ -431,40 +415,39 @@ const reportSubmit = defineTool({
     const revision = services.repos.revision.get(revisionId)
     if (!revision || revision.chapterId !== chapter.id) throw new AppError('stale_revision', 'revision mismatch')
 
-    const round = services.repos.review.listReportsByChapter(chapter.id).length + 1
-
     if ('plain_text' in args.report) {
-      const record = services.repos.review.insertReport({
+      const plain = submitPlainReport(services.repos, {
         projectId: ctx.runtime.project_id,
         chapterId: chapter.id,
         revisionId,
-        round,
-        verdict: 'fail',
-        suggestionsJson: JSON.stringify([{ issue_ref: 'report_schema', suggestion: args.report.plain_text }]),
-        degraded: 'schema_fallback'
+        text: args.report.plain_text
       })
-      return { data: { report_id: record.id, round, verdict: record.verdict, degraded: record.degraded } }
-    }
-
-    const report = args.report
-    for (const item of report.blocking) {
-      const beat = services.repos.beat.get(item.beat_id)
-      if (!beat || beat.chapterId !== chapter.id) {
-        throw new AppError('invalid_args', `blocking beat ${item.beat_id} not in chapter`)
+      return {
+        data: {
+          report_id: plain.report.id,
+          round: plain.report.round,
+          verdict: plain.report.verdict,
+          degraded: plain.report.degraded
+        }
       }
     }
-    const record = services.repos.review.insertReport({
+
+    // 归一化 / 降级 / verdict 反推都在 submitReport 里做：模型不能靠字段缺失跳过阻断规则。
+    const submitted = submitReport(services.repos, {
       projectId: ctx.runtime.project_id,
       chapterId: chapter.id,
       revisionId,
-      round,
-      verdict: report.verdict,
-      blockingJson: JSON.stringify(report.blocking),
-      suggestionsJson: JSON.stringify(report.suggestions),
-      dimensionsJson: JSON.stringify(report.dimensions ?? {}),
-      model: report.model ?? null
+      draft: args.report
     })
-    return { data: { report_id: record.id, round, verdict: record.verdict, degraded: record.degraded } }
+    return {
+      data: {
+        report_id: submitted.report.id,
+        round: submitted.report.round,
+        verdict: submitted.report.verdict,
+        degraded: submitted.report.degraded
+      },
+      degraded: submitted.downgraded > 0 ? ('summary' as const) : ('none' as const)
+    }
   }
 })
 
@@ -479,7 +462,7 @@ const PatchItem = z.strictObject({
 const patchPropose = defineTool({
   toolId: 'T36',
   name: 'patch.propose',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'propose',
   summary: '凭 G5 令牌提交草稿 patch；只改已有拍，不加戏、不加场景',
   actors: ['reviewer'],
@@ -499,6 +482,9 @@ const patchPropose = defineTool({
     if (!chapter || chapter.projectId !== ctx.runtime.project_id) {
       throw new AppError('invalid_args', 'chapter not in project')
     }
+    if (chapter.status === 'finalized') {
+      throw new AppError('already_finalized', '本章已定稿，不能再提案 patch')
+    }
     const revisionId = ctx.runtime.expected_revision
     if (!revisionId || chapter.currentRevisionId !== revisionId) {
       throw new AppError('stale_revision', 'draft revision changed')
@@ -509,13 +495,19 @@ const patchPropose = defineTool({
     const members = new Set(services.repos.revision.listMembers(revisionId).map((member) => member.beatId))
     const proposalId = newId('prop')
     const patchIds: string[] = []
+    const seen = new Set<string>()
 
     for (const patch of args.patches) {
       const beat = services.repos.beat.get(patch.beat_id)
       if (!beat || beat.chapterId !== chapter.id || !members.has(beat.id)) {
         throw new AppError('invalid_args', `beat ${patch.beat_id} not in current revision`)
       }
-      if (beat.body !== patch.before) {
+      if (seen.has(beat.id)) {
+        throw new AppError('invalid_args', `同一拍出现多条 patch：${beat.id}`)
+      }
+      seen.add(beat.id)
+      // DEV-PLAN §9.3：归一化（全半角/行尾空白）后一致即可，不要求逐字节相同。
+      if (!sameText(beat.body, patch.before)) {
         throw new AppError('patch_conflict', `beat ${beat.id} body changed`)
       }
       const record = services.repos.patch.insert({

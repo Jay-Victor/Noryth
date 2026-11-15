@@ -1,0 +1,645 @@
+/* 审批台（PHASE-08 / UI-DESIGN §6）。只补审批台自己的类，复用 write-/plan- 既有样式。 */
+
+.review-chapters {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.review-chapter-rounds {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.review-round-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+
+.review-round-row:hover {
+  background: var(--accent-weak);
+}
+
+.review-round-row__tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.review-verdict-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.review-verdict-dot.is-pass {
+  background: var(--ok);
+}
+.review-verdict-dot.is-pass_with_notes {
+  background: var(--warn);
+}
+.review-verdict-dot.is-fail {
+  background: var(--danger);
+}
+
+.review-mini-stats {
+  display: flex;
+  gap: 10px;
+  padding: 2px 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* 对话区 */
+.review-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.review-summary {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.review-summary.is-fail {
+  border-left-color: var(--danger);
+}
+.review-summary.is-pass {
+  border-left-color: var(--ok);
+}
+.review-summary.is-pass_with_notes {
+  border-left-color: var(--warn);
+}
+.review-summary__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.review-summary p {
+  margin: 0;
+  color: var(--fg-soft);
+}
+.review-summary button {
+  align-self: flex-start;
+}
+
+.review-gate-bar {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+.review-gate-bar__info {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.review-gate-bar__takeover {
+  color: var(--danger);
+  font-weight: 600;
+}
+.review-gate-bar__reason {
+  flex: 1;
+  min-width: 120px;
+  font-size: 11px;
+  color: var(--faint);
+  text-align: right;
+}
+
+/* 预览 header */
+.review-preview-head {
+  gap: 8px;
+}
+.review-finalize-btn {
+  margin-left: auto;
+}
+.review-finalize-btn.is-done {
+  opacity: 0.7;
+}
+
+/* 报告 */
+.review-report {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 18px 24px;
+  overflow: auto;
+  max-width: 640px;
+}
+
+.review-banner {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+.review-banner.is-fail {
+  border-color: rgba(161, 58, 47, 0.35);
+  background: var(--danger-weak);
+}
+.review-banner.is-pass {
+  border-color: rgba(63, 107, 74, 0.35);
+  background: rgba(63, 107, 74, 0.08);
+}
+.review-banner.is-pass_with_notes {
+  border-color: rgba(138, 106, 31, 0.35);
+  background: var(--warn-weak);
+}
+.review-banner.is-warn {
+  border-color: rgba(138, 106, 31, 0.35);
+  background: var(--warn-weak);
+}
+.review-banner__counts {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+.review-banner__model {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.review-dimensions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.review-dimension {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.review-dimension__label {
+  font-size: 11px;
+  color: var(--muted);
+}
+.review-dimension__score {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.review-section h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.review-section summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.review-issue {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: default;
+}
+.review-issue.is-blocking {
+  border-left: 3px solid var(--danger);
+}
+.review-issue.is-suggestion {
+  border-left: 3px solid var(--border-strong);
+}
+.review-issue.is-active {
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.review-issue__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.review-issue__id {
+  color: var(--accent);
+}
+.review-issue__type {
+  font-weight: 600;
+}
+.review-issue__beat {
+  color: var(--muted);
+  font-size: 11px;
+}
+.review-issue__flag {
+  font-size: 10px;
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+.review-issue__spacer {
+  flex: 1;
+}
+.review-issue__evidence {
+  margin: 0;
+  padding: 6px 8px;
+  border-left: 2px solid var(--border-strong);
+  background: var(--bg-raised);
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--fg-soft);
+}
+.review-issue__why,
+.review-issue__suggestion {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+.review-note {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* 初稿 */
+.review-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 22px 30px;
+  overflow: auto;
+}
+.review-draft__meta {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  font-size: 11px;
+  color: var(--muted);
+}
+.review-para {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+}
+.review-para.is-active {
+  background: var(--accent-weak);
+}
+.review-para__gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--faint);
+}
+.review-marks {
+  display: flex;
+  gap: 3px;
+}
+.review-mark {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--danger);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.review-mark.is-blocking {
+  background: var(--danger);
+}
+.review-mark.is-suggestion {
+  border-color: var(--border-strong);
+}
+.review-para__speaker {
+  font-size: 11px;
+  color: var(--muted);
+}
+.review-para__text {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--fg);
+}
+
+/* 差异 */
+.review-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px 24px;
+  overflow: auto;
+}
+.review-diff__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.review-diff__bulk {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.review-patch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.review-patch {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.review-patch.is-active {
+  border-color: var(--accent);
+}
+.review-patch.is-accept {
+  border-color: var(--ok);
+  box-shadow: 0 0 0 1px rgba(63, 107, 74, 0.25) inset;
+}
+.review-patch.is-reject {
+  border-color: var(--danger);
+  opacity: 0.85;
+}
+.review-patch[data-status='applied'] {
+  opacity: 0.75;
+}
+.review-patch__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.review-patch__anchor {
+  color: var(--fg-soft);
+}
+.review-patch__beat {
+  color: var(--faint);
+  font-size: 11px;
+}
+.review-patch__status {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.review-patch__status.is-proposed {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.review-patch__status.is-applied {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+.review-patch__status.is-rejected {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.review-patch__reason {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+.review-patch__issue {
+  color: var(--accent);
+  margin-right: 6px;
+  font-size: 11px;
+}
+.review-hunk {
+  display: grid;
+  gap: 6px;
+}
+.review-hunk.is-side {
+  grid-template-columns: 1fr 1fr;
+}
+.review-hunk-text {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: 12px;
+  background: var(--bg-raised);
+}
+.review-hunk-text.is-before {
+  border-left: 3px solid var(--danger);
+}
+.review-hunk-text.is-after {
+  border-left: 3px solid var(--ok);
+}
+.review-hunk-text pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-display);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.review-patch__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* 版本 */
+.review-versions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px 24px;
+  overflow: auto;
+}
+.review-versions__head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 13px;
+  font-weight: 600;
+}
+.review-version-compare {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+.review-version-compare select {
+  margin-left: 6px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  max-width: 220px;
+}
+.review-version-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.review-version-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding: 4px 6px;
+}
+.review-version-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+.review-version-table tr.is-current td {
+  color: var(--fg);
+  background: var(--accent-weak);
+}
+.review-compare-result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.review-compare-result__head {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.review-hunk-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+.review-hunk-row.is-changed {
+  border-left: 3px solid var(--warn);
+}
+.review-hunk-row.is-added {
+  border-left: 3px solid var(--ok);
+}
+.review-hunk-row.is-removed {
+  border-left: 3px solid var(--danger);
+}
+.review-hunk-row__head {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 8px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--fg-soft);
+  font-size: 12px;
+  text-align: left;
+}
+.review-hunk-row__badge {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+.review-hunk-lines {
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.review-line {
+  display: grid;
+  grid-template-columns: 34px 34px minmax(0, 1fr);
+  gap: 6px;
+  padding: 2px 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.review-line__no {
+  color: var(--faint);
+  text-align: right;
+}
+.review-line.is-add {
+  background: rgba(63, 107, 74, 0.1);
+}
+.review-line.is-remove {
+  background: var(--danger-weak);
+}
+
+/* 定稿确认框 */
+.review-finalize {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 460px;
+}
+.review-finalize__block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  font-size: 12px;
+}
+.review-finalize__block strong {
+  display: block;
+  margin-bottom: 4px;
+}
+.review-finalize__block ul {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  color: var(--fg-soft);
+}
+.review-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+.review-finalize__reason {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.review-finalize__reason input {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--fg);
+  font-size: 13px;
+}

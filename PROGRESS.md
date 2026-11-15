@@ -13,7 +13,7 @@
 | 05 | `docs/PHASE-05-SLICE.md` | done | V1–V3：`commitBeat` + trace 归档 + 拍状态迁移 + 启动恢复/outbox 补发；fixture、假适配器、`#/dev/slice` 切片页；`E2E-SLICE-01` 与强杀重启 | 全部通过：本地门禁 + CI run `43597992157`（verify 与 e2e 均绿） | `verify` 的 seq 单调检查会误报「改早期拍」（ADR-0005 §4，阶段 07 修） |
 | 06 | `docs/PHASE-06-PLANNING.md` | done | E1–E5：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表、G1 注册与建库、覆盖检查占位；`E2E-PLAN-01/02` | 全部通过：本地门禁 + CI run `43603698391`（verify 与 e2e 均绿） | 真实供应商 Key 未接（阶段 10）；覆盖检查/影响分析仅占位（P1）；会话重命名/归档只有后端，UI 未接 |
 | 07 | `docs/PHASE-07-WRITING.md` | done | F1–F7：分镜草案/G2、11 状态迁移表、出口 DSL AST、调度循环与自动模式、正文/拍卡/确认条/分镜编辑器、拒演/耗尽/预算/模型错误四类暂停；`E2E-WRITE-01/02`；新增 `0004_writing.sql`（`LATEST_SCHEMA_VERSION = 4`） | 全部通过：本地门禁全绿（unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本）+ CI run `43609438344`（verify 与 e2e 均绿） | 真实模型未接（Key 在阶段 10）；影响分析仅 M1；分支树只有线性 revision；「上下文检查器」按钮占位 |
-| 08 | `docs/PHASE-08-REVIEW.md` | todo | — | — | — |
+| 08 | `docs/PHASE-08-REVIEW.md` | done | G1–G5：报告 schema/运行/展示、维度分与 issue 定位、patch 提案+三视图+逐条决定、G5/G6 与定稿、复检维度映射+3 轮上限、版本列表与只读对比；新增 `0005_review.sql`（`LATEST_SCHEMA_VERSION = 5`）；`E2E-REVIEW-01` | 全部通过：本地门禁全绿（unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本 / depcruise 221 modules）；CI 待推送后确认 | 异构复检（换模型）M1；「重新打开定稿」后端未接（DEV-PLAN §9.6）；版本对比没有分支树；报告证据是子串校验，语义越界仍为概率检测 |
 | 09 | `docs/PHASE-09-MEMORY.md` | todo | — | — | — |
 | 10 | `docs/PHASE-10-DELIVERY.md` | todo | — | — | — |
 
@@ -23,7 +23,7 @@
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（541：unit+contract） / `pnpm vitest run tests/integration`（25） / `pnpm test:e2e`（11）
+- `pnpm test:unit`（562：unit+contract） / `pnpm vitest run tests/integration`（29） / `pnpm test:e2e`（12）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
 - `python docs/scripts/check_ui_spec.py` / `python docs/scripts/check_tool_spec.py`
 - `pnpm pack`（win-unpacked） / `pnpm dist`（NSIS）
@@ -196,6 +196,26 @@
 | CI | GitHub Actions run `43609438344`（`11575c8`） | verify 1m20 / e2e 1m45，均绿；package 按规则跳过 |
 | 阶段标签 | `phase-07-done` → `11575c8` | 已推送 origin |
 
+## 验证记录（阶段 08，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 221 modules / 1060 deps，0 违规 |
+| Lint | `pnpm lint` | 通过 |
+| 单元 + 契约 | `pnpm test:unit` | 562 passed（unit 327 / contract 235） |
+| 集成 | `pnpm vitest run tests/integration` | 29 passed（新增 review 4） |
+| E2E | `pnpm test:e2e` | 12 passed（原 11 + `E2E-REVIEW-01`） |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→…→0005；`LATEST_SCHEMA_VERSION = 5` |
+| 报告契约 | `tests/unit/review/report.test.ts` | 9 条：阻断缺 beat/证据/why 降级；建议类不能阻断；verdict 反推；issue_id 重编号与去重；维度 1–5；§9.7 维度映射；落库前「拍存在 + 证据为正文子串」；已定稿拒绝；纯文本降级 |
+| patch/定稿 | `tests/unit/review/patch-finalize.test.ts` | 9 条：一批 N 条只产生一个 revision 且 hash 可复算；归一化 before；不一致 → `patch_conflict` 零写入；同拍双 patch / base 变更 / 已定稿拒绝；接受+拒绝+未决定 superseded；全拒绝不建 revision；无 G6 记录 / 未勾选阻断拒绝；定稿 final 快照 + G6 payload + memory.extract 入队 + 幂等；G5/G6 令牌错实体/过期/复用 |
+| 版本对比 | `tests/unit/review/diff.test.ts` | 3 条：行级 LCS 编号；空文本；槽位对齐（patch 后是「已改」而非删+加） |
+| 审批链路 | `tests/integration/review.spec.ts` | 4 条：报告 fail（2 阻断/3 建议，证据为正文子串）→ 讨论不改稿 → G5 → 3 patch → 接受 2 拒绝 1 → 新 revision → 复检（scope 非空、章节 approved）→ G6 定稿 → 定稿后编辑 `already_finalized`、verify 全绿；base 变更 `stale_revision` 且显示 superseded；坏 `before` → `patch_conflict` 零写入；3 轮转人工（G5 关闭、G6 可执行）；未跑 consistency.check 的 pass → `degraded=check_missing` |
+| 审批 E2E | `tests/e2e/review.spec.ts` | `E2E-REVIEW-01`：devSeed → 自动 G4（fail，2 阻断/3 建议）→ 讨论 → G5 → 3 patch → 接受 2 拒绝 1（一次执行）→ 复检（2/3 轮、scope 非空、approved）→ 版本对比 → G6 确认框 → 定稿；DB：chapter finalized、final revision 6 行、G6 已消费且 payload 含 finalRevisionId、`memory.extract` 1 条 queued、6 拍全 confirmed、2 份报告、patch applied 2 / rejected 1；定稿后 `write.edit` → `already_finalized` |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T35/T36 升 1.1.0） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+
 ## 关键决策
 
 | 决策 | 结论 | 记录 |
@@ -244,30 +264,39 @@
 | 创作台单飞 | 同项目同一时刻只允许一个生成任务；取消用 AbortSignal + `expected_revision` 拒绝迟到结果；暂停只在拍边界 | `src/main/scheduler/service.ts` |
 | 编排对话 | 复用 `invokeTool` 九步流水线，只挂编排工具集；T34 通过后写草案并让 UI 切到分镜 tab；不写正文 | `src/main/scheduler/orchestrator.ts` |
 | 创作台 E2E 脚手架 | `write.devSeed` 只在未打包构建注册，等价 G1 完成 + 一章 + 3×8 分镜；生产包调用返回 `invalid_args` | `src/main/ipc/router.ts`、`scheduler/service.ts` |
+| 报告单一入口 | T35 与运行时兜底都走 `review/report.submitReport`：issue_id 补齐、缺 beat/证据/why 或建议类类型的阻断降级为建议、verdict 由条目反推；落库前再验「拍存在 + evidence 是正文子串」 | `src/main/review/report.ts`、`shared/schema/report.ts` |
+| 确定性检查 | 没有成功跑过 `consistency.check` 的 pass/pass_with_notes 报告标 `degraded=check_missing`；schema 失败标 `schema_fallback`；都不改 verdict | `src/main/review/run.ts` |
+| patch 批量落盘 | `doc/patch-apply.ts` 一次事务替换 N 拍、只产生一个 revision；`before` 归一化（NFKC/行尾空白）后必须一致；同拍多条 / base 变更 / 已定稿一律拒绝 | `src/main/doc/patch-apply.ts`、`shared/text/normalize.ts` |
+| 逐条决定 | UI 先在本地收集接受/拒绝，全部选完点「执行修订」一次提交；旧 base 上的待决提案对外显示 superseded（DB 仍保留 revision_id 供审计） | `renderer/stores/review.ts`、`review/patch.ts` |
+| G5/G6 令牌 | 与工具层同一套 HMAC 格式与 `gate_record`：G5 绑定 patch job、G6 绑定「章 + 当前 revision」；成功后才消费；G6 的 ack 补记回同一条记录 | `review/gates.ts`、`tools/gates.ts` |
+| 定稿 | `doc/finalize.ts` 只 INSERT final revision + 复制清单；状态先 approved 再 FINALIZED；幂等；`memory.extract` 入队（queued）；`commitBeat/editBeat/generate` 对已定稿章抛 `already_finalized` | `src/main/doc/finalize.ts` |
+| 未复检改动 | 从当前 revision 沿 parent 链回溯到报告 revision；只算链内 `applied_revision_id` 的 patch 与链内创建的 author_edited 拍 | `src/main/review/rounds.ts` |
+| 复检范围 | `approval_report.scope_json` 存维度键；§9.7 映射（知识越界→人物+剧情、纲要对齐→纲要对齐、时间线→剧情、文笔→文笔、未分类→全维度）；T35 不知道 scope，由运行时回合后补记 | `review/rounds.ts`、`review/run.ts` |
+| 3 轮上限 | 轮次 = 报告数；到 3 轮且最新仍 fail → 转人工（G5 关闭、G6 仍可执行） | `review/rounds.ts`、`review/service.ts` |
+| 审计通道 | 审批是独立事件通道 `event:review`；消息存 `review_message`，不混进创作台的 `write_message` | `shared/ipc-channels.ts`、`db/migrations/0005_review.sql` |
+| 审批 E2E 脚手架 | `review.devSeed` 只在未打包构建注册：G2 → 6 拍 commitBeat（confirmed）→ draft_complete；生产包返回 `invalid_args` | `review/service.ts`、`ipc/router.ts` |
 
 ## 当前阻塞
 
-- 无。阶段 07 已 `done`（2026-11-14）：本地门禁全绿（typecheck / lint / depcruise / unit 541 / integration 25 / e2e 11 / build / gen:check / 规格脚本）+ CI run `43609438344`（verify 与 e2e 均绿），标签 `phase-07-done` → `11575c8`。
-- 真实模型未配置 Key（不阻塞）：创作台沿用阶段 06 的环境变量口径（`NORYTH_WRITE_API_KEY` / `NORYTH_<PROVIDER>_API_KEY` / `NORYTH_PLAN_API_KEY`）；未配置时生成失败为 `model_auth`，自动模式暂停为 `model_error`，不伪造正文。E2E 用 `NORYTH_WRITE_FAKE=1` 假适配器，生产包不认。
-- 待补测（不阻塞阶段 08）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
-- 已知缺口（不阻塞）：创作台的「上下文检查器」按钮是占位（只显示 traceRef）；M0 分支只有线性 revision，没有分支树 UI；跨章影响分析在 M1。
+- 无阻塞。阶段 08 已完成开发与本地验收（2026-11-14）：typecheck / lint / depcruise / unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本全绿；**推送 origin/dev、CI 与 `phase-08-done` 标签待作者确认后执行**。
+- 真实模型未配置 Key（不阻塞）：创作台与审批台沿用阶段 06 的环境变量口径（`NORYTH_WRITE_API_KEY` / `NORYTH_REVIEW_API_KEY` / `NORYTH_<PROVIDER>_API_KEY` / `NORYTH_PLAN_API_KEY`）；未配置时生成/审批失败为 `model_auth`，不伪造报告或正文。E2E 用 `NORYTH_WRITE_FAKE=1` / `NORYTH_REVIEW_FAKE=1` 假适配器，生产包不认。
+- 待补测（不阻塞阶段 09）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录。
+- 已知缺口（不阻塞）：创作台的「上下文检查器」按钮是占位（只显示 traceRef）；M0 分支只有线性 revision，没有分支树 UI；跨章影响分析在 M1；审批的异构复检（换模型/换供应商）在 M1；「重新打开定稿」后端未接（DEV-PLAN §9.6），UI 只提示不可在此回退。
 
 ## 下一阶段交接
 
-- 阶段 07 已 `done`（2026-11-14）。提交 `5897d51` + `11575c8`；CI run `43609438344` 全绿；标签 `phase-07-done` → `11575c8`。新增迁移 `0004_writing.sql`，`LATEST_SCHEMA_VERSION = 4`；`DEV-PLAN §5.14` 已同步表结构（storyboard_draft / write_message / scheduler_event / scene.max_beats / chapter.budget_tokens）。
-- 阶段 08 直接复用：
-  - `commitBeat`（`src/main/doc/commit-beat.ts`）仍是唯一正文写入者；patch 应用必须走它，不要另写 UPDATE beat.body。
-  - 章节现在会停在 `draft_complete`（`scheduler/loop.markChapterComplete`），并已写 `scheduler_event(chapter_complete)`；G4 从这里开始。
-  - `runTurn` 的 `deps.commit` 与 `TurnDeps.hooks` 可复用到审批/修订；非单拍 Agent 可参考 `scheduler/orchestrator.ts` 的轻量运行时（复用 `invokeTool` 九步）。
-  - `gate_record` 已是 0001 表：G2 的写法在 `scheduler/g2.ts`；G4/G5/G6 只需照抄 `gate.insert({gateId, entityType:'chapter', entityId, decision, actor, payloadJson})`。
-  - `revision` / `revision_beat` / `patch` / `approval_report` 表在阶段 02 已就绪；`repos.patch`、`repos.review` 可直接用。
-  - `write.state()` 已把章状态、revision、拍列表、count 预算与事件暴露给 UI；审批台可复用同样的四分区与事件通道模式（`IPC_EVENTS.writeEvent` 是范式）。
-- 阶段 08 注意：
-  - 审批报告只读初稿（T21 `draft.get_chapter`）；不得给 `pass` 当 `consistency.check` 失败或未跑完（PRD §5.3）。
-  - patch 只能改已有拍（T34 分镜除外）；不能新增拍/场景；`before` 与当前正文不匹配不得套用。
-  - G5/G6 是一次性令牌：`issueGate` + `consumeGate`；G6 只能在作者侧出现，无快捷键。
-  - 定稿冻结：`chapter.markFinalized` 已存在；定稿后 `commitBeat` 仍会校验 `expected_revision`，但审批的 patch 必须在定稿前完成。
-  - 不要把 `scheduler_event` 当审批审计；审批的 `tool_call` 已有独立审计表。
+- 阶段 08 已 `done`（2026-11-14）。新增迁移 `0005_review.sql`，`LATEST_SCHEMA_VERSION = 5`；`DEV-PLAN §5.15` 已同步（approval_report.scope_json / review_message）。
+- 阶段 09 直接复用：
+  - 定稿已经入队 `memory.extract`（`job.status = 'queued'`，`expected_revision` = final revision id，payload `{chapterId, revisionId}`）；`MemoryExecutor` 从这里开始，不需要再读 chapter 状态。
+  - 记忆只从定稿抽取：`repos.chapter.finalRevisionId` 是唯一入口；`repos.revision.manifest(finalId)` 拿到定稿正文与拍 id。
+  - `repos.memoryProposal` / `agent_proposal` / `memory_entry` / `world` / `belief` / `relationship` 均已就绪；G7 令牌用 `tools/gates.issueGate` + `consumeGate`（与 G5/G6 同格式）。
+  - 审批的 `tool_call` 审计与 `review_message` 可用于记忆台的「来源/为什么重要」解释；不要把 `scheduler_event` 当记忆审计。
+  - 审批台的四分区、`reviewEvent` 事件通道、`devSeed` 脚手架与 `check_missing` 降级模式可照搬到记忆台。
+- 阶段 09 注意：
+  - `memory.extract` 只消费 `final` revision；初稿、未接受的 patch、作者未确认的改动都不进记忆。
+  - 台词不是事实：只能写 `belief` / `claim`，客观事实要事件或作者确认（PRD §6.4）。
+  - `memory.apply` 必须带 G7 令牌 + 幂等键；重放返回首次结果并标 `duplicate`。
+  - 软失效不物理删除；重建按 `source_revision_id`，旧条目 `inactive`。
 - 真实第二家供应商补测属于阶段 10 I1/I3 之前的遗留项；`settings.probeProvider` 后端已就绪，UI 在阶段 10 接。
 
 ## 更新规则

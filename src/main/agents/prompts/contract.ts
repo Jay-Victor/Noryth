@@ -19,9 +19,14 @@ export const BEAT_ANSWER_CONTRACT = [
 export const REVIEW_ANSWER_CONTRACT = [
   '【输出契约】',
   '最终答复只输出一个 JSON 对象，不得输出 JSON 以外的任何字符：',
-  '{"verdict":"pass|pass_with_notes|fail","blocking":[{"beat_id":"bt_x","issue":"...","evidence":"..."}],"suggestions":[],"dimensions":{}}',
-  '- 每条阻断必须带 beat_id 与原文证据；没有证据的怀疑放进 suggestions。',
-  '- 只报告与提案，不改写正文；patch 用 patch.propose 工具提交。'
+  '{"verdict":"pass|pass_with_notes|fail","blocking":[],"suggestions":[],"dimensions":{}}',
+  '- issue 形状：{"issue_id":"iss_01","type":"knowledge_leak","beat_id":"bt_x","evidence":"正文原文","why":"为什么是问题","suggestion":"怎么改"}。',
+  '- type 只能取：knowledge_leak / unauthorized_speech / outline_conflict / missing_event / character_conflict / timeline / continuity / reference_missing / voice / prose / pacing / other。',
+  '- blocking 只放硬问题（前 8 种）；voice / prose / pacing / other 只能进 suggestions。',
+  '- 每条阻断必须带 beat_id 与 evidence，evidence 必须是该拍正文的连续子串；缺一个就会被降级为建议。',
+  '- dimensions 只含 character_consistency / plot_logic / outline_alignment / prose，1–5 整数；分数只用于趋势，不用于放行。',
+  '- 没有阻断时 verdict 不能是 fail；有阻断时不能是 pass。宁可少报，也不要编造证据。',
+  '- 同样的 JSON 用 report.submit 提交；需要改稿时用 patch.propose，不改写正文。'
 ].join('\n')
 
 export const MEMORY_ANSWER_CONTRACT = [

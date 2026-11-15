@@ -4,6 +4,7 @@ import type { IpcResult } from '../shared/schema/ipc'
 import type { ProjectStateEvent } from '../shared/schema/project'
 import type { PlanChoiceRequest, PlanEvent } from '../shared/schema/plan'
 import type { SliceBeatEvent } from '../shared/schema/slice'
+import type { ReviewEvent } from '../shared/schema/review'
 import type { WriteEvent } from '../shared/schema/write'
 import type { NorythBridge } from '../shared/schema/bridge'
 
@@ -103,6 +104,19 @@ const bridge: NorythBridge = {
     send: (input) => invoke(IPC.writeSend, input),
     devSeed: (input) => invoke(IPC.writeDevSeed, input ?? {})
   },
+  review: {
+    state: (chapterId) => invoke(IPC.reviewState, chapterId === undefined ? {} : { chapterId }),
+    run: (chapterId) => invoke(IPC.reviewRun, { chapterId }),
+    send: (input) => invoke(IPC.reviewSend, input),
+    authorizeRevision: (chapterId) => invoke(IPC.reviewG5, { chapterId }),
+    decide: (input) => invoke(IPC.reviewDecide, input),
+    recheck: (chapterId) => invoke(IPC.reviewRecheck, { chapterId }),
+    compare: (input) => invoke(IPC.reviewCompare, input),
+    finalizePreview: (chapterId) => invoke(IPC.reviewG6Preview, { chapterId }),
+    issueFinalizeToken: (chapterId) => invoke(IPC.reviewG6Issue, { chapterId }),
+    finalize: (input) => invoke(IPC.reviewFinalize, input),
+    devSeed: (input) => invoke(IPC.reviewDevSeed, input ?? {})
+  },
   app: {
     info: () => invoke(IPC.appInfo, {})
   },
@@ -150,6 +164,15 @@ const bridge: NorythBridge = {
       ipcRenderer.on(IPC_EVENTS.writeEvent, handler)
       return () => {
         ipcRenderer.removeListener(IPC_EVENTS.writeEvent, handler)
+      }
+    },
+    onReviewEvent: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: ReviewEvent): void => {
+        listener(payload)
+      }
+      ipcRenderer.on(IPC_EVENTS.reviewEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_EVENTS.reviewEvent, handler)
       }
     }
   }

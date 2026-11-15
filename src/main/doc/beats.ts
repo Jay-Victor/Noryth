@@ -120,6 +120,11 @@ export function editBeat(
   return withTransaction(db, () => {
     const beat = repos.beat.get(input.beatId)
     if (!beat) throw new AppError('invalid_args', `beat ${input.beatId} not found`)
+    const chapterOfBeat = repos.chapter.get(beat.chapterId)
+    if (chapterOfBeat?.status === 'finalized') {
+      // 章级守卫优先于拍级状态：定稿后任何编辑都报 already_finalized。
+      throw new AppError('already_finalized', '本章已定稿，正文不可修改', { chapterId: beat.chapterId })
+    }
     if (beat.status === 'superseded') {
       throw new AppError('invalid_args', '已替换的拍不能编辑', { beatId: input.beatId })
     }

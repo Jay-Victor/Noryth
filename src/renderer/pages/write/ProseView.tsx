@@ -169,7 +169,7 @@ export function ProseView({
       {state.chapterStatus === 'draft_complete' ? (
         <div className="write-complete-banner" data-testid="write-draft-complete">
           <strong>草稿完成</strong>
-          <span>所有场景已收束；送审在阶段 08 接入。</span>
+          <span>到审批台生成报告（G4）；定稿只能由作者在审批台触发。</span>
         </div>
       ) : null}
     </div>

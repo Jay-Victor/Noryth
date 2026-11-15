@@ -12,6 +12,7 @@ import { devCsp, PROD_CSP } from './security'
 import { SettingsStore } from './settings/store'
 import { DevSliceService } from './slice/service'
 import { WriteService } from './scheduler/service'
+import { ReviewService } from './review/service'
 import { sha256Hex } from './crypto'
 import { ALL_MANIFESTS } from './tools/manifests'
 import { buildRegistry } from './tools/registry'
@@ -179,10 +180,24 @@ async function bootstrap(): Promise<void> {
     log: (message, details) => logger?.info({ event: message, ...details }, message)
   })
 
+  const reviewService = new ReviewService({
+    host: () => projectServiceInstance.currentHandle(),
+    registry: toolRegistry,
+    settings: () => settings.read(),
+    allowFakeModel: !app.isPackaged,
+    gateSecret: sha256Hex(`review-gate-${Date.now()}-${Math.random()}`),
+    send: (event) => {
+      if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.reviewEvent, event)
+    },
+    fakeChunkDelayMs: Number(process.env.NORYTH_REVIEW_STREAM_DELAY_MS ?? '2'),
+    log: (message, details) => logger?.info({ event: message, ...details }, message)
+  })
+
   registerIpc({
     project: projectServiceInstance,
     plan: planService,
     write: writeService,
+    review: reviewService,
     settings,
     logger,
     logPath: logFilePath(logDir),

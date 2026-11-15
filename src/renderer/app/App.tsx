@@ -13,10 +13,12 @@ import { Toasts } from './Toasts'
 import { SlicePage } from './dev/Slice'
 import { HomePage } from '../pages/HomePage'
 import { PlanPage } from '../pages/plan/PlanPage'
+import { ReviewPage } from '../pages/review/ReviewPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { WorkbenchPage } from '../pages/WorkbenchPage'
 import { WritePage } from '../pages/write/WritePage'
 import { usePlan } from '../stores/plan'
+import { useReview } from '../stores/review'
 import { useSlice } from '../stores/slice'
 import { useWrite } from '../stores/write'
 
@@ -50,12 +52,16 @@ export function App(): React.JSX.Element {
     const offWrite = bridge.events.onWriteEvent((event) => {
       useWrite.getState().applyEvent(event)
     })
+    const offReview = bridge.events.onReviewEvent((event) => {
+      useReview.getState().applyEvent(event)
+    })
     return () => {
       offProject()
       offSlice()
       offPlan()
       offChoice()
       offWrite()
+      offReview()
     }
   }, [])
 
@@ -152,6 +158,8 @@ export function App(): React.JSX.Element {
               <PlanPage mode={mode} />
             ) : page === 'write' ? (
               <WritePage mode={mode} />
+            ) : page === 'review' ? (
+              <ReviewPage mode={mode} />
             ) : (
               <WorkbenchPage page={page} mode={mode} />
             )}

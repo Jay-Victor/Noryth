@@ -1,6 +1,6 @@
 {
   "name": "report.submit",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "family": "propose",
   "summary": "提交审批报告；结构化失败时接受纯文本并标降级，阻断项必须定位到拍",
   "actors": [
@@ -49,32 +49,47 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "issue_ref": {
+                    "issue_id": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 80
+                      "maxLength": 60
                     },
-                    "dimension": {
+                    "type": {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 40
+                      "enum": [
+                        "knowledge_leak",
+                        "unauthorized_speech",
+                        "outline_conflict",
+                        "missing_event",
+                        "character_conflict",
+                        "timeline",
+                        "continuity",
+                        "reference_missing",
+                        "voice",
+                        "prose",
+                        "pacing",
+                        "other"
+                      ]
                     },
                     "beat_id": {
                       "type": "string",
-                      "minLength": 1,
                       "maxLength": 80
                     },
                     "evidence": {
                       "type": "string",
-                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "why": {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    "suggestion": {
+                      "type": "string",
                       "maxLength": 1000
                     }
                   },
                   "required": [
-                    "issue_ref",
-                    "dimension",
-                    "beat_id",
-                    "evidence"
+                    "type"
                   ],
                   "additionalProperties": false
                 }
@@ -86,25 +101,47 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "issue_ref": {
+                    "issue_id": {
                       "type": "string",
                       "minLength": 1,
+                      "maxLength": 60
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "knowledge_leak",
+                        "unauthorized_speech",
+                        "outline_conflict",
+                        "missing_event",
+                        "character_conflict",
+                        "timeline",
+                        "continuity",
+                        "reference_missing",
+                        "voice",
+                        "prose",
+                        "pacing",
+                        "other"
+                      ]
+                    },
+                    "beat_id": {
+                      "type": "string",
                       "maxLength": 80
                     },
-                    "dimension": {
+                    "evidence": {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 40
+                      "maxLength": 1000
+                    },
+                    "why": {
+                      "type": "string",
+                      "maxLength": 1000
                     },
                     "suggestion": {
                       "type": "string",
-                      "minLength": 1,
                       "maxLength": 1000
                     }
                   },
                   "required": [
-                    "issue_ref",
-                    "suggestion"
+                    "type"
                   ],
                   "additionalProperties": false
                 }

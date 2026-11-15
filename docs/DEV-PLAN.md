@@ -1020,6 +1020,34 @@ CREATE TABLE scheduler_event (
 - **暂停可恢复**：`scheduler_event` 记录 `paused` 的 `reason` 与 payload，重启后横幅仍可显示；`write_message` 承担编排对话、拒演卡片与暂停提示。
 - **状态机**：拍/章/场景/任务的迁移表在 `scheduler/transitions.ts`，非法迁移抛 `invalid_args`。
 
+### 5.15 审批台表（迁移 0005）
+
+```sql
+ALTER TABLE approval_report ADD COLUMN scope_json TEXT NOT NULL DEFAULT '[]';
+
+CREATE TABLE review_message (
+  id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  chapter_id  TEXT NOT NULL REFERENCES chapter(id) ON DELETE CASCADE,
+  round       INTEGER NOT NULL DEFAULT 0,
+  role        TEXT NOT NULL CHECK (role IN ('author','reviewer','system')),
+  kind        TEXT NOT NULL DEFAULT 'text' CHECK (kind IN ('text','report','patch','pause')),
+  body        TEXT NOT NULL DEFAULT '',
+  meta_json   TEXT NOT NULL DEFAULT '{}',
+  created_at  TEXT NOT NULL
+);
+CREATE INDEX review_message_by_chapter ON review_message(chapter_id, created_at);
+```
+
+规则：
+
+- **报告复检范围**：`approval_report.scope_json` 存维度键数组（`character_consistency / plot_logic / outline_alignment / prose`）；空数组 = 全量报告。复检只跑受影响维度（§9.7），范围随报告一起留痕。
+- **报告的归一化在服务端**：`report.submit`（T35）与运行时兜底都走 `review/report.submitReport`；缺 beat / 缺证据 / 缺 why 的阻断降级为建议，`verdict` 由条目反推，模型不能空口给 pass 或 fail。
+- **patch 与 revision**：patch 只引用当前 revision 的已有拍；一次「执行修订」在 `doc/patch-apply.ts` 里替换 N 拍、只产生一个 revision（清单 + hash），旧拍 superseded。`before` 归一化后必须与正文一致，否则 `patch_conflict` 且零写入。
+- **G5/G6 与工具令牌同格式**：都写 `gate_record`（10 分钟、HMAC、只存 token hash）；G5 绑定 patch job，G6 绑定「章 + 当前 revision」。令牌在动作成功后消费；定稿的 ack（阻断/未复检）补记回同一条 G6 记录，不写第二条。
+- **定稿**：`doc/finalize.ts` 只 INSERT `revision(kind='final')` + 复制清单；`chapter.markFinalized` 冻结正文，`commitBeat` 对已定稿章抛 `already_finalized`；同事务入队 `memory.extract`（`queued`，阶段 09 执行）。
+- **转人工**：轮次 = 报告数；到 3 轮且最新仍 `fail` 时 UI 标「转人工」并关闭 G5，G6 仍可执行（保留全部报告与 patch）。
+
 ---
 
 ## 6 工具层

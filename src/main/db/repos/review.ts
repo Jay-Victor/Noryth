@@ -2,7 +2,7 @@ import type { Insertable, Selectable } from 'kysely'
 import type { Db } from '../project-db'
 import type { QueryRunner } from '../kysely'
 import { allRows, firstRow, runStatement } from '../kysely'
-import type { ApprovalReportTable, GateRecordTable } from '../schema'
+import type { ApprovalReportTable, GateRecordTable, ReviewMessageTable } from '../schema'
 import { BaseRepo, newId, type Clock, systemClock } from './common'
 
 export type Verdict = 'pass' | 'pass_with_notes' | 'fail'
@@ -19,6 +19,8 @@ export interface ApprovalReportRecord {
   blockingJson: string
   suggestionsJson: string
   dimensionsJson: string
+  /** 复检范围（维度键数组）；空数组 = 全量报告。 */
+  scopeJson: string
   degraded: string | null
   model: string | null
   createdAt: string
@@ -34,6 +36,7 @@ export interface NewApprovalReportInput {
   blockingJson?: string
   suggestionsJson?: string
   dimensionsJson?: string
+  scopeJson?: string
   degraded?: string | null
   model?: string | null
   createdAt?: string
@@ -82,6 +85,7 @@ function mapApproval(row: ApprovalRow): ApprovalReportRecord {
     blockingJson: row.blocking_json,
     suggestionsJson: row.suggestions_json,
     dimensionsJson: row.dimensions_json,
+    scopeJson: row.scope_json,
     degraded: row.degraded,
     model: row.model,
     createdAt: row.created_at
@@ -122,6 +126,7 @@ export class ReviewRepo extends BaseRepo {
       blocking_json: input.blockingJson ?? '[]',
       suggestions_json: input.suggestionsJson ?? '[]',
       dimensions_json: input.dimensionsJson ?? '{}',
+      scope_json: input.scopeJson ?? '[]',
       degraded: input.degraded ?? null,
       model: input.model ?? null,
       created_at: input.createdAt ?? this.now()
@@ -149,6 +154,38 @@ export class ReviewRepo extends BaseRepo {
         .orderBy('created_at')
     )
     return rows.map(mapApproval)
+  }
+
+  /**
+   * 补记降级原因（如 pass 但确定性检查没跑）。
+   * 只改 degraded，不改 verdict/条目；报告本身不可变。
+   */
+  setDegraded(id: string, degraded: string): ApprovalReportRecord | null {
+    const row = firstRow<ApprovalRow>(
+      this.runner,
+      this.runner.db
+        .updateTable('approval_report')
+        .set({ degraded })
+        .where('id', '=', id)
+        .returningAll()
+    )
+    return row ? mapApproval(row) : null
+  }
+
+  /**
+   * 补记复检范围：报告可能由 T35 提交（工具不知道复检维度），
+   * 由运行时在回合结束后写入；只改 scope，不改条目。
+   */
+  setScope(id: string, scopeJson: string): ApprovalReportRecord | null {
+    const row = firstRow<ApprovalRow>(
+      this.runner,
+      this.runner.db
+        .updateTable('approval_report')
+        .set({ scope_json: scopeJson })
+        .where('id', '=', id)
+        .returningAll()
+    )
+    return row ? mapApproval(row) : null
   }
 }
 
@@ -222,5 +259,109 @@ export class GateRepo extends BaseRepo {
         .returningAll()
     )
     return row ? mapGate(row) : null
+  }
+
+  /**
+   * 执行后补记 payload（G6 的 ack 在 finalize 时才确定，令牌在 issue 时已落库）。
+   * 只允许补记 payload，不改 decision / token_hash / consumed_at。
+   */
+  annotatePayload(id: string, payloadJson: string): GateRecordRecord | null {
+    const row = firstRow<GateRow>(
+      this.runner,
+      this.runner.db
+        .updateTable('gate_record')
+        .set({ payload_json: payloadJson })
+        .where('id', '=', id)
+        .returningAll()
+    )
+    return row ? mapGate(row) : null
+  }
+}
+
+export type ReviewMessageRole = 'author' | 'reviewer' | 'system'
+export type ReviewMessageKind = 'text' | 'report' | 'patch' | 'pause'
+
+export interface ReviewMessageRecord {
+  id: string
+  projectId: string
+  chapterId: string
+  round: number
+  role: ReviewMessageRole
+  kind: ReviewMessageKind
+  body: string
+  metaJson: string
+  createdAt: string
+}
+
+export interface NewReviewMessageInput {
+  id?: string
+  projectId: string
+  chapterId: string
+  round?: number
+  role: ReviewMessageRole
+  kind?: ReviewMessageKind
+  body?: string
+  metaJson?: string
+  createdAt?: string
+}
+
+type ReviewMessageRow = Selectable<ReviewMessageTable>
+
+function mapReviewMessage(row: ReviewMessageRow): ReviewMessageRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    chapterId: row.chapter_id,
+    round: row.round,
+    role: row.role as ReviewMessageRole,
+    kind: row.kind as ReviewMessageKind,
+    body: row.body,
+    metaJson: row.meta_json,
+    createdAt: row.created_at
+  }
+}
+
+/** 审批台对话（UI-DESIGN §6.3）：讨论不改稿，消息只用于解释与追问。 */
+export class ReviewMessageRepo extends BaseRepo {
+  constructor(input: Db | QueryRunner, now: Clock = systemClock) {
+    super(input, now)
+  }
+
+  insert(input: NewReviewMessageInput): ReviewMessageRecord {
+    const id = input.id ?? newId('rmsg')
+    const values: Insertable<ReviewMessageTable> = {
+      id,
+      project_id: input.projectId,
+      chapter_id: input.chapterId,
+      round: input.round ?? 0,
+      role: input.role,
+      kind: input.kind ?? 'text',
+      body: input.body ?? '',
+      meta_json: input.metaJson ?? '{}',
+      created_at: input.createdAt ?? this.now()
+    }
+    runStatement(this.runner, this.runner.db.insertInto('review_message').values(values))
+    return this.get(id)!
+  }
+
+  get(id: string): ReviewMessageRecord | null {
+    const row = firstRow<ReviewMessageRow>(
+      this.runner,
+      this.runner.db.selectFrom('review_message').selectAll().where('id', '=', id)
+    )
+    return row ? mapReviewMessage(row) : null
+  }
+
+  listByChapter(chapterId: string, limit = 80): ReviewMessageRecord[] {
+    const rows = allRows<ReviewMessageRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('review_message')
+        .selectAll()
+        .where('chapter_id', '=', chapterId)
+        .orderBy('created_at')
+        .limit(limit)
+    )
+    return rows.map(mapReviewMessage)
   }
 }

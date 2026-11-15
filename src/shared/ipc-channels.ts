@@ -70,7 +70,19 @@ export const IPC = {
   writeCancel: 'write.cancel',
   writeSend: 'write.send',
   // 未打包构建的 E2E 脚手架（生产包不注册）
-  writeDevSeed: 'write.devSeed'
+  writeDevSeed: 'write.devSeed',
+  // 审批台（PHASE-08）
+  reviewState: 'review.state',
+  reviewRun: 'review.run',
+  reviewSend: 'review.send',
+  reviewG5: 'review.g5',
+  reviewDecide: 'review.patch.decide',
+  reviewRecheck: 'review.recheck',
+  reviewCompare: 'review.compare',
+  reviewG6Preview: 'review.g6.preview',
+  reviewG6Issue: 'review.g6.issue',
+  reviewFinalize: 'review.finalize',
+  reviewDevSeed: 'review.devSeed'
 } as const
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC]
@@ -81,7 +93,8 @@ export const IPC_EVENTS = {
   sliceBeat: 'event:slice.beat',
   planMessage: 'event:plan.message',
   planChoice: 'event:plan.choice',
-  writeEvent: 'event:write'
+  writeEvent: 'event:write',
+  reviewEvent: 'event:review'
 } as const
 
 export type IpcEventChannel = (typeof IPC_EVENTS)[keyof typeof IPC_EVENTS]

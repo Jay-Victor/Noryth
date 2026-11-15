@@ -77,6 +77,21 @@ export function CommandPalette(): React.JSX.Element | null {
         label: `关闭项目「${state.current.project.title}」`,
         run: () => void useApp.getState().closeProject()
       })
+
+      // 定稿只在审批台出现；命令面板走同一个确认框（UI-DESIGN §6.4）。
+      const reviewGuard = navGuard('review', state.current)
+      list.push({
+        id: 'finalize-chapter',
+        label: '定稿本章（G6）',
+        hint: '审批台',
+        disabled: reviewGuard.disabled,
+        ...(reviewGuard.reason ? { reason: reviewGuard.reason } : {}),
+        run: () => {
+          useApp.getState().setPage('review')
+          // 等审批台挂载并加载完状态后再打开确认框。
+          setTimeout(() => window.dispatchEvent(new Event('noryth:finalize-chapter')), 120)
+        }
+      })
     }
 
     list.push({

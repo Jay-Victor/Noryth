@@ -220,8 +220,22 @@ export interface ApprovalReportTable {
   blocking_json: Generated<string>
   suggestions_json: Generated<string>
   dimensions_json: Generated<string>
+  /** 复检范围（维度键数组）；空数组 = 全量报告（DEV-PLAN §9.7）。 */
+  scope_json: Generated<string>
   degraded: string | null
   model: string | null
+  created_at: string
+}
+
+export interface ReviewMessageTable {
+  id: string
+  project_id: string
+  chapter_id: string
+  round: number
+  role: string
+  kind: Generated<string>
+  body: Generated<string>
+  meta_json: Generated<string>
   created_at: string
 }
 
@@ -486,4 +500,5 @@ export interface Database {
   storyboard_draft: StoryboardDraftTable
   write_message: WriteMessageTable
   scheduler_event: SchedulerEventTable
+  review_message: ReviewMessageTable
 }

@@ -29,6 +29,14 @@ import type {
 } from './slice'
 import type { StoryboardConflict, StoryboardDraft } from './storyboard'
 import type {
+  ReviewActionResult,
+  ReviewCompareResult,
+  ReviewEvent,
+  ReviewFinalizePreview,
+  ReviewSendResult,
+  ReviewState
+} from './review'
+import type {
   WriteActionResult,
   WriteEvent,
   WritePreflightState,
@@ -135,6 +143,7 @@ export interface EventApi {
   onPlanMessage(listener: (event: PlanEvent) => void): () => void
   onPlanChoice(listener: (event: PlanChoiceRequest) => void): () => void
   onWriteEvent(listener: (event: WriteEvent) => void): () => void
+  onReviewEvent(listener: (event: ReviewEvent) => void): () => void
 }
 
 /** 创作台 G2 预览（PHASE-07 F1）。 */
@@ -181,6 +190,43 @@ export interface WriteApi {
   devSeed(input?: { scenes?: number; beatsPerScene?: number; exit?: string }): Promise<IpcResult<WriteState>>
 }
 
+/** 审批台 API（PHASE-08）。G5/G6 的令牌都在主进程签发，renderer 只持有一次性 token。 */
+export interface ReviewApi {
+  state(chapterId?: string): Promise<IpcResult<ReviewState>>
+  /** G4：生成全量审批报告。 */
+  run(chapterId: string): Promise<IpcResult<ReviewActionResult>>
+  send(input: { chapterId: string; text: string }): Promise<IpcResult<ReviewSendResult>>
+  /** G5：授权修订并产出 patch 提案。 */
+  authorizeRevision(chapterId: string): Promise<IpcResult<ReviewActionResult>>
+  decide(input: {
+    chapterId: string
+    expectedRevision: string | null
+    decisions: Array<{ patchId: string; accept: boolean }>
+  }): Promise<IpcResult<ReviewActionResult>>
+  /** 复检：只跑受影响维度。 */
+  recheck(chapterId: string): Promise<IpcResult<ReviewActionResult>>
+  compare(input: {
+    chapterId: string
+    leftRevisionId: string
+    rightRevisionId: string
+  }): Promise<IpcResult<ReviewCompareResult>>
+  /** G6：打开确认框前取「阻断/未复检」清单（不签发令牌）。 */
+  finalizePreview(chapterId: string): Promise<IpcResult<ReviewFinalizePreview>>
+  /** G6：签发一次性定稿令牌（10 分钟）；只有真正点「确认定稿」时才调用。 */
+  issueFinalizeToken(
+    chapterId: string
+  ): Promise<IpcResult<{ token: string; expiresAt: string; preview: ReviewFinalizePreview }>>
+  finalize(input: {
+    chapterId: string
+    token: string
+    ackBlocking: boolean
+    ackUnreviewed: boolean
+    reason?: string
+  }): Promise<IpcResult<ReviewActionResult>>
+  /** 仅未打包构建：E2E 脚手架。 */
+  devSeed(input?: { scenes?: number; beatsPerScene?: number }): Promise<IpcResult<ReviewState>>
+}
+
 export interface NorythBridge {
   project: ProjectApi
   dialog: DialogApi
@@ -189,6 +235,7 @@ export interface NorythBridge {
   slice: SliceApi
   plan: PlanApi
   write: WriteApi
+  review: ReviewApi
   app: AppApi
   events: EventApi
 }
