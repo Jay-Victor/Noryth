@@ -13,7 +13,7 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 - 阶段 09 已 `done`（2026-11-15）：`memory/extract|apply|retrieve`、`MemoryExecutor`（单事务 + 向量 + 审计 + G7）、记忆台四分区与软失效；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01`。CI run `43681891589` 全绿；标签 `phase-09-done` → `4fca40c`。
 - 阶段 10 已 `done`（2026-11-15）：I1–I4 设置中心（safeStorage Key、逐 Agent 绑定 + 批次审计 + 回滚、测试连接、外观）、J1–J6（fixture 假服务器、`E2E-M0-A` 14 步、`E2E-M0-PROVIDER`、`CHAOS-01..08`、NSIS + 安装冒烟 + 更新检查、PERF-01、安全/无障碍/200% 缩放）、导出 Markdown/TXT；新增 `0007_settings.sql`（`LATEST_SCHEMA_VERSION = 7`）；M0 验收报告 `docs/M0-ACCEPTANCE.md`。
 - M1 阶段文档已建（2026-11-15）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`；阶段 11 已 `done`，其余 `todo`；阶段顺序与任务 ID 见 `docs/DEV-PLAN.md` §12.4 / §12.6。
-- 阶段 11 已 `done`（2026-11-15）：M1-12 多项目切换（`project.busy` 探针 + `cancelRunning` + 切换确认框 + 事件按 projectId 丢弃）、M1-9 章节摘要 + `VirtualList` + `PERF-M1-01`、M1-16 文件树抽屉（Ctrl B，320 overlay + 焦点陷阱）、M1-24 `openLastProject` + 诊断包 zip；`E2E-M1-SWITCH-01`、`E2E-M1-TREE-01`。未改 schema（`LATEST_SCHEMA_VERSION = 7`）；0008 从阶段 12 开始。
+- 阶段 11 已 `done`（2026-11-15）：M1-12 多项目切换（`project.busy` 探针 + `cancelRunning` + 切换确认框 + 事件按 projectId 丢弃）、M1-9 章节摘要 + `VirtualList` + `PERF-M1-01`、M1-16 文件树抽屉（Ctrl B，320 overlay + 焦点陷阱）、M1-24 `openLastProject` + 诊断包 zip；`E2E-M1-SWITCH-01`、`E2E-M1-TREE-01`。未改 schema（`LATEST_SCHEMA_VERSION = 7`）；0008 从阶段 12 开始。CI run `43700004809` 全绿；标签 `phase-11-done` → `c2ef570`。
 - S3 按「DeepSeek 一家」收口（`deepseek-flash` 实测），第二家供应商顺延到阶段 04 D1 前补测；见 `docs/adr/0003-providers.md`。
 - `docs/` 已入库，是项目规格的一部分；不要删除、移动或重写。
 - 进度与交接写 `PROGRESS.md`；阶段范围与验收以 `docs/PHASE-0X-*.md` 为准。

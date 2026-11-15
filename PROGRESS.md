@@ -80,6 +80,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| CI（首次） | GitHub Actions run `43699407599`（`a98e813`） | verify 全绿；**e2e 失败且当次无日志**（workflow 只输出 exit code 1）。已给 e2e 加 `set -o pipefail \| tee e2e.log` + 失败时日志尾部 `::error::` annotation + 上传 `e2e.log`/`test-results/` |
+| CI（复跑） | GitHub Actions run `43700004809`（`c2ef570`） | verify + e2e 均绿；package 按规则跳过（非 `v*` tag） |
+| 阶段标签 | `phase-11-done` → `c2ef570` | 已推送 origin |
 
 ## 当前可运行命令
 
@@ -397,7 +400,8 @@
 
 ## 当前阻塞
 
-- 无阻塞。阶段 11 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 274 modules / unit 620 / integration 35 / chaos 7 / e2e 21 / build / gen:check / 规格脚本 / perf 2）。
+- 无阻塞。阶段 11 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 274 modules / unit 620 / integration 35 / chaos 7 / e2e 21 / build / gen:check / 规格脚本 / perf 2）+ CI run `43700004809`（verify 与 e2e 均绿），标签 `phase-11-done` → `c2ef570` 已推送 origin。
+- 遗留观察（不阻塞）：阶段 11 首次推送的 CI run `43699407599` 在 e2e 失败，且当次没有日志（现在已加日志 annotation 与 artifact）。复跑绿；具体失败用例未定位，若再次出现先看 `e2e.log` artifact 与 check-run annotations。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录（M1 阶段 18，M1-26）。
 - 已知缺口（不阻塞）：
