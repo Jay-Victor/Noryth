@@ -57,7 +57,26 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm test:e2e
+      - name: e2e
+        run: |
+          set -o pipefail
+          pnpm test:e2e 2>&1 | tee e2e.log
+      - name: e2e failure summary
+        if: failure()
+        shell: bash
+        run: |
+          # 把日志尾部变成 annotation：公开仓库无需 token 也能从 API 读到失败用例。
+          tail -n 60 e2e.log | while IFS= read -r line; do
+            line="${line//$'\r'/}"
+            if [ -n "$line" ]; then echo "::error title=e2e::$line"; fi
+          done
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-log-trace
+          path: |
+            e2e.log
+            test-results/
 
   package:
     if: startsWith(github.ref, 'refs/tags/v')

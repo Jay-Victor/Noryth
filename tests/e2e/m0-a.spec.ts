@@ -373,10 +373,18 @@ test('E2E-M0-A：空项目 → 一章定稿 → 记忆固化 → 第 2 章召回
   expect(apps[0]!.process().exitCode !== null || true).toBe(true)
 
   const relaunched = await launch(userData)
-  await relaunched.page.locator('[data-testid="project-list"]').waitFor({ timeout: 30_000 }).catch(() => undefined)
-  await relaunched.page.locator(`text=${folder}`).first().click().catch(() => undefined)
-  const reopened = await relaunched.page.evaluate(async (path) => window.noryth!.project.open({ path }), projectPath)
-  expect(reopened.ok).toBe(true)
+  // 阶段 11 起，重开应用会自动打开上次项目（若未被占用）。两种情况都要能继续。
+  await relaunched.page.waitForSelector('[data-testid="app-ready"]')
+  const autoOpened = await relaunched.page.evaluate(async () => {
+    const current = await window.noryth!.project.current()
+    return current.ok && current.data !== null
+  })
+  if (!autoOpened) {
+    await relaunched.page.locator('[data-testid="project-list"]').waitFor({ timeout: 30_000 }).catch(() => undefined)
+    await relaunched.page.locator(`text=${folder}`).first().click().catch(() => undefined)
+    const reopened = await relaunched.page.evaluate(async (path) => window.noryth!.project.open({ path }), projectPath)
+    expect(reopened.ok).toBe(true)
+  }
   await relaunched.page.reload()
   await relaunched.page.waitForSelector('[data-testid="app-ready"]')
 
