@@ -139,7 +139,8 @@
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
 | 提交 | `4c2ad26`（feat）、`b492928` / `86c18ae`（docs） | 已推送 origin/dev |
 | CI | GitHub Actions run `43713984247`（`86c18ae`） | verify 2m11 + e2e 3m00 均绿；package 按规则跳过（非 `v*` tag） |
-| 阶段标签 | `phase-13-done` → 本提交 | 已推送 origin |
+| CI（标签所在提交） | GitHub Actions run `43714545719`（`3f82a16`） | verify + e2e 均绿；package 跳过 |
+| 阶段标签 | `phase-13-done` → `3f82a16` | 已推送 origin |
 
 ## 当前可运行命令
 

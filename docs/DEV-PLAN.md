@@ -298,6 +298,10 @@ contextBridge.exposeInMainWorld('noryth', {
 | write | `scene.remove`（M1-1） | chapterId、sceneId | `{state, detail}`；有 live 拍或被别章引用 → `invalid_args` | — |
 | write | `scene.time`（M1-2） | chapterId、sceneId、storyStart?、storyEnd?、timeline? | `{state, detail}`；省略 = 不改，`null` = 清空 | — |
 | write | `timeline`（M1-2） | chapterId | `{idx, storyStart/End, scenes[], timeline[]}`；T23 的只读投影 | — |
+| write | `context`（M1-17） | beatId | `{blocks[], totalTokens, trimmed[], prefixHash, usage, estimate, budget}`；只读 `turn_metric.context_json`，不回传正文 | — |
+| world | `projection`（M1-3） | chapterId?、asOf? | `{asOf, facts[], beliefs[], edges[], counts{}}`；作者视图含秘密，读者已知用 `readerKnown` 标记 | — |
+| world | `fact.add`（M1-18） | subject/predicate/object、truth、visibility、knownBy?、revealSeq?、validFromSeq? | `{projection, factId, detail}`；`source_type='author'`，单值槽先关旧值 | 作者权限（非闸门） |
+| world | `fact.close`（M1-18） | factId、reason? | `{projection, factId, detail}`；只写 `valid_to_seq`，不删除 | 作者权限（非闸门） |
 | review | `run` | chapterId、revisionId | `{jobId}` | G4 |
 | review | `authorizePatches` | reportId | `{jobId}` | G5 |
 | review | `decidePatch` | patchId、accept/reject | `{revisionId?}` | G5 |
@@ -1602,7 +1606,7 @@ export function estimateTokens(text: string): number {
 
 - 每个 provider 维护 `calibration`：最近 20 次真实 `usage.prompt_tokens` / 估算值的中位数，clamp `[0.7, 1.6]`；写 `settings.json`。
 - 估算只用于**预算与裁剪**，不用于计费；计费以供应商返回的 `usage` 为准。
-- 上下文检查器显示「估算 token + 上次实际 ratio」，不显示假精确值。
+- 上下文检查器显示「估算 token + 上次实际 ratio」，不显示假精确值：ratio = `turn_metric.tokens_in / context_json.total_tokens`，样本不足时留空。
 
 ### 7.5 模型适配器
 
@@ -2175,6 +2179,17 @@ type EmbedRes =
 - **嵌入**：有 `resources/models/bge-small-zh-v1.5` 时用 utilityProcess + bge（512 维，q8）；否则降级为确定性 `hash-bigram-v1`（512 维，无模型无网络），**模型名写进每条 `memory_entry.embedding_model`**，检索的向量通道按模型名过滤，不与 bge 混用。bge 模型与 onnxruntime 随包属于阶段 10 的打包工作；本阶段不假装具备语义检索。
 - **隔离回归**：`MemoryService.isolationReport()` 用每个角色自己的记忆原文跑一次真实检索，命中集合必须全属于本人；跨角色命中即 `isolation_violation`。UI 在世界状态页提供「跑隔离回归」。
 - **M1 边界**：按章重建（T40）后端未接，UI 按钮禁用并标注 M1；as-of 滑块、关系图同属 M1。
+
+### 10.10 世界状态 as-of 与作者事实（阶段 13）
+
+- **认知水位只有一处**：`context/sources.resolveChapterAsOf(repos, chapter, mode)`。
+  `write`：已写章用本章 `covered_until_seq`；新章用前一章水位（第一章 0）。
+  `review`：严格本章 `covered_until_seq`，为 0 时 `invalid_args`（不 fallback `project.seq_head`）。
+  编排对话、记忆讨论、单拍装配都走同一个函数；`project.seq_head` 只用于分配 seq 与项目级元数据。
+- **投影是纯函数**：`src/main/world/projection.ts`。事实按自身 `valid_from/to`、信念按 `learned_seq`、边按 `since/valid_to` 截断；读者已知只认 `visibility='public'` 且 `reveal_seq ≤ as_of`（`reveal_seq` 为空永不自动揭示）。`futureFacts`（as_of 之后才产生）与 `notYetRevealed`（已存在但读者未知）分开计数——「读者未知」不等于「不存在」。
+- **作者事实只有一个写入口**：`memory/apply.ts` 的 `applyAuthorFact` / `closeAuthorFact`（单事务 + `memory_audit(actor='author')`）。`world/author-facts.ts` 只做参数组装与校验。谓词登记表在代码（`MULTI_VALUE_PREDICATES`）：多值谓词换宾语并存；其余按单值槽 `single_value=1`，新值先关旧值（`valid_to_seq = 新 valid_from_seq`），回填早于当前值被拒。作者可新增 `claim`，但台词仍不能自动产生 `objective`（阶段 09 的抽取规则不变）。
+- **定稿检索按章截断**：`manuscript.search_final` / `manuscript.get_final_chapter` 只返回 `chapter.ord ≤ 当前章` 的定稿；显式请求更晚章 → `invalid_args`（details 带 `currentOrd`）。`memory.retrieve_audit` 的 as_of 仍受运行时水位约束，审批不能借审计通道看未来记忆。
+- **上下文检查器只读**：数据源 `turn_metric.context_json`；生成时 `beat_id` 记的是**槽位拍**，检查器沿 `supersedes` 链取最近一条。展示块 id/层/角色/priority/tokens、裁剪 id、prefix hash、预算条与「估算 + 上次实际 ratio」；不提供改预算入口，不回传被裁正文。
 
 ---
 
@@ -2982,6 +2997,7 @@ jobs:
 
 ## 变更记录
 
+- **v0.7（阶段 13 实施）**：§4.3 IPC 增加 `world.projection` / `world.fact.add` / `world.fact.close` / `write.context`；§7.4 明确 ratio 口径；§10.10 记录 as-of 水位、世界投影、作者事实与按章截断规则。**未改 PRD 契约**：工具 `input_schema` 不变，`as_of` 仍是运行时注入并 clamp 到章水位；作者事实走作者权限，不是闸门；未新增迁移（`LATEST_SCHEMA_VERSION = 8`）。`E2E-M1-ASOF-01` / `E2E-M1-CONTEXT-01` 覆盖。
 - **v0.6（阶段 12 实施）**：迁移 `0008_story_time.sql`（scene 三轴 + `scene_timeline` 索引，`LATEST_SCHEMA_VERSION = 8`）；§5.17 记录三轴与多对多规则；§5.11 verify 增加 `scene_cross_chapter_beats`；§4.3 IPC 增加 `write.scene.*` 与 `write.timeline`；§6.9 标注 T23 已实现。**未改 PRD 契约**：`timeline.query` 仍是只读、无闸门；T23 的输出是 §5.2 形状的超集（每行多一个 `timeline` 标签，另加 `scenes[]`）。
 - **v0.5（M1 阶段文档）**：新增 `PHASE-11-SCALE.md` 至 `PHASE-18-DELIVERY-M1.md`，把 PRD §10 M1 的范围拆成 8 个阶段（多项目/30 章 → 场景与时间三轴 → as-of 与世界状态 → 记忆重建/关系图/bge → 覆盖/影响/伏笔 → 分支/重开/摘要 → DOCX → 分发与 M1 验收）。§12.4 增加阶段 11–18，§12.6 增加 M1-16–M1-26。未改 PRD 契约、工具 `input_schema`、闸门语义；M1 需要的迁移编号从 `0008` 起，`LATEST_SCHEMA_VERSION` 阶段 12/15/16 分别到 8/9/10。
 - **v0.4（阶段 01 实施）**：S1 确认 sqlite-vec Plan A（ADR-0001），S2 确认 bge-small-zh-v1.5 q8/512 维（ADR-0004）；S3 按 DeepSeek 一家收口（ADR-0003），第二家顺延阶段 04；阶段 01 已通过本地门禁与 Windows CI（run `43585776532`）并打标签 `phase-01-done`。`_migration` 由迁移器创建，`0001_init.sql` 不再重复建表；新增 4 个错误码（`project_not_found` / `project_create_failed` / `vector_unavailable` / `internal_error`）；`docs/tools/*.json` 首版是契约外壳（`contract_complete:false`），input/output schema 由阶段 03 C5 补齐。

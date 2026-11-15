@@ -15,7 +15,7 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 - M1 阶段文档已建（2026-11-15）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`；阶段 11–13 已 `done`，其余 `todo`；阶段顺序与任务 ID 见 `docs/DEV-PLAN.md` §12.4 / §12.6。
 - 阶段 11 已 `done`（2026-11-15）：M1-12 多项目切换（`project.busy` 探针 + `cancelRunning` + 切换确认框 + 事件按 projectId 丢弃）、M1-9 章节摘要 + `VirtualList` + `PERF-M1-01`、M1-16 文件树抽屉（Ctrl B，320 overlay + 焦点陷阱）、M1-24 `openLastProject` + 诊断包 zip；`E2E-M1-SWITCH-01`、`E2E-M1-TREE-01`。未改 schema（`LATEST_SCHEMA_VERSION = 7`）；0008 从阶段 12 开始。CI run `43700004809` 全绿；标签 `phase-11-done` → `c2ef570`。
 - 阶段 12 已 `done`（2026-11-15）：M1-1 场景库（链接/解链/排序/fork/删除）、M1-2 时间三轴、T23 `timeline.query`、verify `scene_cross_chapter_beats`；新增 `0008_story_time.sql`（`LATEST_SCHEMA_VERSION = 8`）。标签 `phase-12-done` → `374578b`。
-- 阶段 13 已 `done`（2026-11-15）：M1-3 as-of 投影 + 世界时间线、M1-18 作者事实编辑器（`applyAuthorFact`）、M1-17 上下文检查器（`turn_metric.context_json`）、M1-19 审批/检索 as-of 边界（review 用 `covered_until_seq`）；`world.projection` / `world.fact.add` / `world.fact.close` / `write.context`；`E2E-M1-ASOF-01`、`E2E-M1-CONTEXT-01`。未改 schema（`LATEST_SCHEMA_VERSION = 8`）。
+- 阶段 13 已 `done`（2026-11-15）：M1-3 as-of 投影 + 世界时间线、M1-18 作者事实编辑器（`applyAuthorFact`）、M1-17 上下文检查器（`turn_metric.context_json`）、M1-19 审批/检索 as-of 边界（review 用 `covered_until_seq`）；`world.projection` / `world.fact.add` / `world.fact.close` / `write.context`；`E2E-M1-ASOF-01`、`E2E-M1-CONTEXT-01`。未改 schema（`LATEST_SCHEMA_VERSION = 8`）；CI run `43714545719` 全绿，标签 `phase-13-done` → `3f82a16`。
 - S3 按「DeepSeek 一家」收口（`deepseek-flash` 实测），第二家供应商顺延到阶段 04 D1 前补测；见 `docs/adr/0003-providers.md`。
 - `docs/` 已入库，是项目规格的一部分；不要删除、移动或重写。
 - 进度与交接写 `PROGRESS.md`；阶段范围与验收以 `docs/PHASE-0X-*.md` 为准。
