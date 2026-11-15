@@ -16,7 +16,7 @@
 | 08 | `docs/PHASE-08-REVIEW.md` | done | G1–G5：报告 schema/运行/展示、维度分与 issue 定位、patch 提案+三视图+逐条决定、G5/G6 与定稿、复检维度映射+3 轮上限、版本列表与只读对比；新增 `0005_review.sql`（`LATEST_SCHEMA_VERSION = 5`）；`E2E-REVIEW-01` | 全部通过：本地门禁全绿（unit 562 / integration 29 / e2e 12 / build / gen:check / 规格脚本 / depcruise 221 modules）+ CI run `43676789043`（verify 1m19 / e2e 1m52，均绿；package 按规则跳过） | 异构复检（换模型）M1；「重新打开定稿」后端未接（DEV-PLAN §9.6）；版本对比没有分支树；报告证据是子串校验，语义越界仍为概率检测 |
 | 09 | `docs/PHASE-09-MEMORY.md` | done | H1–H5：抽取（只读 final + 证据子串 + 代码级分类）、提案 UI（逐条接受/编辑/拒绝 + 来源 + 讨论）、`MemoryExecutor` 单事务 apply（文本/事实/信念/边/向量/审计 + G7）、记忆浏览与软失效、向量后隔离回归；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 249 modules / unit 578 / integration 32 / e2e 13 / build / gen:check / 规格脚本）+ CI run `43681891589`（verify 与 e2e 均绿；package 按规则跳过） | bge 模型与 onnxruntime 未随包（阶段 10）；当前用确定性 `hash-bigram-v1` 降级，模型名写进每条 `embedding_model`；按章重建（T40）与 as-of/关系图 M1；世界状态作者编辑器 M1；`tool_call` 审计面板阶段 10 |
 | 10 | `docs/PHASE-10-DELIVERY.md` | done | I1–I4：safeStorage Key/密钥库、逐 Agent 绑定+批次审计+回滚、测试连接与计价、外观 token；J1–J6：fixture 假服务器、`E2E-M0-A` 14 步、`E2E-M0-PROVIDER`、`CHAOS-01..08`、NSIS+安装冒烟+更新检查、PERF-01、安全/无障碍/200% 缩放；导出 Markdown/TXT；新增 `0007_settings.sql`（`LATEST_SCHEMA_VERSION = 7`）；`docs/M0-ACCEPTANCE.md` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 266 modules / unit 604 / integration 35 / chaos 7 / e2e 17 / build / gen:check / 规格脚本）+ 安装冒烟 PASS（127MB NSIS） | 真实第二家供应商仍待 Key 补测；bge 权重不随包（M1，ADR-0004）；文件树抽屉未实现（M1）；Win10 22H2 未测；更新通道无发布地址 |
-| 11 | `docs/PHASE-11-SCALE.md` | todo | — | — | — |
+| 11 | `docs/PHASE-11-SCALE.md` | done | M1-12 多项目切换（`project.busy` 探针 + `project_open.cancelRunning` + 切换确认框 + 事件按 projectId 丢弃）；M1-9 章节摘要查询（2 条聚合，不再逐章读正文）+ `VirtualList`（32/8/roving）+ `PERF-M1-01`；M1-16 文件树抽屉（320 overlay + 焦点陷阱 + `project.tree`）；M1-24 `openLastProject` + `project.autoOpen` 探测（失效/锁/schema/失败回首页）+ 诊断包 zip（纯 JS store、无 Key/正文）；`E2E-M1-SWITCH-01`、`E2E-M1-TREE-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 274 modules / unit 620 / integration 35 / chaos 7 / e2e 21 / build / gen:check / 规格脚本 / perf 2） | 真机 30 章冷启动尚未在安装包复跑（perf 走测试夹具）；W1 常驻树暂不支持 Ctrl+B 收起 |
 | 12 | `docs/PHASE-12-STORYBOARD-TIME.md` | todo | — | — | — |
 | 13 | `docs/PHASE-13-ASOF-WORLD.md` | todo | — | — | — |
 | 14 | `docs/PHASE-14-REBUILD-GRAPH.md` | todo | — | — | — |
@@ -55,13 +55,38 @@
 | 阶段标签 | `phase-10-done` → `5ae3f38` | 已推送 origin |
 | 安装包 | `release/Noryth-0.1.0-setup.exe` | 127MB + `latest.yml`；`node scripts/install-smoke.mjs` PASS |
 
+## 验证记录（阶段 11，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 274 modules / 1331 deps，0 违规 |
+| Lint | `pnpm lint` | 通过 |
+| 单元 + 契约 | `pnpm test:unit` | 620 passed（新增 zip 3 / 诊断 zip 1 / 摘要 1 / VirtualList 4 / 自动打开 3 / 设置 1 / project-service 3 / chat-summary 1 等） |
+| 集成 | `pnpm vitest run tests/integration` | 35 passed |
+| 混沌 | `pnpm test:chaos` | 7 passed / CHAOS-01..08 |
+| E2E | `pnpm test:e2e` | 21 passed（新增 `E2E-M1-SWITCH-01` 3 段、`E2E-M1-TREE-01`；诊断包 E2E 改为 zip 全文扫描） |
+| 性能 | `pnpm test:perf` | PERF-01：切章 P95 1ms、检索 P95 24ms、导出 17ms、RSS 251MB；PERF-M1-01（30 章 / 720 拍 / 14 万字）：切章 P95 2ms、列表摘要 P95 1ms、RSS 146MB；含迁移与 verify 的打开 325ms（`tests/unit/db/perf.test.ts`） |
+| 切换不串台 | `tests/e2e/switch.spec.ts` | A 生成并确认一拍 → 切 B（B 无章、创作台按 B 置灰、`write.state` invalid_args）→ 回 A：正文逐字相同、章状态相同、revision 计数不变 |
+| 运行中切换 | 同上第 2 段 | `project.busy` 报 write；无 `cancelRunning` → `project_busy`；带 `cancelRunning` → 切成功；回 A 后 0 已确认拍、0 generating、0 半条正文、24 拍结构不变 |
+| 自动打开 | 同上第 3 段 + `tests/unit/project-service.test.ts` | 正常 → 规划台；`openLastProject=false` → 首页；锁被存活进程持有 → 首页 + toast「上次项目在另一窗口打开」、无只读横幅、`project.current()` 为 null；probe 覆盖 missing/locked/ok，autoOpen 覆盖 disabled/no_last/missing/locked/ok |
+| 文件树抽屉 | `tests/e2e/tree.spec.ts` | 1440×900 开抽屉：preview 与 `write-prose` 宽度逐像素不变；`role=dialog`、焦点在抽屉内；Esc 后焦点回 `tree-open`；点章节点关闭抽屉并跳创作台 |
+| 虚拟列表 | `tests/unit/renderer/virtual-list.test.ts` + E2E | 1,000 行只渲染可视 + overscan（顶部 23 / 中部 31）；40 章 E2E 渲染行数 < 40；滚动 60 步无 >50ms 长任务 |
+| 诊断包 | `tests/unit/observability/zip.test.ts`、`tests/unit/diagnostics.test.ts`、`tests/e2e/diagnostics.spec.ts` | zip 头 `PK\x03\x04`、CRC 逐条校验、可解压；条目 README/diagnostics.json/logs/app.log；无 `secrets.bin`/`exports/`；全文无 `sk-` 形态、无真实正文片段 |
+| 启动开关 | `tests/unit/settings/store.test.ts` | `openLastProject` 默认 true；关闭后不覆盖 `lastOpenedProjectId` / `providersEnabled` |
+| 章节摘要 | `tests/unit/db/chapter-summary.test.ts` | 30 章计数正确；superseded 不计入、author_edited 计入已确认；摘要行无 body/grounding 字段 |
+| 状态矩阵 | `tests/unit/auto-open-states.test.ts` | 7 个 reason 全覆盖；失败类有可读文案且 key 唯一；成功/关闭/无记录静默 |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+
 ## 当前可运行命令
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（604：unit+contract） / `pnpm vitest run tests/integration`（35）
-- `pnpm test:perf`（PERF-01 基线；nightly，不进提交门）
-- `pnpm test:chaos`（7 条 / CHAOS-01..08） / `pnpm test:e2e`（17）
+- `pnpm test:unit`（620：unit+contract） / `pnpm vitest run tests/integration`（35）
+- `pnpm test:perf`（PERF-01 + PERF-M1-01 基线；nightly，不进提交门）
+- `pnpm test:chaos`（7 条 / CHAOS-01..08） / `pnpm test:e2e`（21）
 - `node scripts/install-smoke.mjs`（安装冒烟：装 → 建项 → 卸载）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
 - `python docs/scripts/check_ui_spec.py` / `python docs/scripts/check_tool_spec.py`
@@ -359,15 +384,24 @@
 | 混沌 | 真子进程在事务中被 `taskkill /F`；SQLITE_BUSY（busy_timeout 5s）统一映射 `project_locked`；更新检查失败只记日志 | `tests/chaos/*`、`db/busy.ts`、`update.ts` |
 | 打包 | `electronDist: node_modules/electron/dist` 离线打包；`resources/native` + `resources/models` 走 extraResources；`npmRebuild: false`（N-API prebuild） | `electron-builder.yml`、`scripts/install-smoke.mjs` |
 | 外观 | 主题/强调色/字号/行距只写 `<html data-*>` 与 CSS 变量；正文用 `--prose-size` / `--prose-leading`，导出不受影响 | `lib/theme.ts`、`styles/tokens.css` |
+| 项目切换 | 单窗口单项目：`project.busy()` 先探测；无 `cancelRunning` 时 main 直接回 `project_busy`；确认后 `write.abortAllAndWait()` + `plan.abortAllAndWait()` 等任务退出再关库；审批/记忆这类不可取消的任务一律拒绝切换 | `ipc/router.ts`、`scheduler/service.ts`、`plan/service.ts` |
+| 跨项目事件 | 事件 payload 带 `projectId`；write/review/memory 的 `applyEvent` 先比 `projectId` 再比 `chapterId`，切库后迟到的 delta 一律丢弃 | `renderer/stores/*.ts` |
+| 章节列表 | 新增 `chapter.listSummaries`：两条聚合查询（章+拍计数、场计数），不加载任何正文；`WriteChapterSummary` 增 `wordCount`。30 章时 `state()` 不再把 14 万字读进内存 | `db/repos/chapter.ts`、`scheduler/service.ts` |
+| 虚拟列表 | 自写 `VirtualList`：固定行高 32、overscan 8、`content-visibility: auto`、roving tabindex；窗口计算是纯函数 `visibleRange`，单测直接覆盖 1,000 行 | `components/VirtualList.tsx` |
+| 文件树抽屉 | W2/W3 的 44px 轨道 + 320px overlay（`position: fixed`，不参与栅格）；`role=dialog` + 复用 `useOverlayDismiss` 的焦点陷阱与归位；Ctrl+B 只在工作台 scope、拍编辑中不开；节点来自 main 的 `project.tree`（结构 + 数据库视图，无正文） | `app/FileTreeDrawer.tsx`、`project/tree.ts` |
+| 启动自动打开 | `settings.openLastProject` 默认 true；`project.autoOpen` 先只读探测（missing / locked / schema_newer / quick_check / project 行），通过才 `open`；打开后若变只读立即关闭并回首页；renderer 1.5s 截止，迟到成功主动 close，避免 main 与 UI 分叉 | `project/service.ts`、`stores/app.ts`、`shared/domain/auto-open.ts` |
+| 诊断包 zip | 纯 JS store 压缩（PKZIP 单盘、无 data descriptor），避免原生模块进打包；内容 = README + diagnostics.json + logs/app.log；条目名限 ASCII；正文/secrets/exports 一律不读；日志与 JSON 都过 `scrubSecrets` | `observability/zip.ts`、`observability/diagnostics.ts` |
+| 假适配器取消 | 创作台假适配器按真实适配器契约检查 `signal.aborted`，否则「取消」在 E2E 里永远测不到（取消后仍会提交） | `scheduler/fake-adapter.ts` |
+| 开发种子 | `write.devSeed` 增 `chapters`（≤40）：只给 E2E 铺多章，生产包不注册该通道；第一章仍带分镜 | `scheduler/service.ts`、`shared/schema/write.ts` |
 
 ## 当前阻塞
 
-- 无阻塞。阶段 10 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 266 modules / unit 604 / integration 35 / chaos 7 / e2e 17 / build / gen:check / 规格脚本）+ 安装冒烟 PASS；`docs/M0-ACCEPTANCE.md` 已写。M0 的 11 条退出标准逐条有证据。
+- 无阻塞。阶段 11 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 274 modules / unit 620 / integration 35 / chaos 7 / e2e 21 / build / gen:check / 规格脚本 / perf 2）。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录（M1 阶段 18，M1-26）。
 - 已知缺口（不阻塞）：
   - **bge 权重不随包（M1 阶段 14）**：`resources/models/` 已进 `extraResources` 与安装包（目录 + 说明），但权重未交付（本机 HuggingFace 超时、缓存只有 config/tokenizer），M0 用确定性 `hash-bigram-v1` 降级（每条 `memory_entry.embedding_model` 记录真实模型，向量通道按模型过滤）。放入权重即启用，无需改代码；按 ADR-0004 阶段 10 记录执行体积/冷启动门槛与 T40 重建。
-  - 文件树抽屉（Ctrl B）未实现：1440 下是 44px 轨道；UI-DESIGN §11 对应条目不满足（M1 阶段 11）。
+  - 文件树抽屉（Ctrl B）已在阶段 11 交付（W2/W3 overlay 320、焦点进出、200% 缩放）；W1 常驻树的 Ctrl+B 收起仍未做（不阻断验收）。
   - Windows 10 22H2 未单独做安装冒烟（本机 Win11 PASS）；发布前补一台 VM（M1 阶段 18）。
   - 自动更新：`src/main/update.ts` 后台检查 + electron-updater 下载，`NORYTH_UPDATE_FEED` 未配置时 `disabled`；首个 release tag 时填 feed（M1 阶段 18）。
   - 按章重建（T40）与 as-of 时间线、关系图是 M1（阶段 13/14）；记忆台的「按章重建」按钮禁用。
@@ -377,14 +411,15 @@
 
 ## 下一阶段交接
 
-- 阶段 10 已 `done`（2026-11-15）。M0 验收报告：`docs/M0-ACCEPTANCE.md`（11 条逐条证据 + 已知问题 + 复跑命令）。
-- M1 直接复用：
-  - 设置中心（`settings/service.ts` + `pages/settings/*`）已接管 Key/绑定/测试连接/外观；加新供应商只需在 `model/presets.ts` 增预设与 `PresetSchema` 枚举。
-  - 绑定快照在 `agents/job.ts` 冻结；新 Agent 仍只有 6 个（铁律），不要加第 7 个。
-  - 导出 `doc/export.ts` 已支持 Markdown/TXT；DOCX 是 M1，加格式时保持「只读 + 版本锚点」两条不变式。
-  - 混沌套件 `pnpm test:chaos` 可扩展场景；安装冒烟 `node scripts/install-smoke.mjs` 在任何 Windows 机器可复跑。
-- M1 阶段文档已建并推送（2026-11-15，commit `1ed4e90`，origin/dev）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`，状态均为 `todo`；阶段顺序与任务 ID 已同步 `docs/DEV-PLAN.md` §12.4 / §12.6。
-- M1 开工顺序：11 规模底座 → 12 场景与时间三轴 → 13 as-of 与世界状态 → 14 重建/关系图/bge → 15 覆盖/影响/伏笔 → 16 分支/重开/摘要 → 17 DOCX → 18 分发与验收。阶段 11 不动 schema；0008 从阶段 12 开始。
+- 阶段 11 已 `done`（2026-11-15）。M0 验收报告仍是 `docs/M0-ACCEPTANCE.md`；M1 阶段 11 的证据见本文件「验证记录（阶段 11，本地）」。
+- 阶段 12 直接复用（规模底座已就位）：
+  - **多项目**：首页 `requestSwitch()` 是唯一入口（先 `project.busy()` 再决定直开/确认）；新增域如果要能被切换打断，必须实现 `abortAllAndWait()` 并挂进 `settleRunningWork()`。
+  - **章列表**：任何列表页都走 `chapter.listSummaries()` / `VirtualList`，不要在 renderer 里 map 全量拍；列表行禁止带 `body`（`WriteChapterSummary` 已按此收口）。
+  - **抽屉**：`useTree` + `project.tree` 是文件树单一入口；新增可点开的对象（场景、时间轴、关系图）只需在 `project/tree.ts` 加节点，抽屉与 W1 常驻树都自动出现。
+  - **启动**：`project.autoOpen` 的探测顺序（missing → locked → schema_newer → quick_check → 打开后转只读即关）是安全边界，迁移失败/只读锁不得自动打开。
+  - **诊断包**：`exportDiagnosticsZip` 是唯一导出；新增内容只进 `diagnostics.json`，绝不把正文或 `secrets.bin` 塞进条目。
+- M1 阶段文档已建并推送（2026-11-15，commit `1ed4e90`，origin/dev）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`；阶段 11 已标 `done`，其余仍为 `todo`；顺序与任务 ID 见 `docs/DEV-PLAN.md` §12.4 / §12.6。
+- M1 开工顺序：11 规模底座 → 12 场景与时间三轴 → 13 as-of 与世界状态 → 14 重建/关系图/bge → 15 覆盖/影响/伏笔 → 16 分支/重开/摘要 → 17 DOCX → 18 分发与验收。阶段 11 未动 schema（仍是 0007 / `LATEST_SCHEMA_VERSION = 7`）；0008 从阶段 12 开始。
 - M1 的关键回归：
   1. `E2E-M1-TIME-01`（闪回不误报，阶段 12）。
   2. `E2E-M1-ASOF-01`（第 3 章读不到第 20 章事实，阶段 13）。

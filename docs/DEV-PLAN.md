@@ -277,9 +277,12 @@ contextBridge.exposeInMainWorld('noryth', {
 | 域 | 方法 | 请求要点 | 返回 | 闸门 |
 |---|---|---|---|---|
 | project | `create` | 目录、题材、篇幅、POV、边界 | `{projectId}` | G0 |
-| project | `open` | 路径 | `{projectId, readOnly, setupState}` | — |
+| project | `open` | 路径、`cancelRunning`（作者已确认切换时取消在跑任务） | `{projectId, readOnly, setupState}` | — |
 | project | `list` | — | 项目摘要数组 | — |
 | project | `removeFromList` | id | `{ok}`（不删盘） | — |
+| project | `autoOpen`（M1-24） | — | `{opened, reason, elapsedMs}`；失败不发错误 | — |
+| project | `busy`（阶段 11） | — | `{domains, busy}`；切换前的运行态探测 | — |
+| project | `tree`（M1-16） | — | 文件树节点（结构 + 数据库视图，无正文） | — |
 | plan | `send` | sessionId、文本、引用 chips | `{jobId}` | — |
 | plan | `confirmG1` | 蓝图版本、角色清单 | `{registered, setupState}` | G1 |
 | plan | `applySuggestion` | 建议 id | `{draftVersion}` | — |
@@ -312,7 +315,7 @@ contextBridge.exposeInMainWorld('noryth', {
 | 外链 | 只允许 `https://` 且走 `shell.openExternal` | 单元测试 |
 | API Key | `safeStorage.encryptString` → `%APPDATA%/noryth/secrets.bin` | 断言项目目录无 Key 字符串 |
 | 日志脱敏 | Key、Authorization、baseUrl 的 query、正文不入日志 | 日志扫描测试 |
-| 诊断包 | 只含日志、schema 版本、job 摘要；不含正文与 Key | 手工检查 |
+| 诊断包 | zip 只含日志、schema 版本、项目/任务摘要；不含正文与 Key | 手工检查 + zip 全文扫描 |
 
 ### 4.5 窗口与项目锁
 
@@ -2900,6 +2903,7 @@ jobs:
 | `schema_invalid` | 输出格式不合法，本拍未保存 | 重生成 |
 | `patch_conflict` | 原文已变，patch 未套用 | 重新生成 patch |
 | `project_locked` | 项目已在另一窗口打开 | 只读打开 |
+| `project_busy` | 有任务在运行，先停止再切换项目 | 确认取消 / 等任务结束 |
 | `migration_checksum_mismatch` | 迁移文件被修改，无法启动 | 恢复备份 |
 | `isolation_violation` | 记忆隔离自检失败 | 重建命名空间 |
 | `context_overflow` | 上下文超预算且无法裁剪 | 调小 top_k / 换模型 |

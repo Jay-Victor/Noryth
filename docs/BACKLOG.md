@@ -2,6 +2,14 @@
 
 > M0 范围外的想法与已知后置项。进 M0 必须先在 `docs/PRD.md` 变更记录里立项，不能只写在这里。
 
+## 已交付
+
+| # | 项 | 交付 |
+|---:|---|---|
+| 1 | 启动时自动打开上次项目（含设置开关） | 阶段 11 / M1-24：`settings.openLastProject` + `project.autoOpen`（探测失败回首页，不自动只读打开） |
+| 4 | 诊断包压缩为 zip | 阶段 11 / M1-24：纯 JS zip（README + diagnostics.json + logs/app.log），无正文/Key |
+| 9 | 文件树抽屉（Ctrl B）+ 抽屉焦点进出 | 阶段 11 / M1-16：W2/W3 320px overlay、`role=dialog` + 焦点陷阱、200% 缩放 |
+
 ## 阶段 01 发现的后置项
 
 | # | 项 | 原因 | 目标 |
