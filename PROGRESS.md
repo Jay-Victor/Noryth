@@ -383,7 +383,7 @@
   - 绑定快照在 `agents/job.ts` 冻结；新 Agent 仍只有 6 个（铁律），不要加第 7 个。
   - 导出 `doc/export.ts` 已支持 Markdown/TXT；DOCX 是 M1，加格式时保持「只读 + 版本锚点」两条不变式。
   - 混沌套件 `pnpm test:chaos` 可扩展场景；安装冒烟 `node scripts/install-smoke.mjs` 在任何 Windows 机器可复跑。
-- M1 阶段文档已建（2026-11-15）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`，状态均为 `todo`；阶段顺序与任务 ID 已同步 `docs/DEV-PLAN.md` §12.4 / §12.6。
+- M1 阶段文档已建并推送（2026-11-15，commit `1ed4e90`，origin/dev）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`，状态均为 `todo`；阶段顺序与任务 ID 已同步 `docs/DEV-PLAN.md` §12.4 / §12.6。
 - M1 开工顺序：11 规模底座 → 12 场景与时间三轴 → 13 as-of 与世界状态 → 14 重建/关系图/bge → 15 覆盖/影响/伏笔 → 16 分支/重开/摘要 → 17 DOCX → 18 分发与验收。阶段 11 不动 schema；0008 从阶段 12 开始。
 - M1 的关键回归：
   1. `E2E-M1-TIME-01`（闪回不误报，阶段 12）。
