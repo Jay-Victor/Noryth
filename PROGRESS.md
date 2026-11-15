@@ -76,6 +76,7 @@
 | 启动开关 | `tests/unit/settings/store.test.ts` | `openLastProject` 默认 true；关闭后不覆盖 `lastOpenedProjectId` / `providersEnabled` |
 | 章节摘要 | `tests/unit/db/chapter-summary.test.ts` | 30 章计数正确；superseded 不计入、author_edited 计入已确认；摘要行无 body/grounding 字段 |
 | 状态矩阵 | `tests/unit/auto-open-states.test.ts` | 7 个 reason 全覆盖；失败类有可读文案且 key 唯一；成功/关闭/无记录静默 |
+| UI 巡检 | 临时 Playwright 截图夹具（已删除） | 逐屏看首页菜单/创作台/抽屉/切换确认/设置/200%：发现并修复「场景·本章会话」被挤成 40px 条（`.write-sessions` 改 flex 分配）；200% 下 Playwright 截图会错位，改用几何 + `elementFromPoint` 断言（E2E 内已固化） |
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
@@ -408,6 +409,7 @@
   - 世界状态作者编辑器（显式新增事实）M1（阶段 13），当前只读。
   - `tool_call` 审计面板属 P1（工具调用指标面板），M0 未做；记忆台展示 `memory_audit` 动作链，`tool_call` 表已按 §9.5 落库（M1 阶段 18）。
   - 创作台的「上下文检查器」按钮是占位（M1 阶段 13）；M0 分支只有线性 revision（M1 阶段 16）；审批的异构复检在 M1（阶段 16）；「重新打开定稿」后端未接（DEV-PLAN §9.6，M1 阶段 16）。
+  - 「预览 tab 上限 6」当前无对应界面：预览区只有正文/分镜两个视图 tab；多文档 tab 留给阶段 13 的上下文检查器与文件预览扩展。W1 常驻树的 Ctrl+B 收起同样后置（不阻断验收）。
 
 ## 下一阶段交接
 

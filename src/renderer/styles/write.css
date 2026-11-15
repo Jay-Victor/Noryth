@@ -20,9 +20,14 @@
   overflow: hidden;
 }
 
+.write-sessions .vlist--chapters {
+  flex: 1 1 auto;
+  min-height: 96px;
+}
+
 .write-sessions .write-scene-progress {
-  flex: 0 1 auto;
-  max-height: 46%;
+  flex: 0 0 auto;
+  max-height: 42%;
   overflow: auto;
   margin-top: 6px;
 }

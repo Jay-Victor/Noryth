@@ -178,17 +178,53 @@ test('E2E-M1-TREE-01：1440 下抽屉不挤压正文；焦点可进出；30+ 章
   })
   expect(longTasks).toHaveLength(0)
 
-  // 200% 缩放：轨道按钮不截断，仍可点开抽屉
+  // 200% 缩放：轨道按钮不截断且完整落在视口内；抽屉仍可打开并盖在最上层
   await app.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.webContents.setZoomFactor(2)
   })
   await page.waitForTimeout(300)
-  const trigger = await page.locator('[data-testid="tree-open"]').boundingBox()
-  expect(trigger?.width ?? 0).toBeGreaterThan(20)
-  expect(trigger?.height ?? 0).toBeGreaterThan(20)
+  const zoomState = await page.evaluate(() => {
+    const trigger = document.querySelector('[data-testid="tree-open"]')
+    if (!trigger) return null
+    const rect = trigger.getBoundingClientRect()
+    return {
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height
+    }
+  })
+  expect(zoomState).not.toBeNull()
+  if (!zoomState) throw new Error('tree trigger missing at 200%')
+  expect(zoomState.width).toBeGreaterThan(20)
+  expect(zoomState.height).toBeGreaterThan(20)
+  expect(zoomState.right).toBeLessThanOrEqual(zoomState.innerWidth + 1)
+  expect(zoomState.bottom).toBeLessThanOrEqual(zoomState.innerHeight + 1)
+  expect(zoomState.left).toBeGreaterThanOrEqual(0)
   await expect(page.locator('[data-testid="tree-open"]')).toHaveAttribute('aria-label', '打开文件树')
+
   await page.locator('[data-testid="tree-open"]').click()
   await expect(drawer).toBeVisible()
+  // 抽屉宽度固定 320，不超出视口；中心点命中的必须是抽屉内部（盖在正文之上）
+  const zoomDrawer = await page.evaluate(() => {
+    const node = document.querySelector('[data-testid="tree-drawer"]')
+    if (!node) return null
+    const rect = node.getBoundingClientRect()
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    return {
+      width: rect.width,
+      right: rect.right,
+      innerWidth: window.innerWidth,
+      inside: node.contains(hit)
+    }
+  })
+  expect(Math.round(zoomDrawer?.width ?? 0)).toBe(320)
+  expect(zoomDrawer?.right ?? 1e9).toBeLessThanOrEqual((zoomDrawer?.innerWidth ?? 0) + 1)
+  expect(zoomDrawer?.inside).toBe(true)
   await page.keyboard.press('Escape')
   await expect(drawer).toBeHidden()
   await app.evaluate(({ BrowserWindow }) => {

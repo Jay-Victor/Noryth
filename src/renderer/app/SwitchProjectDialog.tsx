@@ -39,7 +39,7 @@ export function SwitchProjectDialog(): React.JSX.Element | null {
         </header>
         <div className="dialog__body">
           <p style={{ margin: 0 }}>
-            {tasks} 会被取消。已经生成的正文与草稿都保留在磁盘上，重新打开项目即可继续；正在生成的这一拍会标为中断。
+            {tasks}会被取消。已经生成的正文与草稿都保留在磁盘上，重新打开项目即可继续；正在生成的这一拍会标为中断。
           </p>
         </div>
         <footer className="dialog__footer">
