@@ -137,9 +137,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `4c2ad26`（feat）、`b492928`（docs） | 本地 `dev`；尚未推送 |
-| CI | 待推送后跑 | 本地无 CI runner；推送后记录 run id |
-| 阶段标签 | 待 CI 绿后 `phase-13-done` | 本次会话未打标签 |
+| 提交 | `4c2ad26`（feat）、`b492928` / `86c18ae`（docs） | 已推送 origin/dev |
+| CI | GitHub Actions run `43713984247`（`86c18ae`） | verify 2m11 + e2e 3m00 均绿；package 按规则跳过（非 `v*` tag） |
+| 阶段标签 | `phase-13-done` → 本提交 | 已推送 origin |
 
 ## 当前可运行命令
 
@@ -469,7 +469,7 @@
 
 ## 当前阻塞
 
-- 无阻塞。阶段 13 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 284 modules / unit 673 / integration 41 / chaos 7 / e2e 25 / build / gen:check / 规格脚本 / perf 2）；CI 待推送后跑，`LATEST_SCHEMA_VERSION = 8`（本阶段未改 schema）。
+- 无阻塞。阶段 13 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 284 modules / unit 673 / integration 41 / chaos 7 / e2e 25 / build / gen:check / 规格脚本 / perf 2）+ CI run `43713984247`（verify 与 e2e 均绿），`LATEST_SCHEMA_VERSION = 8`（本阶段未改 schema）。
 - 遗留观察（不阻塞）：阶段 12 的文档提交 run `43708534963`（`37af4db`）e2e 在第 10 条（provider）之前中断：日志只有 `Downloading Electron binary...`，前 9 条已 `ok`，verify 全绿。形态与阶段 11 的 `43699407599` 一致（runner 上 `node_modules/electron/dist` 不可用），判断为环境偶发；复跑记录见「验证记录（阶段 12）」。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录（M1 阶段 18，M1-26）。
