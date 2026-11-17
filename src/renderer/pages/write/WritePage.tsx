@@ -8,6 +8,7 @@ import { useApp } from '../../stores/app'
 import { useWrite } from '../../stores/write'
 import { ConfirmBar } from './ConfirmBar'
 import { ContextInspector } from './ContextInspector'
+import { ExportDialog } from './ExportDialog'
 import { ProseView } from './ProseView'
 import { StoryboardTable } from './StoryboardTable'
 
@@ -41,6 +42,7 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
   const inspectorOpen = useWrite((store) => store.inspectorOpen)
   const [message, setMessage] = useState('')
   const [activeBeatId, setActiveBeatId] = useState<string | null>(null)
+  const [exportOpen, setExportOpen] = useState(false)
 
   useEffect(() => {
     useWrite.getState().reset()
@@ -374,6 +376,16 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
             {state.autoRunning ? ' · 自动运行中' : ''}
             {state.readOnly ? ' · 只读' : ''}
           </span>
+          {/* 导出只读：只读锁下仍可用（PRD §5.5）。DOCX 选项在对话框里（PHASE-17）。 */}
+          <button
+            type="button"
+            className="plan-mini-btn"
+            data-testid="write-export-open"
+            onClick={() => setExportOpen(true)}
+            title="导出 Markdown / TXT / DOCX 快照到项目 exports/"
+          >
+            导出
+          </button>
         </div>
 
         {invalidatedAt !== null ? (
@@ -471,6 +483,13 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           </div>
         )}
       </section>
+      <ExportDialog
+        open={exportOpen}
+        projectTitle={state.projectTitle}
+        chapterId={state.chapterId}
+        chapterTitle={state.chapterTitle}
+        onClose={() => setExportOpen(false)}
+      />
     </>
   )
 }

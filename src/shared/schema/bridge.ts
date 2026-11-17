@@ -1,5 +1,5 @@
 import type { IpcResult } from './ipc'
-import type { DiagnosticsExportInput, DiagnosticsExportResult, ExportInput, ExportResult } from './export'
+import type { DiagnosticsExportInput, DiagnosticsExportResult, ExportRequest, ExportResult } from './export'
 import type {
   AppearancePatch,
   BindingAuditEntry,
@@ -158,7 +158,7 @@ export interface DiagnosticsApi {
 
 /** 稿件导出（PRD §5.5）：Markdown / TXT，可选附带审批批注。 */
 export interface ManuscriptApi {
-  export(input: ExportInput): Promise<IpcResult<ExportResult>>
+  export(input: ExportRequest): Promise<IpcResult<ExportResult>>
 }
 
 /**

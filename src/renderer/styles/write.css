@@ -1059,3 +1059,109 @@
   border-radius: var(--radius-sm);
   font-size: 11px;
 }
+
+/* 导出对话框（PHASE-17 M1-6 / M1-14）：三档格式 + 范围 + 批注 + DOCX 排版 */
+.export-card {
+  width: 560px;
+}
+
+.export-section {
+  margin: 12px 0 0;
+  display: grid;
+  gap: 6px;
+}
+
+.export-section--inline {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: 10px;
+}
+
+.export-label {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-soft);
+}
+
+.export-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.export-choices:has(> :nth-child(3)) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.export-choice {
+  display: grid;
+  gap: 2px;
+  padding: 8px 9px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.export-choice strong {
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.export-choice span {
+  font-size: 10px;
+  color: var(--fg-soft);
+  line-height: 1.5;
+}
+
+.export-choice.is-active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.export-choice:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.export-field {
+  display: grid;
+  gap: 4px;
+  font-size: 10.5px;
+  color: var(--fg-soft);
+  min-width: 0;
+}
+
+.export-field--check {
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: start;
+  gap: 6px;
+  align-self: center;
+}
+
+.export-field--wide {
+  grid-column: span 1;
+}
+
+.export-name {
+  display: grid;
+  gap: 3px;
+  margin: 12px 0 0;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  font-size: 10.5px;
+  color: var(--fg-soft);
+}
+
+.export-name code {
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+  color: var(--fg);
+}

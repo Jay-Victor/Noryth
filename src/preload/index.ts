@@ -8,7 +8,7 @@ import type { ReviewEvent } from '../shared/schema/review'
 import type { MemoryEvent } from '../shared/schema/memory'
 import type { WriteEvent } from '../shared/schema/write'
 import type { NorythBridge } from '../shared/schema/bridge'
-import type { ExportInput } from '../shared/schema/export'
+import type { ExportRequest } from '../shared/schema/export'
 
 let requestSeq = 0
 
@@ -68,7 +68,7 @@ const bridge: NorythBridge = {
     export: (input) => invoke(IPC.diagnosticsExport, input ?? {})
   },
   manuscript: {
-    export: (input: ExportInput) => invoke(IPC.exportRun, input)
+    export: (input: ExportRequest) => invoke(IPC.exportRun, input)
   },
   slice: {
     seed: () => invoke(IPC.sliceSeed, {}),

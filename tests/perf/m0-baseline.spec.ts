@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { withTransaction } from '../../src/main/db/tx'
@@ -11,6 +11,7 @@ import { createHashEmbedder } from '../../src/main/memory/embed/hash'
 import { retrieveOwn } from '../../src/main/memory/retrieve'
 import { openTestDb } from '../unit/db/support/db'
 import { tempDir } from '../unit/helpers'
+import { unzip } from '../support/unzip'
 
 /**
  * PERF-01 / J5 基线（DEV-PLAN §13.7）。
@@ -102,7 +103,8 @@ function seed(): Baseline {
             beatOrd,
             speakerType: beatOrd % 2 === 1 ? 'narrator' : 'character',
             speakerId: beatOrd % 2 === 1 ? 'narrator' : character.id,
-            body
+            // 每拍带唯一前缀：否则全篇同文，DOCX 压缩率虚高，测不出真实体积。
+            body: `第${chapterOrd}章第${sceneIndex + 1}场第${beatOrd}拍：${body}`
           })
         }
       }
@@ -207,10 +209,13 @@ describe('PERF-01：M0 性能基线', () => {
       retrieveTimes.push(Date.now() - started)
     }
 
-    // 导出整本
+    // 导出整本（Markdown + DOCX；DOCX 目标 <2s，PHASE-17 §6）
     const exportStarted = Date.now()
-    const exported = exportManuscript(repos, baseline.dir, { format: 'md', includeNotes: true })
+    const exported = await exportManuscript(repos, baseline.dir, { format: 'md', includeNotes: true })
     const exportMs = Date.now() - exportStarted
+    const docxStarted = Date.now()
+    const exportedDocx = await exportManuscript(repos, baseline.dir, { format: 'docx', includeNotes: true, toc: true })
+    const docxMs = Date.now() - docxStarted
 
     const rssMb = process.memoryUsage().rss / 1024 / 1024
     const p50 = percentile(switchTimes, 50)
@@ -221,15 +226,23 @@ describe('PERF-01：M0 性能基线', () => {
     // eslint-disable-next-line no-console
     console.log(
       `PERF-01 打开=${openMs}ms 切章P50=${p50}ms/P95=${p95Switch}ms ` +
-        `检索P50=${p50Retrieve}ms/P95=${p95Retrieve}ms 导出=${exportMs}ms(${exported.words}字) RSS=${rssMb.toFixed(0)}MB`
+        `检索P50=${p50Retrieve}ms/P95=${p95Retrieve}ms 导出=${exportMs}ms(${exported.words}字) ` +
+        `DOCX=${docxMs}ms(${exportedDocx.bytes}B) RSS=${rssMb.toFixed(0)}MB`
     )
 
     expect(exported.chapters).toBe(30)
     expect(exported.words).toBeGreaterThan(120_000)
+    expect(exportedDocx.chapters).toBe(30)
+    expect(exportedDocx.beats).toBe(720)
+    const docxXml = unzip(readFileSync(exportedDocx.path)).find((entry) => entry.name === 'word/document.xml')!
+      .data.toString('utf8')
+    const docxText = [...docxXml.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map((match) => match[1] ?? '').join('')
+    expect(docxText.length).toBeGreaterThan(120_000)
     expect(openMs).toBeLessThan(800)
     expect(p95Switch).toBeLessThan(120)
     expect(p95Retrieve).toBeLessThan(80)
     expect(exportMs).toBeLessThan(2_000)
+    expect(docxMs).toBeLessThan(2_000)
     expect(rssMb).toBeLessThan(600)
     await embedder.dispose()
   }, 180_000)

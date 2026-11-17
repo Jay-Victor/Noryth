@@ -33,6 +33,27 @@ function fail(message) {
   process.exitCode = 1
 }
 
+/**
+ * 列出 asar 内的文件路径（PHASE-17 §6：确认 docx / fflate 随包）。
+ * asar 布局：0..3 pickle 头、4..11 尺寸、12..15 JSON 长度、16.. JSON 头。
+ */
+function asarFilePaths(asarPath) {
+  if (!existsSync(asarPath)) return []
+  const buffer = readFileSync(asarPath)
+  const jsonLength = buffer.readUInt32LE(12)
+  const header = JSON.parse(buffer.subarray(16, 16 + jsonLength).toString('utf8'))
+  const paths = []
+  const walk = (node, prefix) => {
+    for (const [name, entry] of Object.entries(node.files ?? {})) {
+      const path = `${prefix}/${name}`
+      if (entry.files) walk(entry, path)
+      else paths.push(path)
+    }
+  }
+  walk(header, '')
+  return paths
+}
+
 async function main() {
   if (!existsSync(installer)) {
     fail(`找不到安装包 ${installer}；先跑 pnpm dist`)
@@ -59,6 +80,16 @@ async function main() {
   // PHASE-14 M1-20：bge 权重随包（q8 / 512 维）
   if (!existsSync(join(installDir, 'resources', 'models', 'bge-small-zh-v1.5', 'onnx', 'model_quantized.onnx'))) {
     fail('安装包缺少 bge 权重（resources/models/bge-small-zh-v1.5/onnx/model_quantized.onnx）')
+    return
+  }
+  // PHASE-17 M1-6：DOCX 依赖随包（纯 JS）。asar 头部是 JSON，直接列路径判断。
+  const asarPaths = asarFilePaths(join(installDir, 'resources', 'app.asar'))
+  if (!asarPaths.some((path) => path.includes('/docx/dist/index.cjs'))) {
+    fail('安装包缺少 docx（DOCX 导出不可用）')
+    return
+  }
+  if (!asarPaths.some((path) => path.includes('/fflate/'))) {
+    fail('安装包缺少 fflate（DOCX 可复现归一化依赖）')
     return
   }
 

@@ -25,11 +25,11 @@ function setup() {
 }
 
 describe('导出（PRD §5.5 / J2 第 13 步）', () => {
-  it('Markdown 带 revision 与 content_hash，正文来自 live 拍', () => {
+  it('Markdown 带 revision 与 content_hash，正文来自 revision 清单', async () => {
     const { dir, handle, seed } = setup()
     const chapterId = seed.chapterIds[0]!
     const before = handle.repos.revision.listByChapter(chapterId).length
-    const result = exportManuscript(handle.repos, dir, { chapterId, format: 'md', includeNotes: false })
+    const result = await exportManuscript(handle.repos, dir, { chapterId, format: 'md', includeNotes: false })
     const content = readFileSync(result.path, 'utf8')
 
     expect(result.path.endsWith('.md')).toBe(true)
@@ -45,7 +45,7 @@ describe('导出（PRD §5.5 / J2 第 13 步）', () => {
     expect(result.bytes).toBe(Buffer.byteLength(content, 'utf8'))
   })
 
-  it('「仅正文」不带批注；「正文 + 批注」附最近一份报告的建议', () => {
+  it('「仅正文」不带批注；「正文 + 批注」附最近一份报告的建议', async () => {
     const { dir, handle, seed } = setup()
     const chapterId = seed.chapterIds[0]!
     const revision = handle.repos.revision.listByChapter(chapterId).at(-1)!
@@ -60,18 +60,18 @@ describe('导出（PRD §5.5 / J2 第 13 步）', () => {
       ])
     })
 
-    const plain = exportManuscript(handle.repos, dir, { chapterId, format: 'md', includeNotes: false })
+    const plain = await exportManuscript(handle.repos, dir, { chapterId, format: 'md', includeNotes: false })
     expect(readFileSync(plain.path, 'utf8')).not.toContain('批注')
 
-    const annotated = exportManuscript(handle.repos, dir, { chapterId, format: 'md', includeNotes: true })
+    const annotated = await exportManuscript(handle.repos, dir, { chapterId, format: 'md', includeNotes: true })
     const content = readFileSync(annotated.path, 'utf8')
     expect(content).toContain('### 批注')
     expect(content).toContain('时间线冲突')
   })
 
-  it('TXT 不带 Markdown 标记；整本导出包含所有章', () => {
+  it('TXT 不带 Markdown 标记；整本导出包含所有章', async () => {
     const { dir, handle, seed } = setup()
-    const result = exportManuscript(handle.repos, dir, { format: 'txt', includeNotes: false })
+    const result = await exportManuscript(handle.repos, dir, { format: 'txt', includeNotes: false })
     const content = readFileSync(result.path, 'utf8')
     expect(result.chapters).toBe(seed.chapterIds.length)
     expect(result.revisionIds).toHaveLength(seed.chapterIds.length)
@@ -80,7 +80,7 @@ describe('导出（PRD §5.5 / J2 第 13 步）', () => {
     for (const chapterId of seed.chapterIds) expect(content).toContain(titleOf(handle, chapterId))
   })
 
-  it('没有章节时拒绝导出', () => {
+  it('没有章节时拒绝导出', async () => {
     const dir = tempDir('noryth-export-empty-')
     cleanups.push(dir.cleanup)
     const handle = openTestDb(dir.path)
@@ -95,6 +95,9 @@ describe('导出（PRD §5.5 / J2 第 13 步）', () => {
       defaultPreset: 'deepseek',
       schemaVersion: 7
     })
-    expect(() => exportManuscript(handle.repos, dir.path, { format: 'md', includeNotes: false })).toThrow()
+    await expect(exportManuscript(handle.repos, dir.path, { format: 'md', includeNotes: false })).rejects.toThrow()
+    await expect(
+      exportManuscript(handle.repos, dir.path, { format: 'docx', scope: 'chapter', includeNotes: false })
+    ).rejects.toThrow()
   })
 })
