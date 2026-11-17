@@ -111,3 +111,10 @@ DeepSeek 实测细节（模型 ID：`deepseek-flash`；`/v1/models` 同时返回
 - 两家预设的**协议层**已用同一套假 LLM 服务器验证（`tests/integration/presets.spec.ts`）：DeepSeek 与 OpenAI 预设都能流式返回正文并拼装 `tool_calls`。
 - **真实第二家仍未补测**：仓库与 CI 不持有 Key，作者需在设置页填入 DashScope/Moonshot Key 后按本文件「验证清单」跑一次，并把结果填进上表。补测前本 ADR 状态保持不变（「一家收口」），不得宣称两家真机验证完成。
 - 预设能力默认值见 `src/main/model/presets.ts`；`pricing` 未核实写 0，成本显示「未知」。
+
+## 阶段 18 记录（2026-11-17）
+
+- 作者决定 M1 **不做真实第二家供应商补测**（无 DashScope/Moonshot Key）；本 ADR 状态保持「已决定（一家收口）」。
+- 已有证据不变：`tests/integration/presets.spec.ts` 用同一套假 LLM 服务器验证了 DeepSeek 与 OpenAI 预设的流式正文、工具增量与路由；`E2E-M0-PROVIDER` 覆盖「规划 A、审批 B」的一章闭环。
+- 影响：`review.hetero` 默认 `off`；开启后若无第二家，报告写 `degraded=hetero_unavailable`，不阻断审批。
+- 「关闭条件 2」未满足，但按作者决定不阻断 M1 收口；补测后把结果填进本文件即可，不改应用代码。

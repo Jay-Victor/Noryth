@@ -2670,7 +2670,9 @@ type UiState = {
 
 **依赖链**：S1 → C1 → C3 → F4 → G2 → H3 → J2。任一环阻塞只能砍范围（§12.5），不挪用测试。
 
-**M1 依赖链**：11 → 12 → 13 → 14/15 → 16 → 17 → 18。阶段 11 不动 schema；0008 从 12 开始，0009 在 15，0010 在 16。任一环阻塞先砍该阶段 P1（§12.6），不砍 PRD M1 的五条退出标准。
+**M1 依赖链**：11 → 12 → 13 → 14/15 → 16 → 17 → 18。阶段 11 不动 schema；0008 在 12、0009 在 15、0010 在 16、0011 在 18。任一环阻塞先砍该阶段 P1（§12.6），不砍 PRD M1 的五条退出标准。
+
+**现状（2026-11-17）**：阶段 11–18 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。
 
 ### 12.5 M0 砍单清单（写死在范围里）
 
@@ -2722,7 +2724,7 @@ type UiState = {
 | M1-25 | 品牌图标与安装资源 |
 | M1-26 | 真实第二家供应商补测（外部依赖） |
 
-`M1-16`–`M1-26` 来自 §12.5 后移项、`docs/BACKLOG.md` 与 `docs/M0-ACCEPTANCE.md` §4 的已知问题；不新增 PRD 未列功能。
+`M1-16`–`M1-26` 来自 §12.5 后移项、`docs/BACKLOG.md` 与 `docs/M0-ACCEPTANCE.md` §4 的已知问题；不新增 PRD 未列功能。M1-26（真实第二家供应商）由作者决定不测（2026-11-17），保留为外部依赖（ADR-0003）。
 
 **M2 任务**
 
@@ -2983,12 +2985,12 @@ jobs:
 
 | 项 | 做法 |
 |---|---|
-| 版本 | semver，`0.x` 阶段；tag `v0.1.0-m0.1` |
-| 通道 | `dev`（每次 dev 构建）、`beta`（内测）、`stable`（里程碑） |
+| 版本 | semver，`0.x` 阶段；M0 `v0.1.0-m0.1`，M1 `v0.2.0-m1.1`（包版本 0.2.0） |
+| 通道 | `dev`（`dev.yml`）、`beta`（`beta.yml`）、`stable`（`latest.yml`）；`NORYTH_UPDATE_CHANNEL` 覆盖，默认 stable |
 | 发布物 | NSIS `.exe` + `latest.yml` + blockmap |
-| 自动更新 | `electron-updater` GitHub provider；启动检查失败不阻塞（PRD §9.1） |
-| 回滚 | 重发上一版本并提高版本号；客户端允许降级仅限同一 minor |
-| 签名 | M0 不签名（内测）；M1 决定是否购买 Authenticode（§17 D2） |
+| 自动更新 | `electron-updater` generic provider（feed 根 + 通道目录）；启动检查失败不阻塞（PRD §9.1）；stable 忽略预发布 |
+| 回滚 | 重发上一版本并提高版本号；自动更新只允许同一 minor 回退（D5 / ADR-0006） |
+| 签名 | 不购买 Authenticode（ADR-0006）；Releases 附 SHA256，SmartScreen 提示写进说明 |
 | 产物保留 | 每个 tag 永久保留；内测构建保留最近 3 个 |
 
 ### 14.4 安装冒烟（每个里程碑）
@@ -3003,7 +3005,10 @@ jobs:
 - [ ] `schema_version` 与迁移齐全；旧项目可打开。
 - [ ] 更新 `docs/PRD.md` 变更记录（若契约变更）。
 - [ ] `docs/tools/*.json` 与代码一致。
-- [ ] M0 验收表（§16）全绿。
+- [ ] M0 验收表（§16）全绿；M1 五条见 `docs/M1-ACCEPTANCE.md`。
+- [ ] `node scripts/update-drill.mjs` PASS（manifest / 四态判定 / 下载）。
+- [ ] `node scripts/gen-icons.mjs --check` 无漂移；安装包图标与窗口图标一致。
+- [ ] 安装冒烟：Win11 实机 PASS；Win10 按外部依赖记录或补测。
 - [ ] 回滚方案与上一版安装包可用。
 - [ ] 诊断包导出可用（无正文、无 Key）。
 

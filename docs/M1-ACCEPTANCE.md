@@ -20,6 +20,7 @@
 | 运行系统 | Windows 11 x64（本机）；Windows 10 22H2 作者决定不测（§6） |
 | 模型 | 全部用假适配器/本地假服务器；CI 不调用真实 API |
 | 图标 | `resources/icon.ico`（16–256，7 个 BMP 条目）+ `resources/icons/noryth-*.png`（16–512） |
+| 阶段标签 | `phase-18-done` → `1f2b668`（2026-11-17，CI `44049244747` 全绿） |
 
 ## 1 PRD §10 M1 退出标准 → 证据（5 条）
 
