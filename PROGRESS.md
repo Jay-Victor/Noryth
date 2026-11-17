@@ -265,6 +265,11 @@
 | CI（功能与文档提交） | GitHub Actions run `44027558509`（`d880449`） | verify 1m44 + e2e 3m14 均绿；package 按规则跳过（非 `v*` tag） |
 | CI（标签记录提交） | GitHub Actions run `44028518908`（`dd96cdc`） | verify 绿；e2e 在第 15 条（`memory.spec`）后早退（2m32，退出码 1 且 tail 里只有 `ok 6..15`、无失败用例）→ 同阶段 14/16 的 runner 偶发形态；该提交只改 PROGRESS 一行，代码树与 `44027558509` 相同 |
 | CI（复跑） | GitHub Actions run `44029599184`（`22710d1`，空提交） | verify + e2e 均绿；package 按规则跳过 |
+| CI（第三次早退） | GitHub Actions run `44030624768`（`f12c16b`，只改 PROGRESS） | 同一位置再次早退（`ok 15` 后 exit 1、无失败用例）；本地连跑 3 次 `pnpm test:e2e` 均 30/30（3.0m）→ 判定为 runner 侧静默终止，不是用例失败 |
+| CI 可观测性 | `.github/workflows/ci.yml` | e2e 改为 `> e2e.log`（Node 写文件同步，进程被杀不丢尾），失败时 grep + tail 120 + annotation；新增崩溃诊断步骤（内存/磁盘、Top 进程、Windows Application 事件日志） |
+| 按需加载 | `doc/export-docx.ts` | `await import('docx')`（模块级缓存）+ 顶层仅 type import；`out/main/index.js` 只剩 `import("docx")`；新增单测守住（PHASE-17 §7） |
+| CI（按需加载后） | GitHub Actions run `44033017991`（`bd50c14`） | verify + e2e 均绿 |
+| CI（分片） | GitHub Actions run `44034048165`（`d3ac330`） | verify 绿 + e2e (1) 1m58 / e2e (2) 2m23 均绿；第 1 片到 `memory.spec`，第 2 片从 `plan.spec` 起（干净 runner） |
 | 阶段标签 | `phase-17-done` → `06a4596` | 已推送 origin |
 
 ## 当前可运行命令
@@ -615,7 +620,7 @@
 | 异构复检 | `review.hetero=off/prefer` 默认 off；prefer 时 job 开始解析一次：生成 provider（turn_metric，缺失回退旁白）与 reviewer 相同且第二家已启用/已测试/有 Key → 切换；报告写 provider；无第二家 `degraded=hetero_unavailable` 不阻断 | `review/hetero.ts`、`review/run.ts`、设置页 |
 | 分支 verify | `branch_head_invalid`（head 缺/跨章/非 draft）、`current_revision_not_in_branch`、`summary_revision_invalid` | `db/verify.ts` |
 | 导出快照 | 三档格式（md/txt/docx）统一从 `revision_manifest` 渲染：`finalized` 章读 `final_revision_id`，其余章读 `current_revision_id` 并标「草稿」；不建 revision、不写 outbox、不动正文 | `doc/export.ts`、`shared/schema/export.ts` |
-| DOCX 生成 | `docx`（纯 JS）+ `fflate`；标题页 → 目录（Heading1 自动条目 + `updateFields`）→ 每章分页 + 场景分隔 + 拍段落；首行缩进 2 字符；批注只做章末「修订建议」小节 | `doc/export-docx.ts`、`ExportDialog.tsx` |
+| DOCX 生成 | `docx`（纯 JS，运行时 `await import` 按需加载）+ `fflate`；标题页 → 目录（Heading1 自动条目 + `updateFields`）→ 每章分页 + 场景分隔 + 拍段落；首行缩进 2 字符；批注只做章末「修订建议」小节 | `doc/export-docx.ts`、`ExportDialog.tsx` |
 | 导出一致性 | zip 条目时间固定 2000-01-01、core 时间归一化到导出日零点、`_TocN` 与 bookmark id 按出现顺序重编号；同一天同一清单两次导出字节一致（`sha256` 相同） | `doc/export-docx.ts` `normalizeArchive` |
 | 导出文件安全 | 目标固定 `exports/`，解析后必须在目录内；同名追加 `-2`/`-3` 不覆盖；文件名只由书名/章名 + 时间戳生成，不接受路径入参 | `doc/export.ts` `resolveTarget` |
 
