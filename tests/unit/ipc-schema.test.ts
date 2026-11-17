@@ -63,7 +63,8 @@ describe('IPC schema', () => {
       providers: {},
       tokenCalibration: {},
       providersEnabled: {},
-      appearance: { theme: 'light', accent: 'clay', fontScale: 'standard', lineHeight: 1.8 }
+      appearance: { theme: 'light', accent: 'clay', fontScale: 'standard', lineHeight: 1.8 },
+      review: { hetero: 'off' }
     })
     const summary = ProjectSummarySchema.safeParse({
       id: 'prj_1',

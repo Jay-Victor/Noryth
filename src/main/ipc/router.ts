@@ -90,6 +90,9 @@ import {
   ReviewDecideInputSchema,
   ReviewDevSeedInputSchema,
   ReviewFinalizeInputSchema,
+  ReviewBranchCreateInputSchema,
+  ReviewBranchSwitchInputSchema,
+  ReviewReopenInputSchema,
   ReviewSendInputSchema
 } from '../../shared/schema/review'
 import {
@@ -787,6 +790,21 @@ export function registerIpc(deps: IpcDeps): void {
     schema: ReviewFinalizeInputSchema,
     mutation: true,
     handler: (payload) => review.finalize(payload)
+  })
+  register(IPC.reviewReopen, {
+    schema: ReviewReopenInputSchema,
+    mutation: true,
+    handler: (payload) => review.reopen(payload)
+  })
+  register(IPC.reviewBranchCreate, {
+    schema: ReviewBranchCreateInputSchema,
+    mutation: true,
+    handler: (payload) => review.createBranch(payload)
+  })
+  register(IPC.reviewBranchSwitch, {
+    schema: ReviewBranchSwitchInputSchema,
+    mutation: true,
+    handler: (payload) => review.switchBranch(payload)
   })
   if (deps.devTools) {
     register(IPC.reviewDevSeed, {

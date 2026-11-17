@@ -136,6 +136,9 @@ export function applyPatchBatch(db: Db, repos: Repos, input: ApplyPatchBatchInpu
       return { edit, beat, row }
     })
     const contentHash = hashManifestRows(manifest)
+    const parentRevision =
+      chapter.currentRevisionId === null ? null : repos.revision.get(chapter.currentRevisionId)
+    const branchId = parentRevision?.branchId ?? null
 
     repos.revision.insert({
       id: revisionId,
@@ -144,7 +147,8 @@ export function applyPatchBatch(db: Db, repos: Repos, input: ApplyPatchBatchInpu
       kind: 'draft',
       contentHash,
       createdBy: input.createdBy ?? 'reviewer',
-      note: input.note ?? null
+      note: input.note ?? null,
+      branchId
     })
 
     const applied: ApplyPatchBatchResult['applied'] = []
@@ -187,6 +191,7 @@ export function applyPatchBatch(db: Db, repos: Repos, input: ApplyPatchBatchInpu
       }))
     )
     repos.chapter.setCurrentRevision(chapter.id, revisionId)
+    if (branchId !== null) repos.branch.setHead(branchId, revisionId)
     recomputeCoveredUntilSeq(db, chapter.id)
 
     const mirrorHash = hashText(renderChapterMarkdown(db, { chapterId: chapter.id, revisionId }))

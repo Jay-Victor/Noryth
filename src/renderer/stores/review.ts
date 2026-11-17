@@ -40,6 +40,8 @@ interface ReviewStoreState {
   /** 命令面板「定稿本章」：等审批台状态加载完再开确认框。 */
   finalizeRequested: boolean
   finalizeDialog: FinalizeDialog | null
+  /** 重新打开定稿（M1-21）的确认框。 */
+  reopenOpen: boolean
   compare: ReviewCompareResult | null
   compareLeft: string | null
   compareRight: string | null
@@ -60,6 +62,13 @@ interface ReviewStoreState {
   openFinalize(): Promise<void>
   closeFinalize(): void
   finalize(ackBlocking: boolean, ackUnreviewed: boolean, reason?: string): Promise<void>
+  /** 重新打开定稿：旧 final 保留；确认后才调用（不可撤销的是新 draft，不是旧 final）。 */
+  openReopen(): void
+  closeReopen(): void
+  reopen(reason?: string): Promise<void>
+  /** 分支：开新分支 / 切换到分支或主线。 */
+  createBranch(name: string): Promise<void>
+  switchBranch(branchId: string | null): Promise<void>
   focusIssue(issueId: string | null): void
   focusPatch(patchId: string | null): void
   applyEvent(event: ReviewEvent): void
@@ -104,6 +113,7 @@ export const useReview = create<ReviewStoreState>((set, get) => {
     decisions: {},
     finalizeRequested: false,
     finalizeDialog: null,
+    reopenOpen: false,
     compare: null,
     compareLeft: null,
     compareRight: null,
@@ -336,6 +346,42 @@ export const useReview = create<ReviewStoreState>((set, get) => {
       set({ activeIssueId: issueId, ...(issueId ? { tab: 'report' as const } : {}) })
     },
 
+    openReopen() {
+      set({ reopenOpen: true })
+    },
+
+    closeReopen() {
+      set({ reopenOpen: false })
+    },
+
+    async reopen(reason) {
+      const state = get().state
+      const bridge = getBridge()
+      if (!state || !bridge) return
+      await runAction(() =>
+        bridge.review.reopen({
+          chapterId: state.chapterId,
+          ...(reason === undefined || reason.trim().length === 0 ? {} : { reason: reason.trim() })
+        })
+      )
+      set({ reopenOpen: false, tab: 'versions', compare: null })
+    },
+
+    async createBranch(name) {
+      const state = get().state
+      const bridge = getBridge()
+      if (!state || !bridge || name.trim().length === 0) return
+      await runAction(() => bridge.review.createBranch({ chapterId: state.chapterId, name: name.trim() }))
+      set({ tab: 'versions', compare: null })
+    },
+
+    async switchBranch(branchId) {
+      const state = get().state
+      const bridge = getBridge()
+      if (!state || !bridge) return
+      await runAction(() => bridge.review.switchBranch({ chapterId: state.chapterId, branchId }))
+      set({ tab: 'versions', compare: null })
+    },
     focusPatch(patchId) {
       set({ activePatchId: patchId, ...(patchId ? { tab: 'diff' as const } : {}) })
     },
@@ -363,6 +409,7 @@ export const useReview = create<ReviewStoreState>((set, get) => {
         decisions: {},
         finalizeRequested: false,
         finalizeDialog: null,
+        reopenOpen: false,
         compare: null,
         compareLeft: null,
         compareRight: null

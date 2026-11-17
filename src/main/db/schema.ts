@@ -106,6 +106,33 @@ export interface RevisionTable {
   created_by: string
   note: string | null
   created_at: string
+  /** 分支（0010，PHASE-16）：NULL = 主线；final 永远 NULL。 */
+  branch_id: Generated<string | null>
+}
+
+/** 分支只承载 draft revision；head 随提交移动（0010，PHASE-16 §5.2）。 */
+export interface RevisionBranchTable {
+  id: string
+  project_id: string
+  chapter_id: string
+  name: string
+  base_revision_id: string
+  head_revision_id: string
+  status: Generated<string>
+  created_at: string
+  updated_at: string
+}
+
+/** 定稿摘要（0010，PHASE-16 §5.4）：按 final revision 保存，旧 final 的摘要永久保留。 */
+export interface ChapterSummaryTable {
+  revision_id: string
+  chapter_id: string
+  project_id: string
+  summary: string
+  key_facts_json: Generated<string>
+  tokens: Generated<number>
+  source: Generated<string>
+  created_at: string
 }
 
 export interface BeatTable {
@@ -234,6 +261,8 @@ export interface ApprovalReportTable {
   scope_json: Generated<string>
   degraded: string | null
   model: string | null
+  /** 异构复检留痕（0010，PHASE-16 §5.3）：报告由哪一家产出。 */
+  provider: Generated<string | null>
   created_at: string
 }
 
@@ -548,6 +577,8 @@ export interface Database {
   scene: SceneTable
   chapter_scene: ChapterSceneTable
   revision: RevisionTable
+  revision_branch: RevisionBranchTable
+  chapter_summary: ChapterSummaryTable
   beat: BeatTable
   revision_beat: RevisionBeatTable
   patch: PatchTable

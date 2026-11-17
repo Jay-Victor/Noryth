@@ -19,7 +19,7 @@ import { DevSliceService } from './slice/service'
 import { WriteService } from './scheduler/service'
 import { MemoryService } from './memory/service'
 import { createEmbedder } from './memory/embed/model'
-import { ReviewService } from './review/service'
+import { ReviewService, type ReviewServiceDeps } from './review/service'
 import { sha256Hex } from './crypto'
 import { ALL_MANIFESTS } from './tools/manifests'
 import { buildRegistry } from './tools/registry'
@@ -218,7 +218,7 @@ async function bootstrap(): Promise<void> {
     log: (message, details) => logger?.info({ event: message, ...details }, message)
   })
 
-  const reviewService = new ReviewService({
+  const reviewDeps: ReviewServiceDeps = {
     host: () => projectServiceInstance.currentHandle(),
     registry: toolRegistry,
     settings: () => settings.read(),
@@ -230,7 +230,8 @@ async function bootstrap(): Promise<void> {
     },
     fakeChunkDelayMs: Number(process.env.NORYTH_REVIEW_STREAM_DELAY_MS ?? '2'),
     log: (message, details) => logger?.info({ event: message, ...details }, message)
-  })
+  }
+  const reviewService = new ReviewService(reviewDeps)
 
   const memoryService = new MemoryService({
     host: () => projectServiceInstance.currentHandle(),
@@ -246,6 +247,10 @@ async function bootstrap(): Promise<void> {
     fakeChunkDelayMs: Number(process.env.NORYTH_MEMORY_STREAM_DELAY_MS ?? '2'),
     log: (message, details) => logger?.info({ event: message, ...details }, message)
   })
+
+  // PHASE-16 §5.1：重开再定稿自动入队的 memory.rebuild 由记忆服务执行。
+  // 失败只记录，不影响已提交的定稿；记忆台仍可手动按章重建。
+  reviewDeps.autoRebuild = (input) => memoryService.runQueuedRebuild(input.jobId)
 
   const worldService = new WorldService({
     host: () => projectServiceInstance.currentHandle(),

@@ -33,6 +33,8 @@ interface SettingsState {
   appearance(patch: AppearancePatch): Promise<void>
   /** 启动行为（PHASE-11 M1-24）：是否自动打开上次项目。 */
   setOpenLastProject(enabled: boolean): Promise<void>
+  /** 审批（PHASE-16 M1-22）：异构复检 off / prefer。 */
+  setReviewHetero(mode: 'off' | 'prefer'): Promise<void>
   setKey(preset: Preset, apiKey: string): Promise<boolean>
   clearKey(preset: Preset): Promise<void>
   setProviderEnabled(preset: Preset, enabled: boolean): Promise<void>
@@ -100,6 +102,17 @@ export const useSettings = create<SettingsState>((set, get) => {
       const bridge = getBridge()
       if (!bridge) return
       const result = await bridge.settings.set({ openLastProject: enabled })
+      if (!result.ok) {
+        notify(result.error)
+        return
+      }
+      await get().load()
+    },
+
+    async setReviewHetero(mode) {
+      const bridge = getBridge()
+      if (!bridge) return
+      const result = await bridge.settings.set({ review: { hetero: mode } })
       if (!result.ok) {
         notify(result.error)
         return

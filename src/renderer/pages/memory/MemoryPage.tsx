@@ -76,6 +76,11 @@ function SummaryCard({ state }: { state: MemoryState }): React.JSX.Element {
           上次重建：旧条目 {state.rebuild.inactiveCount} 条失效 · 新条目 {state.rebuild.rebuiltCount} 条生效
         </p>
       ) : null}
+      {state.rebuild.jobStatus === 'failed' ? (
+        <p className="pane-header__meta" data-testid="memory-rebuild-error">
+          上次重建失败：{state.rebuild.errorCode ?? 'unknown'}；可在记忆台手动按章重建
+        </p>
+      ) : null}
       {state.index.pendingCount > 0 ? (
         <div className="memory-index-note" data-testid="memory-index-note">
           <span>

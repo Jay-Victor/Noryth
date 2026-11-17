@@ -42,6 +42,10 @@ export interface ReviewTurnDeps {
   repos: Repos
   registry: RegistrySnapshot
   adapter: ChatAdapter
+  /** 审批本次实际使用的绑定（PHASE-16 §5.3）；省略 = 配置的 reviewer 绑定。 */
+  binding?: { provider: string; model: string }
+  /** 异构缺失等运行级降级：写进报告 degraded（不阻断）。 */
+  heteroDegraded?: string | null
   gateSecret: string
   capabilitiesLookup?: CapabilitiesLookup
   signal?: AbortSignal
@@ -306,12 +310,13 @@ export async function runReviewTurn(
     { role: 'user', content: userText }
   ]
 
-  const binding = resolveBinding(
-    repos,
-    project,
-    'reviewer',
-    deps.capabilitiesLookup
-  )
+  const binding = deps.binding
+    ? {
+        ...resolveBinding(repos, project, 'reviewer', deps.capabilitiesLookup),
+        provider: deps.binding.provider,
+        model: deps.binding.model
+      }
+    : resolveBinding(repos, project, 'reviewer', deps.capabilitiesLookup)
   if (deps.adapter.provider !== binding.provider || deps.adapter.model !== binding.model) {
     throw new AppError('setup_incomplete', '适配器与冻结绑定不一致', {
       adapter: { provider: deps.adapter.provider, model: deps.adapter.model },
@@ -457,8 +462,13 @@ export async function runReviewTurn(
         if (options.mode === 'recheck' && scope.length > 0) {
           repos.review.setScope(record.id, JSON.stringify(scope))
         }
+        // 异构复检留痕（PHASE-16 §5.3）：T35 不知道真实绑定，回合结束后补记 provider/model。
+        repos.review.setProvider(record.id, binding.provider, binding.model)
         // 没有阻断但确定性检查没跑完/没跑：标 degraded，由作者决定是否继续（PRD §5.3）。
-        if (record.verdict !== 'fail' && !consistencyChecked && record.degraded === null) {
+        // 异构缺失优先于 check_missing：验收要求 prefer 且无第二家时能读到 hetero_unavailable。
+        if (record.degraded === null && deps.heteroDegraded !== undefined && deps.heteroDegraded !== null) {
+          repos.review.setDegraded(record.id, deps.heteroDegraded)
+        } else if (record.verdict !== 'fail' && !consistencyChecked && record.degraded === null) {
           repos.review.setDegraded(record.id, 'check_missing')
         }
         repos.reviewMessage.insert({

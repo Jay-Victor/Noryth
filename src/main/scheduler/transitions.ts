@@ -71,6 +71,7 @@ export type ChapterEvent =
   | 'REVISE'
   | 'APPROVE'
   | 'FINALIZE'
+  | 'REOPEN'
   | 'ABANDON'
 
 export const CHAPTER_TRANSITIONS: Readonly<
@@ -83,7 +84,8 @@ export const CHAPTER_TRANSITIONS: Readonly<
   under_review: { REVISE: 'revising', APPROVE: 'approved' },
   revising: { REVIEW: 'under_review', APPROVE: 'approved', ABANDON: 'abandoned' },
   approved: { FINALIZE: 'finalized', REVISE: 'revising' },
-  finalized: {},
+  // REOPEN：重新打开定稿（PHASE-16 §5.1）——旧 final 保留，新建 draft，不删历史。
+  finalized: { REOPEN: 'revising' },
   paused: { RESUME: 'drafting', ABANDON: 'abandoned' },
   abandoned: {}
 }

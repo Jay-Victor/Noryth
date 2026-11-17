@@ -23,6 +23,8 @@ export interface ApprovalReportRecord {
   scopeJson: string
   degraded: string | null
   model: string | null
+  /** 异构复检留痕（PHASE-16 §5.3）。 */
+  provider: string | null
   createdAt: string
 }
 
@@ -39,6 +41,7 @@ export interface NewApprovalReportInput {
   scopeJson?: string
   degraded?: string | null
   model?: string | null
+  provider?: string | null
   createdAt?: string
 }
 
@@ -88,6 +91,7 @@ function mapApproval(row: ApprovalRow): ApprovalReportRecord {
     scopeJson: row.scope_json,
     degraded: row.degraded,
     model: row.model,
+    provider: row.provider ?? null,
     createdAt: row.created_at
   }
 }
@@ -129,6 +133,7 @@ export class ReviewRepo extends BaseRepo {
       scope_json: input.scopeJson ?? '[]',
       degraded: input.degraded ?? null,
       model: input.model ?? null,
+      provider: input.provider ?? null,
       created_at: input.createdAt ?? this.now()
     }
     runStatement(this.runner, this.runner.db.insertInto('approval_report').values(values))
@@ -182,6 +187,22 @@ export class ReviewRepo extends BaseRepo {
       this.runner.db
         .updateTable('approval_report')
         .set({ scope_json: scopeJson })
+        .where('id', '=', id)
+        .returningAll()
+    )
+    return row ? mapApproval(row) : null
+  }
+
+  /**
+   * 补记 provider（PHASE-16 §5.3）：T35 提交报告时工具不知道真实绑定，
+   * 由审批运行时在回合结束后写入；只改 provider，不改条目与 verdict。
+   */
+  setProvider(id: string, provider: string | null, model?: string | null): ApprovalReportRecord | null {
+    const row = firstRow<ApprovalRow>(
+      this.runner,
+      this.runner.db
+        .updateTable('approval_report')
+        .set(model === undefined ? { provider } : { provider, model })
         .where('id', '=', id)
         .returningAll()
     )

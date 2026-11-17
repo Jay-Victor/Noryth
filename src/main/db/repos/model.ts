@@ -402,6 +402,25 @@ export class TurnMetricRepo extends BaseRepo {
     return row ? mapMetric(row) : null
   }
 
+  /**
+   * 本章正文实际由哪一家生成（PHASE-16 §5.3 异构复检的判定输入）。
+   * 只读：最近一条带 beat_id 的真实调用；没有调用过返回 null，由调用方回退到
+   * 旁白绑定（尚未生成过的章节）。
+   */
+  latestProviderForBeats(beatIds: readonly string[]): string | null {
+    if (beatIds.length === 0) return null
+    const row = firstRow<{ provider: string }>(
+      this.runner,
+      this.runner.db
+        .selectFrom('turn_metric')
+        .select(['provider'])
+        .where('beat_id', 'in', [...beatIds])
+        .orderBy('created_at', 'desc')
+        .limit(1)
+    )
+    return row?.provider ?? null
+  }
+
   listByJob(jobId: string): TurnMetricRecord[] {
     const rows = allRows<TurnMetricRow>(
       this.runner,

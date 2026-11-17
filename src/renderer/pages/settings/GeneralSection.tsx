@@ -12,6 +12,7 @@ export function GeneralSection(): React.JSX.Element {
   const exportDiagnostics = useApp((state) => state.exportDiagnostics)
   const view = useSettings((state) => state.view)
   const setOpenLastProject = useSettings((state) => state.setOpenLastProject)
+  const setReviewHetero = useSettings((state) => state.setReviewHetero)
 
   return (
     <>
@@ -72,6 +73,27 @@ export function GeneralSection(): React.JSX.Element {
             启动时自动打开上次项目
             <small>关掉后启动停在首页。上次项目被占用或路径失效时不会自动打开，也不会自动只读打开。</small>
           </span>
+        </label>
+      </section>
+
+      <section className="side-card">
+        <h2>审批</h2>
+        <label className="settings-toggle settings-toggle--stacked">
+          <span>
+            异构复检
+            <small>
+              开启后，若审批与生成是同一家且另有已验证的提供方，审批自动改用第二家；找不到第二家时报告标
+              「异构不可用」，不阻断审批。M1 默认关闭。
+            </small>
+          </span>
+          <select
+            data-testid="review-hetero"
+            value={view?.review.hetero ?? 'off'}
+            onChange={(event) => void setReviewHetero(event.target.value === 'prefer' ? 'prefer' : 'off')}
+          >
+            <option value="off">关闭</option>
+            <option value="prefer">尽量异构（prefer）</option>
+          </select>
         </label>
       </section>
 

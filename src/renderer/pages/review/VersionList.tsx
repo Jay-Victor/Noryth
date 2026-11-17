@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReviewCompareResult, ReviewDiffHunk, ReviewState } from '../../../shared/schema/review'
 import { useReview } from '../../stores/review'
+import { BranchTree } from './BranchTree'
 
 /**
  * 版本列表与只读对比（PHASE-08 G5 / UI-DESIGN §6.4）。
@@ -64,9 +65,11 @@ export function VersionList({ state }: { state: ReviewState }): React.JSX.Elemen
 
   return (
     <div className="review-versions" data-testid="review-versions">
+      <BranchTree state={state} />
+
       <div className="review-versions__head">
         <span>版本（{versions.length}）</span>
-        <span className="review-note">定稿只读，不能在此回退</span>
+        <span className="review-note">定稿只读，不能在此回退；回退走「重新打开」</span>
       </div>
 
       <div className="review-version-compare">
@@ -114,6 +117,7 @@ export function VersionList({ state }: { state: ReviewState }): React.JSX.Elemen
           <tr>
             <th>revision</th>
             <th>kind</th>
+            <th>分支</th>
             <th>parent</th>
             <th>来源</th>
             <th>hash</th>
@@ -130,6 +134,7 @@ export function VersionList({ state }: { state: ReviewState }): React.JSX.Elemen
             >
               <td className="mono">{version.id}</td>
               <td>{version.kind === 'final' ? '定稿' : '草稿'}</td>
+              <td>{version.branchId ? (state.branches.find((branch) => branch.id === version.branchId)?.name ?? version.branchId) : '主线'}</td>
               <td className="mono">{version.parentRevisionId ?? '—'}</td>
               <td>{version.createdBy}</td>
               <td className="mono">{version.contentHash.slice(0, 10)}</td>

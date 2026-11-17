@@ -264,6 +264,59 @@ export function verifyDatabase(db: Db, options: VerifyOptions = {}): VerifyRepor
     }
   }
 
+  // 分支（PHASE-16 §5.2）：head 必须属于本章且是 draft；当前 revision 必在分支链内。
+  const invalidBranchHeads = db
+    .prepare(
+      `SELECT b.id AS branch_id, b.chapter_id AS chapter_id, b.head_revision_id AS head_revision_id,
+              r.chapter_id AS revision_chapter, r.kind AS revision_kind
+       FROM revision_branch b LEFT JOIN revision r ON r.id = b.head_revision_id
+       WHERE r.id IS NULL OR r.chapter_id <> b.chapter_id OR r.kind <> 'draft' LIMIT 20`
+    )
+    .all() as Array<Record<string, unknown>>
+  if (invalidBranchHeads.length > 0) {
+    error(
+      'branch_head_invalid',
+      `${invalidBranchHeads.length} branch(es) have a head that is missing, foreign, or not a draft`,
+      invalidBranchHeads
+    )
+  }
+
+  const foreignCurrent = db
+    .prepare(
+      `SELECT c.id AS chapter_id, c.current_revision_id AS revision_id, r.branch_id AS branch_id,
+              b.id AS branch_row, b.chapter_id AS branch_chapter, b.head_revision_id AS branch_head
+       FROM chapter c
+       JOIN revision r ON r.id = c.current_revision_id
+       LEFT JOIN revision_branch b ON b.id = r.branch_id
+       WHERE r.branch_id IS NOT NULL
+         AND (b.id IS NULL OR b.chapter_id <> c.id OR b.head_revision_id <> c.current_revision_id)
+       LIMIT 20`
+    )
+    .all() as Array<Record<string, unknown>>
+  if (foreignCurrent.length > 0) {
+    error(
+      'current_revision_not_in_branch',
+      `${foreignCurrent.length} chapter(s) point at a revision outside its branch head`,
+      foreignCurrent
+    )
+  }
+
+  const badSummaries = db
+    .prepare(
+      `SELECT s.revision_id AS revision_id, s.chapter_id AS summary_chapter, r.chapter_id AS revision_chapter,
+              r.kind AS revision_kind
+       FROM chapter_summary s LEFT JOIN revision r ON r.id = s.revision_id
+       WHERE r.id IS NULL OR r.chapter_id <> s.chapter_id OR r.kind <> 'final' LIMIT 20`
+    )
+    .all() as Array<Record<string, unknown>>
+  if (badSummaries.length > 0) {
+    error(
+      'summary_revision_invalid',
+      `${badSummaries.length} chapter summary row(s) do not point at that chapter's final revision`,
+      badSummaries
+    )
+  }
+
   const stats: VerifyStats = {
     chapters: (db.prepare('SELECT COUNT(*) AS count FROM chapter').get() as { count: number }).count,
     beats: (db.prepare('SELECT COUNT(*) AS count FROM beat').get() as { count: number }).count,

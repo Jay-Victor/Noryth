@@ -1,6 +1,11 @@
 import { z } from 'zod'
 import { ProviderSettingsSchema, PresetSchema } from './model'
-import { AppearanceSchema, AppearancePatchSchema } from './settings'
+import {
+  AppearanceSchema,
+  AppearancePatchSchema,
+  ReviewSettingsSchema,
+  ReviewSettingsPatchSchema
+} from './settings'
 
 export { PresetSchema }
 export type { Preset } from './model'
@@ -180,7 +185,9 @@ export const SettingsSchema = z.strictObject({
   /** 提供方启用开关（PHASE-10 I1）；缺省视为启用。 */
   providersEnabled: z.record(z.string(), z.boolean()).default({}),
   /** 外观与基础偏好（PHASE-10 I4）：只改 CSS 变量，不改导出。 */
-  appearance: AppearanceSchema.default(AppearanceSchema.parse({}))
+  appearance: AppearanceSchema.default(AppearanceSchema.parse({})),
+  /** 审批（PHASE-16 M1-22）：异构复检默认关闭。 */
+  review: ReviewSettingsSchema.default(ReviewSettingsSchema.parse({}))
 })
 export type Settings = z.infer<typeof SettingsSchema>
 
@@ -199,7 +206,8 @@ export const SettingsPatchSchema = z
     providers: z.record(z.string(), ProviderSettingsSchema).optional(),
     tokenCalibration: z.record(z.string(), z.number()).optional(),
     providersEnabled: z.record(z.string(), z.boolean()).optional(),
-    appearance: AppearancePatchSchema.optional()
+    appearance: AppearancePatchSchema.optional(),
+    review: ReviewSettingsPatchSchema.optional()
   })
 export type SettingsPatch = z.infer<typeof SettingsPatchSchema>
 

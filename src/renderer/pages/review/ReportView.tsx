@@ -147,7 +147,13 @@ export function ReportView({ state }: { state: ReviewState }): React.JSX.Element
             body: '报告没有阻断，但 consistency.check 没有成功返回；由作者决定是否继续。',
             retry: true
           }
-        : { title: '报告已降级', body: `原因：${report.degraded ?? ''}`, retry: false }
+        : report.degraded === 'hetero_unavailable'
+          ? {
+              title: '异构复检不可用',
+              body: '设置已是「尽量异构」，但没有可用的第二家；报告照常产出，不阻断审批。',
+              retry: false
+            }
+          : { title: '报告已降级', body: `原因：${report.degraded ?? ''}`, retry: false }
   return (
     <div className="review-report" data-testid="review-report">
       {degraded ? (
@@ -178,7 +184,11 @@ export function ReportView({ state }: { state: ReviewState }): React.JSX.Element
         <span className="review-banner__counts">
           阻断 {report.blocking.length} · 建议 {report.suggestions.length}
         </span>
-        {report.model ? <span className="review-banner__model mono">{report.model}</span> : null}
+        {report.model ? (
+          <span className="review-banner__model mono">
+            {report.provider ? `${report.provider} · ${report.model}` : report.model}
+          </span>
+        ) : null}
       </div>
 
       <DimensionGrid report={report} />

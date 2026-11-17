@@ -8,6 +8,8 @@ import { hashManifestRows, sha256Hex } from '../db/hash'
 import { recomputeCoveredUntilSeq } from '../db/seq'
 import { withTransaction } from '../db/tx'
 import { chapterTransition } from '../scheduler/transitions'
+import { rebuildJobKey } from '../memory/rebuild'
+import { writeChapterSummary } from './summary'
 
 /**
  * 定稿（DEV-PLAN §9.5 / PHASE-08 §5.3）。
@@ -41,6 +43,9 @@ export interface FinalizeChapterResult {
   sourceRevisionId: string
   contentHash: string
   memoryJobId: string | null
+  /** PHASE-16 §5.1：首次定稿入队 extract；重开再定稿入队 rebuild（G6 已授权）。 */
+  memoryJobType: 'memory.extract' | 'memory.rebuild' | null
+  previousFinalRevisionId: string | null
   alreadyFinalized: boolean
 }
 
@@ -60,6 +65,8 @@ export function finalizeChapter(db: Db, repos: Repos, input: FinalizeChapterInpu
         sourceRevisionId: final?.parentRevisionId ?? chapter.currentRevisionId ?? chapter.finalRevisionId,
         contentHash: final?.contentHash ?? '',
         memoryJobId: null,
+        memoryJobType: null,
+        previousFinalRevisionId: chapter.finalRevisionId,
         alreadyFinalized: true
       }
     }
@@ -94,6 +101,8 @@ export function finalizeChapter(db: Db, repos: Repos, input: FinalizeChapterInpu
     }
 
     const sourceRevisionId = chapter.currentRevisionId
+    /** 重开再定稿：final_revision_id 先于 markFinalized 保存的就是上一份定稿。 */
+    const previousFinalRevisionId = chapter.finalRevisionId
     const members = repos.revision.manifest(sourceRevisionId)
     if (members.length === 0) throw new AppError('invalid_args', '当前草稿清单为空')
     const contentHash = hashManifestRows(
@@ -142,6 +151,14 @@ export function finalizeChapter(db: Db, repos: Repos, input: FinalizeChapterInpu
     repos.chapter.markFinalized(chapter.id, finalRevisionId)
     recomputeCoveredUntilSeq(db, chapter.id)
 
+    // PHASE-16 §5.4：摘要与 final 同一事务；失败则整次定稿回滚。
+    writeChapterSummary(repos, {
+      projectId: chapter.projectId,
+      chapterId: chapter.id,
+      revisionId: finalRevisionId,
+      createdAt: at
+    })
+
     // 审计：把 ack 与最终 revision 补记到 G6 记录上（令牌行只有一份，不写第二条）。
     repos.gate.annotatePayload(
       gate.id,
@@ -153,19 +170,27 @@ export function finalizeChapter(db: Db, repos: Repos, input: FinalizeChapterInpu
         unreviewedCount: input.unreviewed.length,
         reason: input.reason ?? null,
         sourceRevisionId,
+        previousFinalRevisionId,
         finalRevisionId
       })
     )
 
     const project = repos.project.get()
     if (!project) throw new AppError('project_not_found', 'no project in database')
-    const key = memoryJobKey(project.id, finalRevisionId)
+    // 首次定稿 → memory.extract；重开再定稿 → memory.rebuild（G6 已授权，
+    // 旧 final 来源记忆由执行器软失效；不重复入队 extract，PHASE-16 §5.1）。
+    const memoryJobType: 'memory.extract' | 'memory.rebuild' =
+      previousFinalRevisionId === null ? 'memory.extract' : 'memory.rebuild'
+    const key =
+      memoryJobType === 'memory.extract'
+        ? memoryJobKey(project.id, finalRevisionId)
+        : rebuildJobKey(project.id, chapter.id, finalRevisionId)
     const existing = repos.job.findByIdempotency(project.id, key)
     const job =
       existing ??
       repos.job.insert({
         projectId: project.id,
-        type: 'memory.extract',
+        type: memoryJobType,
         status: 'queued',
         expectedRevision: finalRevisionId,
         epoch: project.writeEpoch,
@@ -173,7 +198,14 @@ export function finalizeChapter(db: Db, repos: Repos, input: FinalizeChapterInpu
         payloadJson: JSON.stringify({
           chapterId: chapter.id,
           revisionId: finalRevisionId,
-          requestedBy: input.actor
+          requestedBy: input.actor,
+          ...(memoryJobType === 'memory.rebuild'
+            ? {
+                previousFinalRevisionId,
+                gateRecordId: gate.id,
+                auto: true
+              }
+            : {})
         })
       })
 
@@ -182,6 +214,8 @@ export function finalizeChapter(db: Db, repos: Repos, input: FinalizeChapterInpu
       sourceRevisionId,
       contentHash,
       memoryJobId: job.id,
+      memoryJobType,
+      previousFinalRevisionId,
       alreadyFinalized: false
     }
   })

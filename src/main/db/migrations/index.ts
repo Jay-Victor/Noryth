@@ -7,6 +7,7 @@ import memorySql from './0006_memory.sql?raw'
 import settingsSql from './0007_settings.sql?raw'
 import storyTimeSql from './0008_story_time.sql?raw'
 import blueprintOpsSql from './0009_blueprint_ops.sql?raw'
+import branchSummarySql from './0010_branch_summary.sql?raw'
 import type { Migration } from '../migrator'
 
 /**
@@ -22,7 +23,8 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 6, name: 'memory', sql: memorySql },
   { version: 7, name: 'settings', sql: settingsSql },
   { version: 8, name: 'story_time', sql: storyTimeSql },
-  { version: 9, name: 'blueprint_ops', sql: blueprintOpsSql }
+  { version: 9, name: 'blueprint_ops', sql: blueprintOpsSql },
+  { version: 10, name: 'branch_summary', sql: branchSummarySql }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.version), 0)

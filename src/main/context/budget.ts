@@ -14,6 +14,7 @@ export type Layer = 'L0' | 'L1' | 'L2' | 'L3'
 
 export type BlockRole =
   | 'l0'
+  | 'summary'
   | 'l1'
   | 'card'
   | 'pinned'
@@ -62,7 +63,10 @@ export const BUDGET = {
   recentDefault: 6,
   recentMin: 2,
   refsMin: 2,
-  topKDefault: 5
+  topKDefault: 5,
+  /** PHASE-16 §5.4：上一章摘要 ≤300 tokens；超预算先压到 150，再整块丢。 */
+  summaryMax: 300,
+  summaryTrim: 150
 } as const
 
 export interface BudgetInput {
@@ -187,6 +191,28 @@ export function fitToBudget(blocks: readonly CtxBlock[], budget: number): Contex
     const recent = group('recent')
     if (recent.length <= BUDGET.recentMin) break
     drop(recent[recent.length - 1]!)
+  }
+
+  // a2) 上一章摘要（PHASE-16 §5.4）：先压到 150 tokens，再整块丢。
+  //     位置在最近拍之后、pinned 之前；摘要不是主角，正文与角色卡永远优先。
+  if (tokensOf(kept) > budget) {
+    let shrunk = false
+    kept = kept.map((block) => {
+      if (block.role !== 'summary' || block.tokens <= BUDGET.summaryTrim) return block
+      const text = truncateToTokens(block.text, BUDGET.summaryTrim)
+      if (text === block.text) return block
+      shrunk = true
+      return withText(block, text)
+    })
+    if (shrunk) degraded.push('summary_trimmed')
+  }
+  if (tokensOf(kept) > budget) {
+    let dropped = false
+    for (const block of kept.filter((item) => item.role === 'summary')) {
+      drop(block)
+      dropped = true
+    }
+    if (dropped) degraded.push('summary_dropped')
   }
 
   // b) 检索 refs：丢最低分（调用方按 score desc, id asc 排列，id 顺序即名次）

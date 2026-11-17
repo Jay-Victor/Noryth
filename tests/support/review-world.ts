@@ -3,7 +3,7 @@ import { markChapterComplete } from '../../src/main/scheduler/loop'
 import { ReviewService } from '../../src/main/review/service'
 import { ALL_MANIFESTS } from '../../src/main/tools/manifests'
 import { buildRegistry } from '../../src/main/tools/registry'
-import { SettingsSchema } from '../../src/shared/schema/project'
+import { SettingsSchema, type Settings } from '../../src/shared/schema/project'
 import type { ReviewEvent, ReviewState } from '../../src/shared/schema/review'
 import { openWriteWorld, type WriteTestWorld } from './write-world'
 
@@ -57,15 +57,16 @@ export function fillConfirmedBeats(world: WriteTestWorld, lines: readonly string
 }
 
 export function openReviewWorld(
-  options: { lines?: readonly string[]; env?: NodeJS.ProcessEnv } = {}
+  options: { lines?: readonly string[]; env?: NodeJS.ProcessEnv; settings?: Settings } = {}
 ): ReviewTestWorld {
   const world = openWriteWorld({ sceneCount: 1, beatsPerScene: 4 })
   fillConfirmedBeats(world, options.lines)
   const events: ReviewEvent[] = []
+  const settings = options.settings ?? SettingsSchema.parse({})
   const service = new ReviewService({
     host: () => ({ dir: world.dir, db: world.handle.db, repos: world.repos, readOnly: false }),
     registry,
-    settings: () => SettingsSchema.parse({}),
+    settings: () => settings,
     allowFakeModel: true,
     gateSecret: GATE_SECRET,
     send: (event) => events.push(event),

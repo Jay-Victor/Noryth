@@ -112,6 +112,9 @@ export const IPC = {
   reviewG6Preview: 'review.g6.preview',
   reviewG6Issue: 'review.g6.issue',
   reviewFinalize: 'review.finalize',
+  reviewReopen: 'review.reopen',
+  reviewBranchCreate: 'review.branch.create',
+  reviewBranchSwitch: 'review.branch.switch',
   reviewDevSeed: 'review.devSeed',
   // 记忆台（PHASE-09）
   memoryState: 'memory.state',

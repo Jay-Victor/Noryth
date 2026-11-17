@@ -2,7 +2,9 @@ import type { Db } from '../project-db'
 import { createQueryRunner } from '../kysely'
 import { BeatRepo } from './beat'
 import { BlueprintChangeRepo } from './blueprint-change'
+import { BranchRepo } from './branch'
 import { ChapterRepo } from './chapter'
+import { ChapterSummaryRepo } from './chapter-summary'
 import { CharacterRepo } from './character'
 import { systemClock, type Clock } from './common'
 import { ForeshadowRepo } from './foreshadow'
@@ -51,6 +53,8 @@ export function createRepos(db: Db, options: RepoOptions = {}) {
     scene: new SceneRepo(runner, now),
     beat: new BeatRepo(runner, now),
     revision: new RevisionRepo(runner, now),
+    branch: new BranchRepo(runner, now),
+    chapterSummary: new ChapterSummaryRepo(runner, now),
     patch: new PatchRepo(runner, now),
     memory: new MemoryRepo(runner, now),
     memoryProposal: new MemoryProposalRepo(runner, now),
@@ -86,7 +90,9 @@ export type Repos = ReturnType<typeof createRepos>
 
 export * from './beat'
 export * from './blueprint-change'
+export * from './branch'
 export * from './chapter'
+export * from './chapter-summary'
 export * from './character'
 export * from './common'
 export * from './foreshadow'

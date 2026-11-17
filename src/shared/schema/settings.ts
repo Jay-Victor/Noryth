@@ -42,6 +42,19 @@ export const AppearancePatchSchema = z.strictObject({
 })
 export type AppearancePatch = z.infer<typeof AppearancePatchSchema>
 
+/** 审批设置（PHASE-16 §5.3）：M1 只有异构复检开关，默认关闭。 */
+export const REVIEW_HETERO_MODES = ['off', 'prefer'] as const
+export type ReviewHeteroMode = (typeof REVIEW_HETERO_MODES)[number]
+export const ReviewSettingsSchema = z.strictObject({
+  hetero: z.enum(REVIEW_HETERO_MODES).default('off')
+})
+export type ReviewSettings = z.infer<typeof ReviewSettingsSchema>
+/** 补丁同样不带 default：只改 hetero 时不能把其它审批设置重置。 */
+export const ReviewSettingsPatchSchema = z.strictObject({
+  hetero: z.enum(REVIEW_HETERO_MODES).optional()
+})
+export type ReviewSettingsPatch = z.infer<typeof ReviewSettingsPatchSchema>
+
 /** Key 状态：不返回明文，只返回是否配置与末 4 位。 */
 export const ProviderKeyStatusSchema = z.strictObject({
   preset: PresetSchema,
@@ -91,7 +104,9 @@ export const SettingsViewSchema = z.strictObject({
   secretsPath: z.string(),
   lastOpenedProjectId: z.string().nullable(),
   /** 启动自动打开上次项目（PHASE-11 M1-24）。 */
-  openLastProject: z.boolean()
+  openLastProject: z.boolean(),
+  /** 审批（PHASE-16 M1-22）：异构复检默认关闭。 */
+  review: ReviewSettingsSchema
 })
 export type SettingsView = z.infer<typeof SettingsViewSchema>
 

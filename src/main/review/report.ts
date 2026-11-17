@@ -36,6 +36,7 @@ export interface SubmitReportInput {
   scope?: readonly DimensionKey[]
   degraded?: string | null
   model?: string | null
+  provider?: string | null
 }
 
 export interface SubmitReportResult {
@@ -123,7 +124,8 @@ export function submitReport(repos: Repos, input: SubmitReportInput, db?: Db): S
       dimensionsJson: JSON.stringify(demoted.report.dimensions),
       scopeJson: JSON.stringify(scope),
       degraded: input.degraded ?? null,
-      model: input.model ?? null
+      model: input.model ?? null,
+      provider: input.provider ?? null
     })
     return { report: record, downgraded: demoted.downgraded }
   }
@@ -139,6 +141,7 @@ export function submitPlainReport(
     revisionId: string
     text: string
     model?: string | null
+    provider?: string | null
     scope?: readonly DimensionKey[]
   },
   db?: Db
@@ -167,7 +170,8 @@ export function submitPlainReport(
       dimensionsJson: JSON.stringify(parseDimensions(null)),
       scopeJson: JSON.stringify([...(input.scope ?? [])]),
       degraded: 'schema_fallback',
-      model: input.model ?? null
+      model: input.model ?? null,
+      provider: input.provider ?? null
     })
     return { report: record, downgraded: 0 }
   }
@@ -214,6 +218,7 @@ export interface ParsedReport {
   scope: DimensionKey[]
   degraded: string | null
   model: string | null
+  provider: string | null
   createdAt: string
 }
 
@@ -238,6 +243,7 @@ export function parseReportRecord(record: ApprovalReportRecord): ParsedReport {
     scope: parseScope(record.scopeJson),
     degraded: record.degraded,
     model: record.model,
+    provider: record.provider,
     createdAt: record.createdAt
   }
 }

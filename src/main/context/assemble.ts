@@ -3,7 +3,7 @@ import type { AgentInstanceKey, AgentKey, RefType, ToolRef } from '../tools/type
 import type { BeatStatus, SpeakerType } from '../db/repos/beat'
 import { baseAgentOf } from '../tools/registry'
 import type { ContextBundle, CtxBlock } from './budget'
-import { fitToBudget, planBudget } from './budget'
+import { BUDGET, fitToBudget, planBudget } from './budget'
 import { estimateTokens, truncateToTokens } from './tokens'
 
 /**
@@ -53,6 +53,15 @@ export interface CharacterSpec {
   card: Record<string, unknown>
 }
 
+/** 上一章定稿摘要（PHASE-16 §5.4）：L0 块 `L0:summary:prev`。 */
+export interface PreviousSummarySpec {
+  chapterId: string
+  chapterOrd: number
+  chapterTitle: string
+  /** 由 `doc/summary.summaryText()` 展开（摘要 + 关键事实），不含章标题。 */
+  text: string
+}
+
 export interface SpectatorSpec extends CharacterSpec {
   location: string
   emotion: string
@@ -98,6 +107,8 @@ export interface AssembleInput {
   calibration?: number
   topK?: number
   recentLimit?: number
+  /** 上一章摘要；没有摘要（旧项目 / 未定稿）时为 null / 省略。 */
+  previousSummary?: PreviousSummarySpec | null
 }
 
 export interface AssembleResult {
@@ -242,16 +253,42 @@ export function assembleContext(input: AssembleInput): AssembleResult {
   const effectiveBudget = Math.ceil(plan.total / Math.max(0.7, Math.min(1.6, calibration)))
 
   const blocks: CtxBlock[] = []
-  blocks.push(
-    block({
-      id: 'L0:chapter',
-      layer: 'L0',
-      stable: true,
-      priority: 10,
-      text: capped(chapterL0(input), plan.caps.l0),
-      role: 'l0'
-    })
-  )
+  const chapterBlock = block({
+    id: 'L0:chapter',
+    layer: 'L0',
+    stable: true,
+    priority: 10,
+    text: capped(chapterL0(input), plan.caps.l0),
+    role: 'l0'
+  })
+  blocks.push(chapterBlock)
+
+  // PHASE-16 §5.4：上一章摘要进 L0（priority 高、可裁剪）；L0 总量仍 ≤900。
+  // 章纲先占位，摘要只用剩余额度；没有剩余就跳过（不塞进 system 提示词）。
+  let summaryOmitted = false
+  const previous = input.previousSummary
+  if (previous && previous.text.trim().length > 0) {
+    const room = Math.max(0, plan.caps.l0 - chapterBlock.tokens)
+    const cap = Math.min(BUDGET.summaryMax, room)
+    if (cap >= 20) {
+      blocks.push(
+        block({
+          id: 'L0:summary:prev',
+          layer: 'L0',
+          stable: true,
+          priority: 20,
+          text: capped(
+            `上一章（第 ${previous.chapterOrd} 章 ${previous.chapterTitle}）摘要：\n${previous.text}`,
+            cap
+          ),
+          role: 'summary'
+        })
+      )
+    } else {
+      summaryOmitted = true
+    }
+  }
+
   blocks.push(
     block({
       id: 'L1:scene',
@@ -375,6 +412,7 @@ export function assembleContext(input: AssembleInput): AssembleResult {
   }
 
   const bundle = fitToBudget(blocks, effectiveBudget)
+  if (summaryOmitted) bundle.degraded.push('summary_omitted')
   if (retrieved.length === 0 && pinned.length === 0) bundle.degraded.push('memory_empty')
 
   // 只有真正进入上下文的引用才可被 grounding 引用；被裁掉的块模型没看见。

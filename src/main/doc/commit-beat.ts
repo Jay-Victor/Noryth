@@ -160,6 +160,9 @@ export function commitBeat(db: Db, repos: Repos, input: CommitBeatInput): Commit
     }
     const manifest = mergeBeatIntoManifest(loadLiveManifest(db, chapter.id), beatRow, supersedesId)
     const contentHash = hashManifestRows(manifest)
+    const parentRevision =
+      chapter.currentRevisionId === null ? null : repos.revision.get(chapter.currentRevisionId)
+    const branchId = parentRevision?.branchId ?? null
 
     // revision 只 INSERT：hash 在插入前算好（DEV-PLAN §9.1）。
     repos.revision.insert({
@@ -168,7 +171,8 @@ export function commitBeat(db: Db, repos: Repos, input: CommitBeatInput): Commit
       parentRevisionId: chapter.currentRevisionId,
       kind: 'draft',
       contentHash,
-      createdBy: input.createdBy ?? 'doc_controller'
+      createdBy: input.createdBy ?? 'doc_controller',
+      branchId
     })
 
     // 先释放 (scene_id, ord) 的部分唯一索引槽位，再插新拍。
@@ -210,6 +214,8 @@ export function commitBeat(db: Db, repos: Repos, input: CommitBeatInput): Commit
     )
     repoRequireBeat(repos, inserted.id)
     repos.chapter.setCurrentRevision(chapter.id, revisionId)
+    // 分支末梢随提交移动（PHASE-16 §5.2）；revision 本身不动。
+    if (branchId !== null) repos.branch.setHead(branchId, revisionId)
     recomputeCoveredUntilSeq(db, chapter.id)
 
     const mirrorHash = hashText(renderChapterMarkdown(db, { chapterId: chapter.id, revisionId }))

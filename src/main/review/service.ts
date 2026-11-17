@@ -24,12 +24,15 @@ import { resolveBinding } from '../model/bindings'
 import type { RegistrySnapshot } from '../tools/registry'
 import { publishPendingMirrors } from '../doc/publish'
 import { finalizeChapter } from '../doc/finalize'
+import { reopenChapter } from '../doc/reopen'
+import { createBranch as createDocBranch, listBranches, switchBranch as switchDocBranch } from '../doc/branches'
 import { chapterTransition } from '../scheduler/transitions'
 import { commitBeat } from '../doc/commit-beat'
 import { confirmG2 } from '../scheduler/g2'
 import { markChapterComplete } from '../scheduler/loop'
 import { saveStoryboardDraft } from '../scheduler/storyboard'
 import { compareRevisions } from './diff'
+import { resolveHeteroReview, type HeteroResolution } from './hetero'
 import { checkAuthorGate, consumeAuthorGate, issueAuthorGate } from './gates'
 import { chapterPatches, decidePatches } from './patch'
 import { latestReport, parseReportRecord } from './report'
@@ -75,6 +78,12 @@ export interface ReviewServiceDeps {
   env?: NodeJS.ProcessEnv
   /** 设置页注入的 Key 解析（safeStorage 优先）；省略时只用环境变量。 */
   apiKeyFor?: ApiKeyLookup
+  /**
+   * PHASE-16 §5.1：重开再定稿会自动入队 `memory.rebuild`（G6 已授权）。
+   * main 进程把它接到 MemoryService；单元/集成测试不接时任务保持 queued，可手工重跑。
+   * 失败不能回滚定稿（已提交），只记日志；记忆台仍可手动按章重建。
+   */
+  autoRebuild?: (input: { chapterId: string; jobId: string }) => Promise<void>
 }
 
 export class ReviewService {
@@ -136,8 +145,10 @@ export class ReviewService {
       createdBy: revision.createdBy,
       note: revision.note,
       memberCount: host.repos.revision.countMembers(revision.id),
-      createdAt: revision.createdAt
+      createdAt: revision.createdAt,
+      branchId: revision.branchId
     })) satisfies ReviewVersionState[]
+    const branchOverview = listBranches(host.repos, chapter)
     const counts = issueCountsByBeat(report?.blocking ?? [], report?.suggestions ?? [])
     const draft = this.draftBeats(host.repos, chapter, counts)
     const g5 = g5State(host.repos, chapter, rounds)
@@ -177,6 +188,10 @@ export class ReviewService {
       }),
       patches,
       versions,
+      branches: branchOverview.branches,
+      mainlineHeadId: branchOverview.mainlineHeadId,
+      mainlineCurrent: branchOverview.mainlineCurrent,
+      branchId: branchOverview.currentBranchId,
       g5,
       g6,
       messages: host.repos.reviewMessage
@@ -227,11 +242,14 @@ export class ReviewService {
     this.running = true
     this.abort = new AbortController()
     const job = this.createJob(host, chapter, 'review.run', JSON.stringify({ mode: 'report' }))
+    const hetero = this.heteroFor(host, chapter)
     try {
       const outcome = await this.executeTurn(host, chapter, {
         mode: 'report',
         jobId: job.id,
-        text: '请审这一章的初稿，按契约提交报告。'
+        text: '请审这一章的初稿，按契约提交报告。',
+        binding: hetero,
+        heteroDegraded: hetero.degraded
       })
       const record = latestReport(host.repos, chapter.id)
       if (!record) throw new AppError('internal_error', '报告没有落库')
@@ -469,12 +487,15 @@ export class ReviewService {
     this.running = true
     this.abort = new AbortController()
     const job = this.createJob(host, chapter, 'review.run', JSON.stringify({ mode: 'recheck', scope }))
+    const hetero = this.heteroFor(host, chapter)
     try {
       await this.executeTurn(host, chapter, {
         mode: 'recheck',
         jobId: job.id,
         scope,
-        text: '请复检修订后的正文，只检查指定维度。'
+        text: '请复检修订后的正文，只检查指定维度。',
+        binding: hetero,
+        heteroDegraded: hetero.degraded
       })
       const record = latestReport(host.repos, chapter.id)
       if (!record) throw new AppError('internal_error', '复检报告没有落库')
@@ -573,25 +594,138 @@ export class ReviewService {
       reason: input.reason ?? null
     })
     consumeAuthorGate(host.repos, input.token)
+    const memoryNote =
+      result.memoryJobId === null
+        ? ''
+        : result.memoryJobType === 'memory.rebuild'
+          ? `；memory.rebuild ${result.memoryJobId} 已入队（旧 final 记忆将重建）`
+          : `；memory.extract ${result.memoryJobId} 已入队`
     host.repos.reviewMessage.insert({
       projectId: chapter.projectId,
       chapterId: chapter.id,
       round: rounds.rounds,
       role: 'system',
       kind: 'text',
-      body: `已定稿：final revision ${result.finalRevisionId}${
-        result.memoryJobId ? `；memory.extract ${result.memoryJobId} 已入队` : ''
-      }`
+      body: `已定稿：final revision ${result.finalRevisionId}${memoryNote}`
     })
     this.publish(host)
     this.log('review_finalized', {
       chapterId: chapter.id,
       finalRevisionId: result.finalRevisionId,
-      memoryJobId: result.memoryJobId
+      memoryJobId: result.memoryJobId,
+      memoryJobType: result.memoryJobType
+    })
+    // 自动重建是「定稿之后」的后台动作：失败不能把已定稿回滚；任务保持 failed/可重试。
+    if (result.memoryJobType === 'memory.rebuild' && result.memoryJobId !== null && this.deps.autoRebuild) {
+      const jobId = result.memoryJobId
+      void this.deps.autoRebuild({ chapterId: chapter.id, jobId }).catch((error: unknown) => {
+        this.log('review_auto_rebuild_failed', {
+          chapterId: chapter.id,
+          jobId,
+          message: error instanceof Error ? error.message : String(error)
+        })
+      })
+    }
+    return {
+      state: this.state(chapter.id),
+      detail: result.alreadyFinalized
+        ? '本章此前已定稿'
+        : result.memoryJobType === 'memory.rebuild'
+          ? '已定稿：正文冻结，记忆重建已入队'
+          : '已定稿：正文冻结，记忆抽取已入队'
+    }
+  }
+
+  // ── 重新打开定稿（M1-21） ────────────────────────────────────────────────
+
+  reopen(input: { chapterId: string; reason?: string }): ReviewActionResult {
+    const host = this.requireWritable()
+    if (this.running) throw new AppError('invalid_args', '审批任务进行中，请稍等')
+    const chapter = this.requireChapter(host.repos, input.chapterId)
+    const rounds = roundState(host.repos, chapter.id)
+    const result = reopenChapter(host.db, host.repos, {
+      chapterId: chapter.id,
+      actor: 'author',
+      reason: input.reason ?? null
+    })
+    host.repos.reviewMessage.insert({
+      projectId: chapter.projectId,
+      chapterId: chapter.id,
+      round: rounds.rounds,
+      role: 'system',
+      kind: 'text',
+      body: `已重新打开定稿：旧 final ${result.previousFinalRevisionId} 保留；新草稿 ${result.draftRevisionId}（write_epoch ${result.epoch}）`
+    })
+    this.log('review_reopened', {
+      chapterId: chapter.id,
+      previousFinalRevisionId: result.previousFinalRevisionId,
+      draftRevisionId: result.draftRevisionId,
+      epoch: result.epoch
     })
     return {
       state: this.state(chapter.id),
-      detail: result.alreadyFinalized ? '本章此前已定稿' : '已定稿：正文冻结，记忆抽取已入队'
+      detail: '已重新打开：旧定稿保留，可对比或回退'
+    }
+  }
+
+  // ── 分支（M1-21） ─────────────────────────────────────────────────────────
+
+  createBranch(input: { chapterId: string; name: string }): ReviewActionResult {
+    const host = this.requireWritable()
+    if (this.running) throw new AppError('invalid_args', '审批任务进行中，请稍等')
+    const chapter = this.requireReviewableChapter(host.repos, input.chapterId)
+    const rounds = roundState(host.repos, chapter.id)
+    const created = createDocBranch(host.db, host.repos, {
+      chapterId: chapter.id,
+      name: input.name,
+      actor: 'author'
+    })
+    host.repos.reviewMessage.insert({
+      projectId: chapter.projectId,
+      chapterId: chapter.id,
+      round: rounds.rounds,
+      role: 'system',
+      kind: 'text',
+      body: `新分支「${created.branch.name}」：head ${created.revisionId}（从 ${created.branch.baseRevisionId} 复制）`
+    })
+    this.log('review_branch_created', {
+      chapterId: chapter.id,
+      branchId: created.branch.id,
+      revisionId: created.revisionId
+    })
+    return {
+      state: this.state(chapter.id),
+      detail: `已开分支「${created.branch.name}」`
+    }
+  }
+
+  switchBranch(input: { chapterId: string; branchId: string | null }): ReviewActionResult {
+    const host = this.requireWritable()
+    if (this.running) throw new AppError('invalid_args', '审批任务进行中，请稍等')
+    const chapter = this.requireReviewableChapter(host.repos, input.chapterId)
+    const rounds = roundState(host.repos, chapter.id)
+    const switched = switchDocBranch(host.db, host.repos, {
+      chapterId: chapter.id,
+      branchId: input.branchId,
+      actor: 'author'
+    })
+    const branch = input.branchId === null ? null : host.repos.branch.get(input.branchId)
+    host.repos.reviewMessage.insert({
+      projectId: chapter.projectId,
+      chapterId: chapter.id,
+      round: rounds.rounds,
+      role: 'system',
+      kind: 'text',
+      body: `切换到${branch ? `分支「${branch.name}」` : '主线'}：revision ${switched.revisionId}`
+    })
+    this.log('review_branch_switched', {
+      chapterId: chapter.id,
+      branchId: input.branchId,
+      revisionId: switched.revisionId
+    })
+    return {
+      state: this.state(chapter.id),
+      detail: branch ? `已切到分支「${branch.name}」` : '已切回主线'
     }
   }
 
@@ -621,6 +755,15 @@ export class ReviewService {
         projectId: project.id,
         name: '沈昼',
         cardJson: JSON.stringify({ identity: '女子', want: '找到账本', taboo: '父亲' })
+      })
+    }
+    // 第二个角色只用于记忆/关系边（单角色项目里「关系变化」会退化成 from==to，
+    // 撞 relationship_edge 的 CHECK；dev 夹具铺一个真实的对端）。
+    if (host.repos.character.list(project.id).length < 2) {
+      host.repos.character.insert({
+        projectId: project.id,
+        name: '沈砚',
+        cardJson: JSON.stringify({ identity: '男子', want: '守住祠堂', fear: '被逐出族谱' })
       })
     }
     const root = host.repos.outline.insert({
@@ -723,10 +866,17 @@ export class ReviewService {
       scope?: readonly DimensionKey[]
       text?: string
       gateToken?: string
+      /** 异构复检解析结果（只在 report / recheck 传入）。 */
+      binding?: HeteroResolution
+      heteroDegraded?: string | null
     }
   ): Promise<{ reply: string; toolCalls: number; reportId: string | null; patchIds: string[]; degraded: string | null }> {
     const project = host.repos.project.get()
     if (!project) throw new AppError('project_not_found', 'no project in database')
+    const binding =
+      options.binding === undefined
+        ? resolveBinding(host.repos, project, 'reviewer', this.models.capabilitiesLookup())
+        : options.binding
     const messageId = options.messageId ?? newId('rmsg')
     this.emit({
       projectId: project.id,
@@ -740,9 +890,9 @@ export class ReviewService {
           db: host.db,
           repos: host.repos,
           registry: this.deps.registry,
-          adapter: this.models.adapter(
-            resolveBinding(host.repos, project, 'reviewer', this.models.capabilitiesLookup())
-          ),
+          adapter: this.models.adapter({ provider: binding.provider, model: binding.model }),
+          binding: { provider: binding.provider, model: binding.model },
+          ...(options.heteroDegraded === undefined ? {} : { heteroDegraded: options.heteroDegraded }),
           gateSecret: this.deps.gateSecret,
           capabilitiesLookup: this.models.capabilitiesLookup(),
           ...(this.abort === null ? {} : { signal: this.abort.signal }),
@@ -900,6 +1050,19 @@ export class ReviewService {
       alreadyFinalized: chapter.status === 'finalized',
       finalRevisionId: chapter.finalRevisionId
     }
+  }
+
+  private heteroFor(host: ReviewHost, chapter: ChapterRecord): HeteroResolution {
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'no project in database')
+    return resolveHeteroReview({
+      repos: host.repos,
+      project,
+      chapter,
+      settings: this.deps.settings(),
+      capabilitiesLookup: this.models.capabilitiesLookup(),
+      providerReady: (provider) => this.models.providerReady(provider)
+    })
   }
 
   private recheckScopeOf(rounds: RoundState): DimensionKey[] {

@@ -147,6 +147,9 @@ const bridge: NorythBridge = {
     finalizePreview: (chapterId) => invoke(IPC.reviewG6Preview, { chapterId }),
     issueFinalizeToken: (chapterId) => invoke(IPC.reviewG6Issue, { chapterId }),
     finalize: (input) => invoke(IPC.reviewFinalize, input),
+    reopen: (input) => invoke(IPC.reviewReopen, input),
+    createBranch: (input) => invoke(IPC.reviewBranchCreate, input),
+    switchBranch: (input) => invoke(IPC.reviewBranchSwitch, input),
     devSeed: (input) => invoke(IPC.reviewDevSeed, input ?? {})
   },
   world: {

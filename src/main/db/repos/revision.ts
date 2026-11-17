@@ -17,6 +17,8 @@ export interface RevisionRecord {
   createdBy: RevisionCreatedBy
   note: string | null
   createdAt: string
+  /** NULL = 主线（PHASE-16 §5.2）；final 永远 NULL。 */
+  branchId: string | null
 }
 
 export interface RevisionMemberRecord {
@@ -42,6 +44,8 @@ export interface NewRevisionInput {
   createdBy: RevisionCreatedBy
   note?: string | null
   createdAt?: string
+  /** 继承父 revision 的分支；final / 主线为 null。 */
+  branchId?: string | null
 }
 
 type RevisionRow = Selectable<RevisionTable>
@@ -62,7 +66,8 @@ function mapRevision(row: RevisionRow): RevisionRecord {
     contentHash: row.content_hash,
     createdBy: row.created_by as RevisionCreatedBy,
     note: row.note,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    branchId: row.branch_id ?? null
   }
 }
 
@@ -94,7 +99,8 @@ export class RevisionRepo extends BaseRepo {
       content_hash: input.contentHash,
       created_by: input.createdBy,
       note: input.note ?? null,
-      created_at: input.createdAt ?? this.now()
+      created_at: input.createdAt ?? this.now(),
+      branch_id: input.branchId ?? null
     }
     runStatement(this.runner, this.runner.db.insertInto('revision').values(values))
     return this.get(id)!
@@ -116,8 +122,30 @@ export class RevisionRepo extends BaseRepo {
         .selectAll()
         .where('chapter_id', '=', chapterId)
         .orderBy('created_at')
+        .orderBy('id')
     )
     return rows.map(mapRevision)
+  }
+
+  /**
+   * 主线末梢（PHASE-16 §5.2）：本章最近一个 `branch_id IS NULL` 的 draft。
+   * 分支切换只改 `chapter.current_revision_id`，主线末梢本身不动，所以切回主线
+   * 回到的就是这一版；final 不参与（final 永远 branch_id=NULL，但不是 draft）。
+   */
+  latestMainlineDraft(chapterId: string): RevisionRecord | null {
+    const row = firstRow<RevisionRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('revision')
+        .selectAll()
+        .where('chapter_id', '=', chapterId)
+        .where('kind', '=', 'draft')
+        .where('branch_id', 'is', null)
+        .orderBy('created_at', 'desc')
+        .orderBy('id', 'desc')
+        .limit(1)
+    )
+    return row ? mapRevision(row) : null
   }
 
   insertMembers(revisionId: string, members: readonly RevisionMemberRecord[]): void {

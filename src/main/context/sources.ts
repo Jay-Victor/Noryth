@@ -11,11 +11,13 @@ import type {
   AssembleInput,
   CharacterSpec,
   ChapterSpec,
+  PreviousSummarySpec,
   RecentBeatSpec,
   RetrievedItem,
   SceneSpec,
   SpectatorSpec
 } from './assemble'
+import { summaryText } from '../doc/summary'
 
 /**
  * 上下文取材（DEV-PLAN §8.3 的 M0 基线）：先做可见性过滤，再召回、排序。
@@ -165,6 +167,23 @@ export function collectContext(repos: Repos, input: CollectContextInput): Collec
   }
 
   const asOf = resolveChapterAsOf(repos, chapter, input.mode ?? 'write')
+
+  // PHASE-16 §5.4：上一章定稿摘要进 L0；没有摘要（旧项目 / 未定稿）就跳过，
+  // 不拿正文临时代替。摘要来自 final revision，不随当前草稿变化。
+  const previousChapter = previousChapterOf(repos, chapter)
+  let previousSummary: PreviousSummarySpec | null = null
+  if (previousChapter) {
+    const entry = repos.chapterSummary.latestByChapter(previousChapter.id)
+    if (entry && entry.tokens > 0) {
+      const previousOutline = repos.outline.get(previousChapter.outlineNodeId)
+      previousSummary = {
+        chapterId: previousChapter.id,
+        chapterOrd: previousChapter.ord,
+        chapterTitle: previousOutline?.title ?? `第 ${previousChapter.ord} 章`,
+        text: summaryText(entry)
+      }
+    }
+  }
 
   const actorCharacterId = input.agent.startsWith('character:')
     ? input.agent.slice('character:'.length)
@@ -345,6 +364,7 @@ export function collectContext(repos: Repos, input: CollectContextInput): Collec
     ),
     retrieved: rank(retrieved),
     recentBeats,
+    ...(previousSummary === null ? {} : { previousSummary }),
     ...(beat.maxWords === null ? {} : { maxWords: beat.maxWords }),
     ...(input.contextWindow === undefined ? {} : { contextWindow: input.contextWindow }),
     ...(input.topK === undefined ? {} : { topK: input.topK }),

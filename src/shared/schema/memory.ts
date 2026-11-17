@@ -238,6 +238,8 @@ export const MemoryRebuildStateSchema = z.strictObject({
   edgeCount: z.number().int().nonnegative(),
   jobId: z.string().nullable(),
   jobStatus: z.enum(['queued', 'running', 'applied', 'failed', 'cancelled']).nullable(),
+  /** 失败原因（PHASE-16：自动重建失败时 UI 能解释，不只显示「失败」）。 */
+  errorCode: z.string().nullable(),
   inactiveCount: z.number().int().nonnegative(),
   rebuiltCount: z.number().int().nonnegative()
 })

@@ -739,7 +739,9 @@ export class MemoryService {
    * 任何一步失败：旧条目仍 active、旧事实/边未关、令牌可重试。
    */
   async rebuild(
-    input: { chapterId: string; token: string } | { chapterId: string; gateTokenHash: string; actor: string }
+    input:
+      | { chapterId: string; token: string }
+      | { chapterId: string; gateTokenHash: string | null; actor: string }
   ): Promise<MemoryActionResult> {
     const host = this.requireWritable()
     if (this.running) throw new AppError('invalid_args', '已有记忆任务在跑，请稍等')
@@ -915,6 +917,55 @@ export class MemoryService {
       inactiveCount: result.state.rebuild.inactiveCount,
       rebuiltCount: result.state.rebuild.rebuiltCount
     }
+  }
+
+  /**
+   * PHASE-16 §5.1：重开再定稿自动入队的 `memory.rebuild` 由这里执行。
+   *
+   * 授权来自 G6：只有「本章 + 当前 final」的 G6 记录（已消费）才放行，
+   * 不接受任意 job id 伪造。执行链路与作者手动的按章重建完全相同
+   * （`rebuild()` → `rebuildChapter` → `applyMemoryProposals`）。
+   */
+  async runQueuedRebuild(jobId: string): Promise<void> {
+    const host = this.requireWritable()
+    const job = host.repos.job.get(jobId)
+    if (!job || job.type !== 'memory.rebuild' || job.status !== 'queued') return
+    const payload = parseJson(job.payloadJson)
+    const chapterId = typeof payload.chapterId === 'string' ? payload.chapterId : null
+    const gateRecordId = typeof payload.gateRecordId === 'string' ? payload.gateRecordId : null
+    const fail = (code: string, details: Record<string, unknown>): void => {
+      host.repos.job.setStatus(job.id, 'failed', { errorCode: code })
+      this.log('memory_rebuild_auto_rejected', { jobId: job.id, code, ...details })
+    }
+    if (chapterId === null || gateRecordId === null) {
+      fail('invalid_args', { reason: 'payload' })
+      return
+    }
+    const chapter = host.repos.chapter.get(chapterId)
+    if (!chapter || chapter.status !== 'finalized' || chapter.finalRevisionId !== job.expectedRevision) {
+      fail('stale_revision', { chapterId, finalRevisionId: chapter?.finalRevisionId ?? null })
+      return
+    }
+    const gate = host.repos.gate.get(gateRecordId)
+    if (
+      !gate ||
+      gate.gateId !== 'G6' ||
+      gate.entityType !== 'chapter' ||
+      gate.entityId !== chapterId ||
+      gate.decision !== 'approve' ||
+      gate.consumedAt === null
+    ) {
+      fail('gate_required', { gateId: 'G6', gateRecordId })
+      return
+    }
+    // 进入执行态：崩溃恢复会把 running 的 job 标 interrupted，而不是留一个假 queued。
+    host.repos.job.setStatus(job.id, 'running')
+    // G6 已消费；这里不再传一个假 token 哈希（apply 会把它当一次性令牌再消费一次）。
+    await this.rebuild({
+      chapterId,
+      gateTokenHash: null,
+      actor: 'author'
+    })
   }
 
   // ── 索引重建（M1-20） ─────────────────────────────────────────────────────
@@ -1492,6 +1543,7 @@ export class MemoryService {
         edgeCount: 0,
         jobId: null,
         jobStatus: null,
+        errorCode: null,
         inactiveCount: 0,
         rebuiltCount: 0
       }
@@ -1514,6 +1566,7 @@ export class MemoryService {
       edgeCount: preview.edgeCount,
       jobId: job?.id ?? null,
       jobStatus: viewRebuildStatus(job),
+      errorCode: job?.errorCode ?? null,
       inactiveCount: numberOr(stored.inactive_count, 0) ?? 0,
       rebuiltCount: numberOr(stored.rebuilt_count, 0) ?? 0
     }

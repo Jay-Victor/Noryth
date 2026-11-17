@@ -110,7 +110,8 @@ export class SettingsService {
       settingsPath: this.deps.paths?.settings ?? 'settings.json',
       secretsPath: this.deps.paths?.secrets ?? 'secrets.bin',
       lastOpenedProjectId: settings.lastOpenedProjectId,
-      openLastProject: settings.openLastProject
+      openLastProject: settings.openLastProject,
+      review: settings.review
     }
   }
 

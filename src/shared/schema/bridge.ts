@@ -327,6 +327,11 @@ export interface ReviewApi {
     ackUnreviewed: boolean
     reason?: string
   }): Promise<IpcResult<ReviewActionResult>>
+  /** 重新打开定稿（M1-21）：旧 final 保留，新建 draft；write_epoch+1。 */
+  reopen(input: { chapterId: string; reason?: string }): Promise<IpcResult<ReviewActionResult>>
+  /** 分支树（M1-21）：开新分支 / 切换；切到 final 走 reopen。 */
+  createBranch(input: { chapterId: string; name: string }): Promise<IpcResult<ReviewActionResult>>
+  switchBranch(input: { chapterId: string; branchId: string | null }): Promise<IpcResult<ReviewActionResult>>
   /** 仅未打包构建：E2E 脚手架。 */
   devSeed(input?: { scenes?: number; beatsPerScene?: number }): Promise<IpcResult<ReviewState>>
 }

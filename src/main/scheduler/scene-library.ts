@@ -307,6 +307,9 @@ export function forkSceneIntoChapter(db: Db, repos: Repos, input: { chapterId: s
     )
     const contentHash = hashManifestRows(manifest)
     const revisionId = newId('rev')
+    const parentRevision =
+      chapter.currentRevisionId === null ? null : repos.revision.get(chapter.currentRevisionId)
+    const branchId = parentRevision?.branchId ?? null
     repos.revision.insert({
       id: revisionId,
       chapterId: chapter.id,
@@ -314,7 +317,8 @@ export function forkSceneIntoChapter(db: Db, repos: Repos, input: { chapterId: s
       kind: 'draft',
       contentHash,
       createdBy: 'author',
-      note: `scene fork ${source.id}`
+      note: `scene fork ${source.id}`,
+      branchId
     })
 
     for (const { beat, id } of copied) {
@@ -347,6 +351,7 @@ export function forkSceneIntoChapter(db: Db, repos: Repos, input: { chapterId: s
       }))
     )
     repos.chapter.setCurrentRevision(chapter.id, revisionId)
+    if (branchId !== null) repos.branch.setHead(branchId, revisionId)
 
     if (sourceLink) removeDraftScene(repos, chapter, source.id)
     appendDraftScene(

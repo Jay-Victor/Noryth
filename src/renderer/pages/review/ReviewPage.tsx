@@ -11,6 +11,7 @@ import { DiffView } from './DiffView'
 import { DraftView } from './DraftView'
 import { FinalizeDialog } from './FinalizeDialog'
 import { GateBar } from './GateBar'
+import { ReopenDialog } from './ReopenDialog'
 import { ReportView } from './ReportView'
 import { VersionList } from './VersionList'
 
@@ -366,6 +367,18 @@ export function ReviewPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
             导出 Markdown
           </button>
           {/* G6 只在审批台预览 header；无快捷键，创作台不出现。 */}
+          {state.chapterStatus === 'finalized' ? (
+            <button
+              type="button"
+              className="plan-btn"
+              data-testid="review-reopen"
+              disabled={state.readOnly || busy || state.running}
+              title="旧定稿保留，可用于对比 / 回退；新草稿可编辑"
+              onClick={() => useReview.getState().openReopen()}
+            >
+              重新打开
+            </button>
+          ) : null}
           <button
             type="button"
             className={`plan-btn review-finalize-btn${state.g6.alreadyFinalized ? ' is-done' : ''}`}
@@ -448,6 +461,7 @@ export function ReviewPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
         )}
       </section>
 
+      <ReopenDialog />
       <FinalizeDialog />
     </>
   )

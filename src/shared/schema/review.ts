@@ -54,6 +54,8 @@ export const ReviewReportStateSchema = z.strictObject({
   scope: z.array(DimensionKeySchema),
   degraded: z.string().nullable(),
   model: z.string().nullable(),
+  /** 异构复检留痕（PHASE-16 §5.3）：报告由哪一家产出。 */
+  provider: z.string().nullable(),
   createdAt: z.string()
 })
 export type ReviewReportState = z.infer<typeof ReviewReportStateSchema>
@@ -96,9 +98,22 @@ export const ReviewVersionStateSchema = z.strictObject({
   createdBy: z.string(),
   note: z.string().nullable(),
   memberCount: z.number().int().nonnegative(),
-  createdAt: z.string()
+  createdAt: z.string(),
+  /** 分支（PHASE-16 §5.2）：null = 主线；final 永远 null。 */
+  branchId: z.string().nullable()
 })
 export type ReviewVersionState = z.infer<typeof ReviewVersionStateSchema>
+
+export const ReviewBranchStateSchema = z.strictObject({
+  id: z.string(),
+  name: z.string(),
+  baseRevisionId: z.string(),
+  headRevisionId: z.string(),
+  status: z.enum(['open', 'merged', 'archived']),
+  createdAt: z.string(),
+  isCurrent: z.boolean()
+})
+export type ReviewBranchState = z.infer<typeof ReviewBranchStateSchema>
 
 export const ReviewMessageSchema = z.strictObject({
   id: z.string(),
@@ -176,6 +191,12 @@ export const ReviewStateSchema = z.strictObject({
   reports: z.array(ReviewReportSummarySchema),
   patches: z.array(ReviewPatchStateSchema),
   versions: z.array(ReviewVersionStateSchema),
+  /** 分支树（M1-21）：主线末梢 + 分支列表；切到 final 走「重新打开」。 */
+  branches: z.array(ReviewBranchStateSchema),
+  mainlineHeadId: z.string().nullable(),
+  mainlineCurrent: z.boolean(),
+  /** 当前 revision 所属分支；null = 主线。 */
+  branchId: z.string().nullable(),
   g5: ReviewGateSchema,
   g6: ReviewFinalizePreviewSchema,
   messages: z.array(ReviewMessageSchema),
@@ -256,6 +277,19 @@ export const ReviewCompareInputSchema = z.strictObject({
   chapterId: z.string().min(1),
   leftRevisionId: z.string().min(1),
   rightRevisionId: z.string().min(1)
+})
+export const ReviewReopenInputSchema = z.strictObject({
+  chapterId: z.string().min(1),
+  reason: z.string().max(500).optional()
+})
+export const ReviewBranchCreateInputSchema = z.strictObject({
+  chapterId: z.string().min(1),
+  name: z.string().min(1).max(40)
+})
+export const ReviewBranchSwitchInputSchema = z.strictObject({
+  chapterId: z.string().min(1),
+  /** null = 切回主线。 */
+  branchId: z.string().min(1).nullable()
 })
 export const ReviewDevSeedInputSchema = z.strictObject({
   scenes: z.number().int().min(1).max(4).optional(),

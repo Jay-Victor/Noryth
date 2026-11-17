@@ -82,6 +82,14 @@ export class ReviewModelFactory {
     }
   }
 
+  /** 该 provider 是否真的能发请求：假模型模式视为可用，否则要求有 Key。 */
+  providerReady(provider: string): boolean {
+    if (this.fakeEnabled()) return true
+    return this.options.apiKeyFor
+      ? this.options.apiKeyFor(provider) !== null
+      : apiKeyFor(provider, this.options.env ?? process.env) !== null
+  }
+
   status(repos: Repos): { provider: string; model: string; label: string; ready: boolean } {
     const project = repos.project.get()
     if (!project) {
