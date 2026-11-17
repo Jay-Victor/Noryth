@@ -108,12 +108,12 @@
 - [x] as-of 回归：ch3 审批无 ch20 fact。（`E2E-M1-ASOF-01`）
 - [x] DOCX 回归：可打开；结构正确。（`E2E-M1-DOCX-01` + 本机 Word 打开检查）
 - [x] Win11 安装冒烟 PASS（`version=0.2.0 / schema=11`）；更新演练 PASS（manifest / 四态判定 / 真实下载）；卸载干净。（`scripts/install-smoke.mjs`、`scripts/update-drill.mjs`）
-- [ ] Win10 22H2 安装冒烟：本机无 VM，未执行；发布前必跑（§7 风险表）。
+- [x] Win10 22H2 安装冒烟：作者决定不测（2026-11-17，本机无 VM；按外部依赖记录，不阻断 M1 收口）。
 - [x] 安全清单 §4.4 全绿；200% 缩放无截断；抽屉焦点可进出。（`tests/unit/security.test.ts`、`tests/e2e/app.spec.ts`、`a11y.spec`、`tree.spec`）
 - [x] `tool_call` 面板只读、无 args、分页可用。（迁移 0011 + `E2E-M1-TOOLCALL` + `tests/unit/db/tool-call.test.ts`）
 - [x] 图标 / 品牌资源进安装包与窗口。（`brand-icon.test.ts` + `ExtractAssociatedIcon` 检查 + install-smoke 随包断言）
 - [x] `docs/M1-ACCEPTANCE.md` 写完并签字（自签）。
-- [ ] tag `phase-18-done`：等 Win10 安装冒烟与真实第二家 Key 两项外部依赖。
+- [x] tag `phase-18-done`：两项外部依赖由作者决定不测，阶段收口。
 
 ## 7 风险与回退
 

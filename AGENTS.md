@@ -20,7 +20,7 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 - 阶段 15 已 `done`（2026-11-15）：M1-11 覆盖检查（`plan/coverage.ts` 4 类确定性规则 + G1 阻断/开关 + 结构化标注）、M1-8 影响分析与变更流程（T29 写 `blueprint_change`、未分析不可应用、应用只标脏）、M1-10 伏笔（T22 + 记忆台第六 tab）、跨章标脏（`chapter.invalidated_at` + G2/G4 提示 + 忽略）；新增 `0009_blueprint_ops.sql`（`LATEST_SCHEMA_VERSION = 9`）；`E2E-M1-BLUEPRINT-01`、`E2E-M1-FORESHADOW-01`。
 - 阶段 16 已 `done`（2026-11-17）：M1-21 重新打开定稿（`doc/reopen.ts`；旧 final 保留、`write_epoch+1`、再定稿入队 `memory.rebuild`）+ 分支树（`doc/branches.ts`、`revision_branch`、`BranchTree.tsx`；只对比/切换，不合并）、M1-22 异构复检（`review/hetero.ts` + `review.hetero` 设置，默认 off；报告记录 `provider`，缺失 `degraded=hetero_unavailable`）、M1-13 章末摘要 + L0 `summary.prev`（`doc/summary.ts`、`chapter_summary`；≤300 tokens，L0 ≤900）；新增 `0010_branch_summary.sql`（`LATEST_SCHEMA_VERSION = 10`）；`E2E-M1-BRANCH-01`。
 - 阶段 17 已 `done`（2026-11-17）：M1-6 DOCX（`doc/export-docx.ts`：标题页 / 目录 / 章标题分页 / 场景分隔 / 首行缩进 2 字符；zip 时间戳 + core 时间 + 书签 id 归一化 → 同清单字节可复现；`docx` 运行时按需加载）+ M1-14 选项（`format`/`scope`/`includeNotes`/`toc`/`font`/`fontSize`/`lineSpacing`/`author`）、三档格式统一从 revision 清单渲染（未定稿标「草稿」）、`ExportDialog.tsx`、`E2E-M1-DOCX-01`；依赖 `docx` + `fflate`（纯 JS）；未改 schema（`LATEST_SCHEMA_VERSION = 10`）。CI 全绿 run `44034048165`（`d3ac330`）；标签 `phase-17-done` → `d3ac330`。
-- 阶段 18 代码完成、状态 `in_progress`（2026-11-17）：版本 0.2.0；M1-7 更新通道（`dev/beta/stable`、semver 预发布、同 minor 才允许回退、`scripts/update-drill.mjs`）、M1-15 QA（`E2E-M1-SMOKE` 3 章提交门 / `E2E-M1-A` 30 章 3 卷 nightly / `project.verify`）、M1-23 工具审计面板（迁移 0011 `tool_call.chapter_id` + `memory.toolCalls` + `ToolCallList.tsx`）、M1-25 图标（`scripts/gen-icons.mjs` + `resources/icon.ico|png`）；`docs/M1-ACCEPTANCE.md` 记录 PRD M1 五条证据。`LATEST_SCHEMA_VERSION = 11`。剩余外部依赖：Win10 22H2 VM 安装冒烟、真实第二家 Key、人工更新安装演练。
+- 阶段 18 已 `done`（2026-11-17）：版本 0.2.0；M1-7 更新通道（`dev/beta/stable`、semver 预发布、同 minor 才允许回退、`scripts/update-drill.mjs`）、M1-15 QA（`E2E-M1-SMOKE` 3 章提交门 / `E2E-M1-A` 30 章 3 卷 nightly / `project.verify`）、M1-23 工具审计面板（迁移 0011 `tool_call.chapter_id` + `memory.toolCalls` + `ToolCallList.tsx`）、M1-25 图标（`scripts/gen-icons.mjs` + `resources/icon.ico|png`）；`docs/M1-ACCEPTANCE.md` 记录 PRD M1 五条证据。`LATEST_SCHEMA_VERSION = 11`。作者决定不测 Win10 22H2 安装冒烟与真实第二家 Key（外部依赖）；标签 `phase-18-done`。
 - S3 按「DeepSeek 一家」收口（`deepseek-flash` 实测），第二家供应商顺延到阶段 04 D1 前补测；见 `docs/adr/0003-providers.md`。
 - `docs/` 已入库，是项目规格的一部分；不要删除、移动或重写。
 - 进度与交接写 `PROGRESS.md`；阶段范围与验收以 `docs/PHASE-0X-*.md` 为准。
@@ -64,7 +64,7 @@ M1：11 规模底座 → 12 场景/时间三轴 → 13 as-of → 14 重建/关�
 - 阶段 07 已 `done`（2026-11-14）：创作台与调度器、G2、11 状态迁移、自动模式；`LATEST_SCHEMA_VERSION = 4`；标签 `phase-07-done`。
 - 阶段 08 已 `done`（2026-11-15）：审批报告、patch、G4–G6、定稿与记忆抽取入队；`LATEST_SCHEMA_VERSION = 5`；CI run `43676789043` 全绿，标签 `phase-08-done` → `4639eb9`。
 - 阶段 09 已 `done`（2026-11-15）：H1–H5、`MemoryExecutor`、检索管线（vec+FTS+RRF）、记忆台与 G7；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01`。CI run `43681891589` 全绿，标签 `phase-09-done` → `4fca40c`；下一阶段从 `PHASE-10-DELIVERY.md` 开工。
-- 阶段 05 已通过；阶段 06 已通过；阶段 07 已通过；阶段 08 已通过；阶段 09 已通过；阶段 10 已通过（M0）；阶段 11 已通过（多项目/30 章/文件树抽屉/诊断包）；阶段 12 已通过（场景/时间三轴）；阶段 13 已通过（as-of/作者事实/上下文检查器/审批水位）；阶段 14 已通过（重建/关系图/bge 随包）；阶段 15 已通过（覆盖检查/影响分析/伏笔/跨章标脏）；阶段 16 已通过（重开定稿/分支/异构复检/章末摘要）；阶段 17 已通过（DOCX 导出/导出选项）；阶段 18 代码与 PRD M1 五条已验收（分发/审计/图标/长跑），待 Win10 VM 与真实第二家 Key。
+- 阶段 05 已通过；阶段 06 已通过；阶段 07 已通过；阶段 08 已通过；阶段 09 已通过；阶段 10 已通过（M0）；阶段 11 已通过（多项目/30 章/文件树抽屉/诊断包）；阶段 12 已通过（场景/时间三轴）；阶段 13 已通过（as-of/作者事实/上下文检查器/审批水位）；阶段 14 已通过（重建/关系图/bge 随包）；阶段 15 已通过（覆盖检查/影响分析/伏笔/跨章标脏）；阶段 16 已通过（重开定稿/分支/异构复检/章末摘要）；阶段 17 已通过（DOCX 导出/导出选项）；阶段 18 已通过（分发/审计/图标/30 章长跑）。
 
 ## 不能违反的规则
 
