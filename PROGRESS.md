@@ -270,7 +270,7 @@
 | 按需加载 | `doc/export-docx.ts` | `await import('docx')`（模块级缓存）+ 顶层仅 type import；`out/main/index.js` 只剩 `import("docx")`；新增单测守住（PHASE-17 §7） |
 | CI（按需加载后） | GitHub Actions run `44033017991`（`bd50c14`） | verify + e2e 均绿 |
 | CI（分片） | GitHub Actions run `44034048165`（`d3ac330`） | verify 绿 + e2e (1) 1m58 / e2e (2) 2m23 均绿；第 1 片到 `memory.spec`，第 2 片从 `plan.spec` 起（干净 runner） |
-| 阶段标签 | `phase-17-done` → `06a4596` | 已推送 origin |
+| 阶段标签 | `phase-17-done` → `0fb41b8` | 已推送 origin（原指向 `06a4596`；之前的 3 个提交是 docx 按需加载与 CI 分片/诊断，标签随最终树移动） |
 
 ## 当前可运行命令
 
@@ -628,6 +628,7 @@
 
 - 无阻塞。阶段 17 已 `done`（2026-11-17）：本地门禁全绿（typecheck / lint / depcruise 314 modules / unit 775 / integration 46 / chaos 8 / e2e 30 / build / gen:check / 规格脚本 / perf 2）；NSIS 159MB + 安装冒烟 PASS；本机 Word 打开检查通过。`LATEST_SCHEMA_VERSION = 10`（本阶段未新增迁移）。
 - 遗留观察（不阻塞）：阶段 12 的文档提交 run `43708534963`（`37af4db`）e2e 在第 10 条（provider）之前中断：日志只有 `Downloading Electron binary...`，前 9 条已 `ok`，verify 全绿。形态与阶段 11 的 `43699407599` 一致（runner 上 `node_modules/electron/dist` 不可用），判断为环境偶发；复跑记录见「验证记录（阶段 12）」。
+- CI e2e 静默早退（不阻塞验收）：阶段 17 的 5 次 run 里 3 次在 `ok 15`（`memory.spec`）之后 exit 1、日志无失败用例（本地连跑 3 次 30/30）。已把 e2e 分两片——第 1 片到 `memory.spec` 结束、第 2 片从 `plan.spec` 起在干净 runner 上——并加崩溃诊断（内存/磁盘、Top 进程、Windows Application 事件日志、`> e2e.log` 同步落盘）。若再现，按诊断步骤定位是 OOM 还是应用崩溃，再决定是否拆更多片。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录（M1 阶段 18，M1-26）。
 - 已知缺口（不阻塞）：
