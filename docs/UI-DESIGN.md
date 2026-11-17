@@ -840,6 +840,9 @@ Tabs：提案 / 角色记忆 / 世界状态 / 关系图 / 伏笔 / 审计。
 - [x] 版本 tab 有分支树：可开新分支、对比任意两版、切换分支不丢数据；final 不挂分支（阶段 16 交付：`BranchTree.tsx` + `doc/branches.ts`）
 - [x] 设置可开异构复检（默认关闭）；报告显示实际 provider，无第二家时标「异构不可用」不阻断（阶段 16 交付：`review/hetero.ts` + 设置页「审批」卡）
 - [x] 创作台可导出 DOCX：标题页（书名 / 作者 / 日期）+ 目录 + 每章分页；未定稿章标「草稿」；仅正文 / 正文 + 修订建议两档；同名文件追加序号不覆盖（阶段 17 交付：`ExportDialog.tsx` + `doc/export-docx.ts`；`E2E-M1-DOCX-01`）
+- [x] 记忆台「审计 → 工具调用」只读、分页 50、可按章 / Agent / 状态过滤；不显示参数原文、不提供重放（阶段 18 交付：`ToolCallList.tsx` + `memory.toolCalls`；`E2E-M1-TOOLCALL`）
+- [x] 安装包 / exe / 窗口使用同一套品牌图标，`resources/icons/*` 随包（阶段 18 交付：`scripts/gen-icons.mjs` + `brand.ts`；`brand-icon.test.ts` + `install-smoke`）
+- [x] 200% 缩放无按钮截断；抽屉焦点可进入与返回（阶段 11 交付，`a11y.spec` / `tree.spec`；阶段 18 复跑绿）
 - [ ] 设置里 Key 只显示末 4 位；测试失败有错误码
 - [ ] 只读锁下所有写入按钮禁用并有横幅
 - [ ] 200% 缩放无按钮截断；抽屉焦点可进入与返回

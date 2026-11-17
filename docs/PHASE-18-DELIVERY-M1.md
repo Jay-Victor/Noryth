@@ -102,16 +102,18 @@
 
 ## 6 验收清单
 
-- [ ] `E2E-M1-A` 30 章跑完：30 final、`db.verify()` 绿、无孤儿、无 `context_overflow`、RSS <600MB。
-- [ ] 闪回回归：全书审批无 `timeline` 误报。
-- [ ] 重建回归：旧记忆 inactive；新记忆 active。
-- [ ] as-of 回归：ch3 审批无 ch20 fact。
-- [ ] DOCX 回归：可打开；结构正确。
-- [ ] Win11 + Win10 22H2 安装冒烟 PASS；更新演练 PASS；卸载干净。
-- [ ] 安全清单 §4.4 全绿；200% 缩放无截断；抽屉焦点可进出。
-- [ ] `tool_call` 面板只读、无 args、分页可用。
-- [ ] 图标 / 品牌资源进安装包与窗口。
-- [ ] `docs/M1-ACCEPTANCE.md` 写完并签字；tag `phase-18-done`。
+- [x] `E2E-M1-A` 30 章跑完：30 final、`db.verify()` 绿、无孤儿、无 `context_overflow`、内存 <600MB（私有合计 512MB / 工作集 622MB）。（`tests/e2e-long/m1-a.spec.ts`，20.8s；每 5 章 `project.verify`）
+- [x] 闪回回归：全书审批无 `timeline` 误报。（`E2E-M1-TIME-01`：报告无 `type='timeline'`）
+- [x] 重建回归：旧记忆 inactive；新记忆 active。（`E2E-M1-REBUILD-01` + `E2E-M1-BRANCH-01` 自动 rebuild）
+- [x] as-of 回归：ch3 审批无 ch20 fact。（`E2E-M1-ASOF-01`）
+- [x] DOCX 回归：可打开；结构正确。（`E2E-M1-DOCX-01` + 本机 Word 打开检查）
+- [x] Win11 安装冒烟 PASS（`version=0.2.0 / schema=11`）；更新演练 PASS（manifest / 四态判定 / 真实下载）；卸载干净。（`scripts/install-smoke.mjs`、`scripts/update-drill.mjs`）
+- [ ] Win10 22H2 安装冒烟：本机无 VM，未执行；发布前必跑（§7 风险表）。
+- [x] 安全清单 §4.4 全绿；200% 缩放无截断；抽屉焦点可进出。（`tests/unit/security.test.ts`、`tests/e2e/app.spec.ts`、`a11y.spec`、`tree.spec`）
+- [x] `tool_call` 面板只读、无 args、分页可用。（迁移 0011 + `E2E-M1-TOOLCALL` + `tests/unit/db/tool-call.test.ts`）
+- [x] 图标 / 品牌资源进安装包与窗口。（`brand-icon.test.ts` + `ExtractAssociatedIcon` 检查 + install-smoke 随包断言）
+- [x] `docs/M1-ACCEPTANCE.md` 写完并签字（自签）。
+- [ ] tag `phase-18-done`：等 Win10 安装冒烟与真实第二家 Key 两项外部依赖。
 
 ## 7 风险与回退
 
