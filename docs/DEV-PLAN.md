@@ -327,7 +327,7 @@ contextBridge.exposeInMainWorld('noryth', {
 | memory | `index.rebuild`（M1-20） | token | `{state, detail}`；32 条/批、可恢复、成功才消费令牌 | author_confirm |
 | settings | `setProvider` / `testProvider` | provider、key、baseUrl | `{status, models[], latencyMs}` | — |
 | settings | `bindAgent` | agentKey、provider、model、params | `{bindingVersion}` | — |
-| export | `run` | 范围、格式 | `{path}` | — |
+| export | `run` | 范围（本章 / 全书）、格式（md / txt / docx）、批注、DOCX 排版（目录 / 字体 / 字号 / 行距）、作者（仅标题页） | `{format, path, bytes, sha256, chapters, beats, words, revisionIds, drafts}`；从 revision 清单渲染，只读 | — |
 
 ### 4.4 安全基线（M0 必须全绿）
 
@@ -2118,6 +2118,17 @@ export function finalize(chapterId: string, revisionId: string, ack: Ack) {
 - `prefer` 时在 job 开始时解析一次：本章正文的生成 provider（`turn_metric` 最近一条带 beat 的调用；没有就退回旁白绑定）与 reviewer 绑定相同，且存在已启用 / 已验证 / 有 Key 的第二家 → 改用第二家；job 内不变。
 - 报告写 `model` + `provider`；找不到第二家 → `degraded='hetero_unavailable'`，不阻断报告，不伪造「已异构」。
 - 讨论与 patch 模式仍用配置的 reviewer 绑定：异构只针对「审」这件事，避免 patch 写入路径随开关漂移。
+
+### 9.10 导出（阶段 17，M1-6 / M1-14）
+
+导出不是文档控制器的写入口，也不会成为第二个真相：
+
+- 三档格式（md / txt / docx）共用同一份 **revision 清单**：`finalized` 章读 `final_revision_id`，其余章读 `current_revision_id` 的 draft 并标「草稿」；没有 revision 的章导出空章节，不退回 live 拍。这样文件里写的 `revision` / `content_hash` 一定描述的是文件里的正文。
+- 只读：不建 revision、不写 outbox、不动 `beat.body`；只读锁下仍可导出（`export.run` 不是 mutation 通道）。
+- 路径固定在项目 `exports/` 下；文件名 = 书名/章名 + 时间戳，同名追加 `-2`、`-3`，不覆盖已有导出。
+- DOCX 用纯 JS 的 `docx`（无原生模块）+ `fflate`：标题页（书名 / 作者 / 日期）→ 目录（可选，Word 打开时更新页码）→ 每章标题（分页）+ 场景分隔 + 拍正文段落；首行缩进 2 字符、默认宋体 12pt / 1.5 倍行距，字号与行距三档可配。
+- 批注档只在章末附「修订建议」小节（最近一份审批报告的条目 + 轮次 / provider），标题写明「仅建议，未改正文」；不写 Word 原生批注（跨版本兼容差）。
+- 可复现：zip 条目时间固定 2000-01-01、core 的 created/modified 归一化到导出日零点、目录书签名与 bookmark id 按出现顺序重编号；同一天同一份清单两次导出字节一致（sha256 相同）。
 
 ---
 

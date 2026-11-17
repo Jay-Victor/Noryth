@@ -92,13 +92,13 @@
 
 ## 6 验收清单
 
-- [ ] `E2E-M1-DOCX-01`：导出全书 → 文件存在 → 解压 XML 含所有章标题与每章首段 → 无 Key / 日志字符串。
-- [ ] 仅正文 / 正文 + 批注两档输出不同；批注不改变正文段落。
-- [ ] 30 章导出 <2s；同 revision 两次导出文本一致。
-- [ ] 未定稿章导出标「草稿」；不产生 revision。
-- [ ] 字体 / 字号 / 行距选项生效（XML 断言）。
-- [ ] 打包后 `docx` 依赖可用（无原生模块）；安装冒烟 PASS。
-- [ ] 导出路径不越出 `exports/`；同名文件不覆盖。
+- [x] `E2E-M1-DOCX-01`：导出全书 → 文件存在 → 解压 XML 含所有章标题与每章首段 → 无 Key / 日志字符串。（`tests/e2e/export.spec.ts`）
+- [x] 仅正文 / 正文 + 批注两档输出不同；批注不改变正文段落。（`tests/unit/doc/docx.test.ts`：仅正文输出是批注档的逐字前缀）
+- [x] 30 章导出 <2s；同 revision 两次导出文本一致。（`tests/perf/m0-baseline.spec.ts` + `tests/unit/doc/docx.test.ts` 字节一致）
+- [x] 未定稿章导出标「草稿」；不产生 revision。（`tests/unit/doc/docx.test.ts` + E2E revision 计数不变）
+- [x] 字体 / 字号 / 行距选项生效（XML 断言）。（`tests/unit/doc/docx.test.ts`）
+- [x] 打包后 `docx` 依赖可用（无原生模块）；安装冒烟 PASS。（`pnpm dist` 159MB；`scripts/install-smoke.mjs` 新增 asar 路径断言 + PASS）
+- [x] 导出路径不越出 `exports/`；同名文件不覆盖。（`tests/unit/doc/docx.test.ts`）
 
 ## 7 风险与回退
 
@@ -117,3 +117,25 @@
 3. 30 章导出性能达标，可复现。
 4. 导出只读不变式有测试。
 5. 打包冒烟含 `docx` 依赖。
+
+## 9 实现记录（2026-11-17）
+
+| 交付 | 落点 | 说明 |
+|---|---|---|
+| DOCX 生成 | `src/main/doc/export-docx.ts` | 纯 JS `docx`（无原生模块）；标题页 → 目录（`TableOfContents`，条目由 Heading1 生成，Word 打开时更新页码）→ 每章标题分页 + 场景分隔（＊　＊　＊）+ 拍正文段落；首行缩进 2 字符；默认宋体 12pt / 1.5 倍行距 |
+| 可复现 | 同上 `normalizeArchive` | zip 条目时间固定 2000-01-01；core 的 created/modified 归一化到导出日零点；目录书签名 `_TocN` 与 bookmark id 按出现顺序重编号（docx 的计数器跨文档累加，不归一化就不可复现） |
+| 选项契约 | `src/shared/schema/export.ts` | `format: md \| txt \| docx`、`scope`（缺省按 chapterId 推断）、`includeNotes`、`toc`、`font`、`fontSize`、`lineSpacing`、`author`（只进标题页）；结果补 `format` / `drafts` |
+| 统一版本口径 | `src/main/doc/export.ts` | 三档格式都从 `revision_manifest` 渲染：`finalized` 章读 final，其余章读 current draft 并标「草稿」；md 的注释行补 `draft` 标记；不带 revision 的章输出空章节，不退回 live 拍 |
+| 批注档 | 同上 + `export-docx.ts` | 章末「修订建议」小节：标题 + 「仅建议，未改正文」+ 报告轮次 / provider + 条目；不写 Word 原生批注 |
+| 路径与覆盖 | `export.ts` `resolveTarget` | 固定 `exports/`，解析后必须在目录内；同名追加 `-2`、`-3`，不覆盖 |
+| UI | `src/renderer/pages/write/ExportDialog.tsx` + `WritePage.tsx` | 预览 header「导出」；三档格式、本章 / 全书、仅正文 / 正文 + 修订建议、DOCX 字体 / 字号 / 行距 / 目录 / 作者；预估文件名；只读锁下仍可用 |
+| 依赖 | `package.json` | `docx@9.15.4` + `fflate@0.8.3`（均纯 JS）；`externalizeDepsPlugin` 保持外部化，随 `node_modules` 进包 |
+| 测试 | `tests/unit/doc/docx.test.ts`、`tests/e2e/export.spec.ts` | 解压 XML 断言、字节可复现、两档差异、选项、草稿 / 定稿、同名与越界；`E2E-M1-DOCX-01` |
+| 测试基建 | `tests/support/unzip.ts` | 支持 deflate（方法 8），DOCX 与诊断包共用同一个读取器 |
+
+边界说明：
+
+- 导出不产生 revision、不写 outbox、不改正文；只读锁下 `export.run` 仍可用（不是 mutation 通道）。
+- 目录页码由 Word / WPS 首次打开时更新（`w:updateFields` + dirty 域）；预生成条目保证不更新也不会是空白目录。
+- 未定稿章一律标「草稿 · 尚未定稿」，不冒充定稿；定稿章只读 final 清单，旧 final 不冒充当前稿。
+- 本阶段未改 schema（`LATEST_SCHEMA_VERSION = 10`）。

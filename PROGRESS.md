@@ -22,7 +22,7 @@
 | 14 | `docs/PHASE-14-REBUILD-GRAPH.md` | done | M1-4 按章重建（`memory/rebuild.ts` + `ApplyInput.rebuild` 同事务清旧 + `author_confirm` + T40 打开）、M1-5 关系图（`world/relations.ts` 确定性圆环 + as-of 回放 + 来源；记忆台第五 tab）、M1-20 bge 权重随包（q8/24MB，`pnpm verify:embed`）+ `index.rebuild`（32/批、可恢复、`author_confirm`）、记忆台按章重建按钮启用；`E2E-M1-REBUILD-01`、`CHAOS-09`；未改 schema（`LATEST_SCHEMA_VERSION = 8`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 288 modules / unit 693 / integration 41 / chaos 8 / e2e 26 / build / gen:check / 规格脚本）+ NSIS 157MB + 安装冒烟 PASS | 全量重建整个项目（M2）；关系图编辑（只读）；`tool_call` 审计面板仍在阶段 18；「重新打开定稿」后端仍属阶段 16（本阶段重建作用于当前 final revision） |
 | 15 | `docs/PHASE-15-COVERAGE-IMPACT.md` | done | M1-11 覆盖检查（`plan/coverage.ts` 4 类确定性规则 + `CoveragePanel` + G1 阻断/开关 + 结构化标注编辑器）、M1-8 影响分析与变更流程（`plan/impact.ts` + `plan/change.ts`、T29 写 `blueprint_change`、应用只改 outline/角色卡 + 标脏 + 系统提示、未分析拒绝）、M1-10 伏笔（`world/foreshadow.ts` + T22 + 记忆台第六 tab，距离/超期/回收）、跨章标脏（`chapter.invalidated_at/reason` + 创作台/审批台横幅 + 忽略）、T31 ops 支持结构化纲要素并在 G1 后返回 `requires_change`；新增 `0009_blueprint_ops.sql`（`LATEST_SCHEMA_VERSION = 9`）；`E2E-M1-BLUEPRINT-01`、`E2E-M1-FORESHADOW-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 301 modules / unit 746 / integration 46 / chaos 8 / e2e 28 / build / gen:check / 规格脚本） | 覆盖检查只做确定性规则（语义判断 M2）；影响分析不跨项目、不预测语义漂移；伏笔自动识别 M2；`tool_call` 审计面板仍在阶段 18 |
 | 16 | `docs/PHASE-16-BRANCH-LONGFORM.md` | done | M1-21 重新打开定稿（`doc/reopen.ts`：旧 final 保留、新 draft、`write_epoch+1`、再定稿自动执行 `memory.rebuild`）+ 分支树（`doc/branches.ts`：开分支/对比/切回主线，head 随 commit/patch/fork 移动，final 不挂分支）、M1-22 异构复检（`review/hetero.ts` + `review.hetero` 设置；报告记录 `provider`，缺失 `degraded=hetero_unavailable`）、M1-13 章末摘要（`doc/summary.ts`：finalize 同事务、首末拍 + 关键事实 ≤5、≤300 tokens；L0 `summary.prev`）；新增 `0010_branch_summary.sql`（`LATEST_SCHEMA_VERSION = 10`）；`E2E-M1-BRANCH-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 310 modules / unit 769 / integration 46 / chaos 8 / e2e 29 / build / gen:check / 规格脚本） | 分支不做合并（M2）；异构复检默认 `off`，评分校准 M2-8；摘要只做抽取式（模型摘要 M2）；`summary.prev` 只进 L0 装配，不塞进 system 提示词 |
-| 17 | `docs/PHASE-17-DOCX-EXPORT.md` | todo | — | — | — |
+| 17 | `docs/PHASE-17-DOCX-EXPORT.md` | done | M1-6 DOCX（`doc/export-docx.ts`：标题页 / 目录 / 章标题分页 / 场景分隔 / 首行缩进 2 字符；zip 时间戳 + core 时间 + 书签 id 归一化 → 同清单字节可复现）、M1-14 选项（`format` / `scope` / `includeNotes` / `toc` / `font` / `fontSize` / `lineSpacing` / `author`）、三档格式统一从 revision 清单渲染（未定稿标「草稿」）、`ExportDialog.tsx`、`E2E-M1-DOCX-01`；依赖 `docx` + `fflate`（纯 JS）；未改 schema（`LATEST_SCHEMA_VERSION = 10`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 314 modules / unit 775 / integration 46 / chaos 8 / e2e 30 / build / gen:check / 规格脚本 / perf 2）+ NSIS 159MB + 安装冒烟 PASS + 本机 Word 打开检查 | 目录页码由 Word/WPS 首次打开时更新（预生成条目保证不空白）；不做 PDF/EPUB、封面、Word 原生批注（M2/不做）；导出批注来自最近一份报告，不做逐条批注定位 |
 | 18 | `docs/PHASE-18-DELIVERY-M1.md` | todo | — | — | — |
 
 状态：`todo` / `in_progress` / `blocked` / `done`。
@@ -234,13 +234,41 @@
 | CI（复跑） | GitHub Actions run `44023118332`（`fc03d0e`，空提交） | verify + e2e 均绿；package 按规则跳过（非 `v*` tag） |
 | 阶段标签 | `phase-16-done` → `fc03d0e` | 已推送 origin |
 
+## 验证记录（阶段 17，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 314 modules / 1546 deps，0 违规（新增 `doc/export-docx.ts`） |
+| Lint | `pnpm lint` | 通过（新增 `ExportDialog` / 行内 `\u3000` 转义 / perf 夹具） |
+| 单元 + 契约 | `pnpm test:unit` | 775 passed（新增 `tests/unit/doc/docx.test.ts` 6 条） |
+| 集成 | `pnpm vitest run tests/integration` | 46 passed |
+| 混沌 | `pnpm test:chaos` | 8 passed / CHAOS-01..09 |
+| E2E | `pnpm test:e2e` | 30 passed（新增 `E2E-M1-DOCX-01`，2.9m） |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→…→0010；未新增迁移，`LATEST_SCHEMA_VERSION = 10` |
+| DOCX 结构 | `tests/unit/doc/docx.test.ts` | 解压含 `[Content_Types].xml` / `word/document.xml` / `docProps/core.xml`；标题页（书名 / 作者 / 日期）、每章标题 + 首段、目录条目由 Heading1 生成；无 `sk-` / `secrets.bin` / `[INFO]` |
+| 可复现 | 同上 | 同清单两次导出 sha256 相同、字节逐位相等；central directory 的 DOS 日期全为 `0x2821`（2000-01-01）；core 的 created/modified = 导出日零点（书签名 `_TocN` 与 bookmark id 按出现顺序重编号，抵消 docx 的跨文档计数器） |
+| 两档批注 | 同上 | 「仅正文」输出是「正文 + 修订建议」的逐字前缀；多出的只有章末小节（`第 2 轮 · deepseek` + 阻断 / 建议条目） |
+| 选项 | 同上 | 思源宋体 → `w:eastAsia="思源宋体"`；10.5pt → `w:sz=21`、首行缩进 420；行距 2 → `w:line=480`；`toc:false` 无 `TOC \h \o` |
+| 草稿 / 定稿 | 同上 | 未定稿章正文前有「草稿 · 尚未定稿」，`drafts=1`；定稿后用 final revision（`revisionIds` = final id，core 属性带 final id） |
+| 同名不覆盖 | 同上 | 同一秒三次导出 → `-2` / `-3`，三份都存在；`scope:'chapter'` 缺 `chapterId` → `invalid_args`（code 断言） |
+| DOCX E2E | `tests/e2e/export.spec.ts` | `E2E-M1-DOCX-01`：3 章各 G2 + 生成确认一拍 → 创作台「导出」对话框导出全书 → `exports/` 有 docx → XML 含 3 章标题与各自首段 + 「草稿 · 尚未定稿」+ 目录 → 无 Key / 日志 / secrets；两次直连导出 sha256 相同、字节相等、revision 计数不变 |
+| Word 兼容 | Word（Office16）COM 打开样例 | `OPEN_OK pages=6 words=1130 paragraphs=65 toc=1 tocEntries=3 outlineHeadings=2`；本机未装 WPS |
+| 性能 | `pnpm test:perf` | PERF-01：打开 2ms、切章 P95 1ms、检索 P95 25ms、导出 14ms（14.8 万字）、**DOCX 95ms / 20KB**、RSS 295MB；PERF-M1-01 不变（切章 P95 1ms、摘要 P95 1ms、RSS 149MB）；perf 夹具每拍加唯一前缀并断言 DOCX 可见正文 >12 万字（避免全篇同文导致压缩率虚高） |
+| UI 巡检 | 临时 Playwright（已删） | 1440 / 1280 / 200%：导出对话框无按钮截断、无越界；200% 下卡片内滚动（与其他对话框一致） |
+| 打包 | `pnpm dist` | `release/Noryth-0.1.0-setup.exe` 159MB（166,931,654 B）；`app.asar` 56MB；asar 内含 `node_modules/docx` 与 `node_modules/fflate`，docx 无 `.node` |
+| 安装冒烟 | `node scripts/install-smoke.mjs` | PASS：`packaged=true/schema=10`、`embedder_ready source=model`、建项目、`user_version=10`、asar 断言 docx/fflate、卸载清理 |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+
 ## 当前可运行命令
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（769：unit+contract） / `pnpm vitest run tests/integration`（46）
+- `pnpm test:unit`（775：unit+contract） / `pnpm vitest run tests/integration`（46）
 - `pnpm test:perf`（PERF-01 + PERF-M1-01 基线；nightly，不进提交门）
-- `pnpm test:chaos`（8 条 / CHAOS-01..09） / `pnpm test:e2e`（29）
+- `pnpm test:chaos`（8 条 / CHAOS-01..09） / `pnpm test:e2e`（30）
 - `pnpm verify:embed`（bge 冷启动/单条/维度门槛；打包前手工跑）
 - `node scripts/install-smoke.mjs`（安装冒烟：装 → 建项 → 卸载）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
@@ -581,10 +609,14 @@
 | L0 摘要 | `L0:summary:prev` 只在上一章有摘要时加；章纲先占位、摘要用剩余 L0 额度（≤300）；超预算先压 150 再整块丢（最近拍之后、pinned 之前） | `context/assemble.ts`、`context/budget.ts`、`context/sources.ts` |
 | 异构复检 | `review.hetero=off/prefer` 默认 off；prefer 时 job 开始解析一次：生成 provider（turn_metric，缺失回退旁白）与 reviewer 相同且第二家已启用/已测试/有 Key → 切换；报告写 provider；无第二家 `degraded=hetero_unavailable` 不阻断 | `review/hetero.ts`、`review/run.ts`、设置页 |
 | 分支 verify | `branch_head_invalid`（head 缺/跨章/非 draft）、`current_revision_not_in_branch`、`summary_revision_invalid` | `db/verify.ts` |
+| 导出快照 | 三档格式（md/txt/docx）统一从 `revision_manifest` 渲染：`finalized` 章读 `final_revision_id`，其余章读 `current_revision_id` 并标「草稿」；不建 revision、不写 outbox、不动正文 | `doc/export.ts`、`shared/schema/export.ts` |
+| DOCX 生成 | `docx`（纯 JS）+ `fflate`；标题页 → 目录（Heading1 自动条目 + `updateFields`）→ 每章分页 + 场景分隔 + 拍段落；首行缩进 2 字符；批注只做章末「修订建议」小节 | `doc/export-docx.ts`、`ExportDialog.tsx` |
+| 导出一致性 | zip 条目时间固定 2000-01-01、core 时间归一化到导出日零点、`_TocN` 与 bookmark id 按出现顺序重编号；同一天同一清单两次导出字节一致（`sha256` 相同） | `doc/export-docx.ts` `normalizeArchive` |
+| 导出文件安全 | 目标固定 `exports/`，解析后必须在目录内；同名追加 `-2`/`-3` 不覆盖；文件名只由书名/章名 + 时间戳生成，不接受路径入参 | `doc/export.ts` `resolveTarget` |
 
 ## 当前阻塞
 
-- 无阻塞。阶段 16 已 `done`（2026-11-17）：本地门禁全绿（typecheck / lint / depcruise 310 modules / unit 769 / integration 46 / chaos 8 / e2e 29 / build / gen:check / 规格脚本）；`LATEST_SCHEMA_VERSION = 10`（新增 `0010_branch_summary.sql`）。
+- 无阻塞。阶段 17 已 `done`（2026-11-17）：本地门禁全绿（typecheck / lint / depcruise 314 modules / unit 775 / integration 46 / chaos 8 / e2e 30 / build / gen:check / 规格脚本 / perf 2）；NSIS 159MB + 安装冒烟 PASS；本机 Word 打开检查通过。`LATEST_SCHEMA_VERSION = 10`（本阶段未新增迁移）。
 - 遗留观察（不阻塞）：阶段 12 的文档提交 run `43708534963`（`37af4db`）e2e 在第 10 条（provider）之前中断：日志只有 `Downloading Electron binary...`，前 9 条已 `ok`，verify 全绿。形态与阶段 11 的 `43699407599` 一致（runner 上 `node_modules/electron/dist` 不可用），判断为环境偶发；复跑记录见「验证记录（阶段 12）」。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录（M1 阶段 18，M1-26）。
@@ -605,23 +637,23 @@
 
 ## 下一阶段交接
 
-- 阶段 16 已 `done`（2026-11-17）。下一阶段从 `docs/PHASE-17-DOCX-EXPORT.md` 开工（DOCX 导出）。
-- 阶段 16 直接复用（阶段 17 会用到）：
-  - **revision 链**：`RevisionRepo` 新增 `branchId`；final 永远 `branch_id=NULL`。DOCX 导出只读 `chapter.final_revision_id` 的清单，不要碰 current/branch。
-  - **章末摘要**：`doc/summary.ts` 的 `buildChapterSummary` / `summaryText` 是唯一实现；导出可选附摘要时直接读 `chapter_summary`，不要重新抽。
-  - **多 revision 导出**：重新打开后 `final_revision_id` 永远指向最新 final，旧 final 仍可按 id 读取（`review.compare` 已支持）；导出的版本号用 final revision 的 `created_at`/hash，不用章状态猜测。
-  - **审核报告 provider**：`approval_report.provider` 可用于导出「本轮由哪家审」；缺失时为 NULL。
-  - **迁移**：0010 已应用；阶段 17 若需要从 0011 起。迁移测试 `tests/unit/migrator.test.ts` 的 `applied` 列表要同步。
-  - **设置视图**：`SettingsView.review.hetero` 已存在；新增设置键时沿用「补丁不带 default」的写法。
+- 阶段 17 已 `done`（2026-11-17）。下一阶段从 `docs/PHASE-18-DELIVERY-M1.md` 开工（M1 分发与验收）。
+- 阶段 17 直接复用（阶段 18 会用到）：
+  - **导出入口**：`exportManuscript`（`src/main/doc/export.ts`）已统一从 revision 清单渲染，返回 `{format, path, bytes, sha256, chapters, beats, words, revisionIds, drafts}`；E2E/巡检直接调 `window.noryth.manuscript.export`，不要绕过它读 live 拍。
+  - **DOCX**：`src/main/doc/export-docx.ts` 的 `renderDocx` 是唯一实现；可复现靠 `normalizeArchive`（zip 2000-01-01 + core 时间归一 + `_TocN`/bookmark id 重编号）。新增排版选项先改 `shared/schema/export.ts`，再改这个模块。
+  - **UI**：`ExportDialog.tsx` 由 `WritePage` 预览 header 的「导出」打开；审批台仍保留「导出 Markdown」（本章）。
+  - **打包断言**：`scripts/install-smoke.mjs` 现在会列 asar 路径并要求 `docx` / `fflate` 存在——新增运行时依赖时按同样方式加断言，别只靠「能启动」。
+  - **迁移**：0010 已应用；阶段 18 如需迁移从 0011 起，并同步 `tests/unit/migrator.test.ts` 的 `applied` 列表。
 - M1 的关键回归：
   1. `E2E-M1-TIME-01`（闪回不误报，阶段 12）✅
   2. `E2E-M1-ASOF-01`（第 3 章读不到第 20 章事实，阶段 13）✅
   3. `E2E-M1-REBUILD-01`（按章重建旧记忆 inactive + 关系图回放 + 索引重建，阶段 14）✅
   4. `E2E-M1-BLUEPRINT-01`（蓝图变更必须过影响分析 + 标脏不改正文，阶段 15）✅
   5. `E2E-M1-BRANCH-01`（重开定稿 / 分支对比与切换 / 再定稿自动重建记忆，阶段 16）✅
-  6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）。
+  6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）✅
   7. `E2E-M1-A`（30 章连续创作，阶段 18 / nightly）。
-- 发布注意：首个 release tag 前配置 `NORYTH_UPDATE_FEED`（或 electron-builder publish），否则更新状态为 `disabled`；`latest.yml` 已随 `pnpm run dist` 生成。安装包 157MB（上限 250MB）。
+- 发布注意：首个 release tag 前配置 `NORYTH_UPDATE_FEED`（或 electron-builder publish），否则更新状态为 `disabled`；`latest.yml` 已随 `pnpm run dist` 生成。安装包 159MB（上限 250MB）。
+- 文档待办：`AGENTS.md` 的「当前状态」仍写「阶段 11–16 已 done」；该文件受保护，需作者手动改成 11–17（PROGRESS 已是最新）。
 
 ## 更新规则
 

@@ -1428,6 +1428,7 @@ G6 定稿
 
 ## 变更记录
 
+- **v0.9**：阶段 17 契约收口（DOCX 导出）：`export.run` 增 `format='docx'` 与排版选项 `scope`（本章 / 全书）、`toc`、`font`（宋体 / 思源宋体）、`fontSize`（10.5 / 12 / 14）、`lineSpacing`（1.15 / 1.5 / 2），新增只进导出文件的 `author`（标题页，不落库）；返回值补 `format` 与 `drafts`（未定稿章数）。三档格式统一从 revision 清单渲染（定稿章 final、未定稿章 draft 标「草稿」），文件属性写 revision / content_hash；导出只读（不建 revision），路径固定在 `exports/`，同名追加序号不覆盖。批注仍只是章末「修订建议」小节，不写 Word 原生批注。
 - **v0.8**：阶段 16 契约收口（分支、重开、异构复检、章末摘要）：章状态机 `finalized → revising`（重新打开，旧 final 永久保留）；实体表新增 `revision_branch` 与 `chapter_summary`，`revision.branch_id`（NULL = 主线）；`approval_report.provider` 记录异构复检的实际供应商；设置新增 `review.hetero = off | prefer`（默认 off）；审批台新增「重新打开」与分支树（对比 / 切换，不做合并）。摘要为抽取式（首拍 + 末拍 + 本章客观公开事实 ≤5 条，≤300 tokens），作为 L0 `summary.prev` 参与装配；不写正文、不参与 `content_hash`。
 - **v0.7**：阶段 15 契约收口：`coverage.check`（T26）输出改为可定位的 `gaps[{code, severity, node_id, message}]`，明确「`error` 才阻断 G1、`warn` 只计数、项目开关可关」；`impact.analyze`（T29）改为「`proposal_id` / `ops` / `character_card` 三选一」并把结果写入 `blueprint_change(status=proposed)`（因此类从「校验」改为「提案」）；`foreshadow.list_open`（T22）输入改 `chapter_id?`、输出补埋设章与当前章距离；`blueprint.propose_patch`（T31）ops 允许结构化纲要素并在 G1 后返回 `requires_change`。新增实体 `foreshadow` / `blueprint_change`，`outline_node.meta_json` 与 `chapter.invalidated_at/reason` 两列。
 - **v0.6**：补工具层设计：工具与 Agent 解耦（注册表、清单契约、白名单解析、运行时注入身份、提案/提交分离、错误码与契约测试）；新增 42 个 Agent 可调用工具与 8 个系统能力的清单、授权摘要、`tool_call` 审计实体；`grounding` 收紧为工具返回引用的子集。同步修订权限矩阵（规划公共设定读、角色脱敏目标、审批 patch 为建议型）、拍状态机（`waiting_for_human` / `author_edited` / `interrupted`）、失败退化表与风险表。
