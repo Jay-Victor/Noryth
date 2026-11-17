@@ -229,9 +229,10 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `e024b6f`（feat）+ 本提交（docs） | 待推送 origin/dev |
-| CI | 待推送 | — |
-| 阶段标签 | 待打 | — |
+| 提交 | `e024b6f`（feat）、`136d094`（docs）、`fc03d0e`（CI 复跑空提交） | 已推送 origin/dev |
+| CI（首次） | GitHub Actions run `44022119818`（`136d094`） | verify 2m52 全绿；e2e 在第 19 条 `settings.spec` 失败（1.0s，早退；本地 29/29 通过）→ 与阶段 14 同形态，判定 runner 偶发 |
+| CI（复跑） | GitHub Actions run `44023118332`（`fc03d0e`，空提交） | verify + e2e 均绿；package 按规则跳过（非 `v*` tag） |
+| 阶段标签 | `phase-16-done` → `fc03d0e` | 已推送 origin |
 
 ## 当前可运行命令
 
