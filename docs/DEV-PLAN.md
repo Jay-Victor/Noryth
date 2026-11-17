@@ -1,6 +1,6 @@
 # Noryth 开发方案（DEV-PLAN）
 
-> 版本 v0.3 ｜ 状态：可开工 ｜ 配套：`docs/PRD.md` v0.6、`docs/UI-DESIGN.md` v0.4 ｜ 范围：M0–M2
+> 版本 v0.10 ｜ 状态：可开工 ｜ 配套：`docs/PRD.md` v0.6、`docs/UI-DESIGN.md` v0.4 ｜ 范围：M0–M2
 >
 > 本方案把 PRD 的「做什么」翻译成「怎么建、按什么顺序、怎么证明做对了」。与 PRD 冲突时以 PRD 为准；本方案只补 PRD 未定义的工程实现细节，凡属补充均在标题标注「工程补充」。
 >
@@ -2673,14 +2673,22 @@ type UiState = {
 | 16 | `PHASE-16-BRANCH-LONGFORM.md` | M1-13、M1-21、M1-22 | 重开定稿；分支树；章末摘要 |
 | 17 | `PHASE-17-DOCX-EXPORT.md` | M1-6、M1-14 | DOCX 导出；批注与格式选项 |
 | 18 | `PHASE-18-DELIVERY-M1.md` | M1-7、M1-15、M1-23、M1-25、M1-26 | 30 章 E2E；Win10/11 安装；M1 验收 |
+| 19 | `PHASE-19-VOICE.md` | M2-1、M2-2 | T25；声音阈值校准；漂移告警；质量基线 |
+| 20 | `PHASE-20-COST-BUDGET.md` | M2-3、M2-5 | 预算内自动收束；每万字成本按章/Agent 归因 |
+| 21 | `PHASE-21-ROUTING-HETERO.md` | M2-4、M2-8 | 显式故障切换；异构默认值决策 |
+| 22 | `PHASE-22-ARCHIVE-CONTEXT.md` | M2-7、M2-9 | 非事实类归档；上下文成本下降 ≥15% |
+| 23 | `PHASE-23-SCALE-100K.md` | M2-6 | 10 万字项目性能达标 |
+| 24 | `PHASE-24-DELIVERY-M2.md` | M2-10 | 10 万字长跑；M2 四条验收；0.3.0 |
 
-阶段 1–10 为 M0，11–18 为 M1。每份阶段文档包含范围、任务、交付物、验收与退出条件；本表只定义顺序与出口。M1 接回了 §12.5 中后移到 M1 的项（关系图、as-of、伏笔、覆盖、影响分析、DOCX、分支树、异构复检）。
+阶段 1–10 为 M0，11–18 为 M1，19–24 为 M2。每份阶段文档包含范围、任务、交付物、验收与退出条件；本表只定义顺序与出口。M1 接回了 §12.5 中后移到 M1 的项（关系图、as-of、伏笔、覆盖、影响分析、DOCX、分支树、异构复检）。
 
 **依赖链**：S1 → C1 → C3 → F4 → G2 → H3 → J2。任一环阻塞只能砍范围（§12.5），不挪用测试。
 
 **M1 依赖链**：11 → 12 → 13 → 14/15 → 16 → 17 → 18。阶段 11 不动 schema；0008 在 12、0009 在 15、0010 在 16、0011 在 18。任一环阻塞先砍该阶段 P1（§12.6），不砍 PRD M1 的五条退出标准。
 
-**现状（2026-11-17）**：阶段 11–18 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。
+**M2 依赖链**：19 → 20 → 21 → 22 → 23 → 24。0012 在 19（`voice_metric`）、0013 在 20（`chapter.budget_cny` + `turn_metric.chapter_id`）、0014 在 22（归档列 + `cached_tokens` + 审计动作）；23 默认不加迁移，若实测必须加索引则只用 0015 且只加 `CREATE INDEX`；24 不动 schema。任一环阻塞先砍该阶段 P2/P3，不砍 PRD M2 的四条退出标准。
+
+**现状（2026-11-17）**：阶段 11–18 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19–24 的阶段文档已建（2026-11-17），M2 尚未开工；验收口径见 `docs/PRD.md` §10 与 §16.5。
 
 ### 12.5 M0 砍单清单（写死在范围里）
 
@@ -2696,8 +2704,8 @@ type UiState = {
 | 异构模型复检 | 审批 P1 | M0 只做「手动绑第二家」 | M1 |
 | 成本/耗时报表 | M2 | 先落 `turn_metric`，报表后置 | M2 |
 | 主题/外观完整设置 | 设置 P1 | M0 只亮色 + token 就绪 | M1 |
-| 项目模板 | P2 | 与「不支持导入」一起后置 | M2 |
-| 自动补旁白建议 | P2 | 只保留提示，不自动插拍 | M2 |
+| 项目模板 | P2 | 与「不支持导入」一起后置；PRD M2 范围未列 | M2 之后（未列入 M2-1..M2-10） |
+| 自动补旁白建议 | P2 | 只保留提示，不自动插拍；PRD M2 范围未列 | M2 之后（未列入 M2-1..M2-10） |
 
 ### 12.6 M1 / M2 任务概要
 
@@ -2736,18 +2744,20 @@ type UiState = {
 
 **M2 任务**
 
-| ID | 任务 |
-|---|---|
-| M2-1 | `voice.metrics` + 中文阈值校准 |
-| M2-2 | 声音漂移告警 |
-| M2-3 | 预算化自动模式 + 费用预测 |
-| M2-4 | 多供应商路由与故障切换策略 |
-| M2-5 | 成本/耗时报表（按章/Agent） |
-| M2-6 | 10 万字项目性能专项 |
-| M2-7 | P2 归档（仅非事实类） |
-| M2-8 | 异构复检默认开启 + 评分校准 |
-| M2-9 | 提示词与上下文成本优化 |
-| M2-10 | QA / 内测 |
+| 阶段 | ID | 任务 |
+|---:|---|---|
+| 19 | M2-1 | `voice.metrics` + 中文阈值校准 + 伏笔回收率基线 |
+| 19 | M2-2 | 声音漂移告警（只建议，不阻断） |
+| 20 | M2-3 | 预算化自动模式 + 费用预测 |
+| 21 | M2-4 | 多供应商路由与故障切换策略 |
+| 20 | M2-5 | 成本/耗时报表（按章/Agent）+ 全链路计量 |
+| 23 | M2-6 | 10 万字项目性能专项 |
+| 22 | M2-7 | P2 归档（仅非事实类；软归档、可恢复） |
+| 21 | M2-8 | 异构复检默认开启 + 评分校准（按 D4 数据决定） |
+| 22 | M2-9 | 提示词与上下文成本优化 |
+| 24 | M2-10 | QA / 内测 / M2 验收 |
+
+`M2-7` 的「P2 归档」指 PRD §5.4 的记忆归档：只对非事实类（冗余氛围、重复描写）生效，事实、承诺、伏笔、身份永不自动归档；不是功能清单归档。`M2-8` 的「默认开启」由 D4 判定规则决定，数据不足时保持 `off` 并记录外部依赖，不预设结论。M2-1 同时交付声音区分度与伏笔回收率两项基线，对应 PRD §10 的第 3 条退出标准。M2 任务合计 10 项，阶段 19–24 每项恰好出现一次。
 
 ### 12.7 范围控制规则
 
@@ -3013,7 +3023,7 @@ jobs:
 - [ ] `schema_version` 与迁移齐全；旧项目可打开。
 - [ ] 更新 `docs/PRD.md` 变更记录（若契约变更）。
 - [ ] `docs/tools/*.json` 与代码一致。
-- [ ] M0 验收表（§16）全绿；M1 五条见 `docs/M1-ACCEPTANCE.md`。
+- [ ] M0 验收表（§16）全绿；M1 五条见 `docs/M1-ACCEPTANCE.md`；M2 四条见 `docs/M2-ACCEPTANCE.md`。
 - [ ] `node scripts/update-drill.mjs` PASS（manifest / 四态判定 / 下载）。
 - [ ] `node scripts/gen-icons.mjs --check` 无漂移；安装包图标与窗口图标一致。
 - [ ] 安装冒烟：Win11 实机 PASS；Win10 按外部依赖记录或补测。
@@ -3096,6 +3106,17 @@ jobs:
 
 **判定规则**：任一条不通过 → M0 不算完成；不允许用「已知问题」清单替代阻断项。唯一例外是 PRD 明确的 M1/M2 项（§12.5 砍单清单）。
 
+### 16.5 PRD M2 退出标准 → 验证手段
+
+| # | PRD M2 标准 | 测试 ID | 验证方式 |
+|---:|---|---|---|
+| 1 | 10 万字项目可稳定推进并完成至少一卷 | `E2E-M2-A` | 30 章 / 10 万字 / 30 final；每 5 章 `project.verify`；至少一卷 G2→G7 |
+| 2 | 自动模式在预算内跑完一场并正确收束 | `E2E-M2-BUDGET-01` | 双预算暂停/恢复；出口优先；`job.result_json.budget` 有 limit/used/reason |
+| 3 | 声音区分度与伏笔回收率有基线报告 | `E2E-M2-METRICS-01` | `docs/M2-METRICS-BASELINE.md`：阈值版本、语料、误报/检出、回收率与局限 |
+| 4 | 每万字成本可归因到章/Agent | `E2E-M2-COST-01` | `docs/M2-COST-BASELINE.md` + 报表对账；项目级规划费用单列 |
+
+M2 验收报告：`docs/M2-ACCEPTANCE.md`（阶段 24 交付）；外部依赖（真实第二家 Key、Win10 22H2、外部内测）单列未执行项，不写成通过。
+
 ---
 
 ## 17 待定技术决策（ADR）
@@ -3105,7 +3126,7 @@ jobs:
 | D1 | sqlite-vec vs BLOB 余弦 | 开工 spike 后 | 打包后可加载 且 20k 条 P95 < 80ms → A；否则 B | A: sqlite-vec；B: BLOB |
 | D2 | 是否购买 Authenticode 证书 | M1 开始前 | 内测安装成功率 < 80% 或 SmartScreen 拦截率高 → 买 | 签名 / 不签名 + 校验值 |
 | D3 | 是否收集匿名遥测 | M1 开始前 | 默认不做；只做用户主动导出诊断包 | 无遥测 / opt-in |
-| D4 | 审批异构复检是否默认开启 | M2 | 成本增加 < 20% 且阻断漏报下降 → 默认开 | 默认开 / 手动 |
+| D4 | 审批异构复检是否默认开启 | M2（阶段 21） | 成本增加 < 20% 且阻断漏报下降 → 默认开 | 默认开 / 手动 |
 | D5 | 自动更新是否允许跨 minor 降级 | M1 | 只允许同 minor 降级，防 schema 回退 | — |
 | D6 | 编辑器最终选型 | 开工 spike 后 | CM6 在 200 字 IME 测试无丢字 → 采用；否则 textarea 降级 | CM6 / textarea |
 | D7 | 嵌入模型 bge-small vs 更小 | W2 结束 | 冷启动 < 1.5s 且检索空结果率 < 25% → bge-small | bge-small / mini |
@@ -3207,6 +3228,7 @@ jobs:
 
 ## 变更记录
 
+- **v0.10（M2 阶段文档，2026-11-17）**：新增 `PHASE-19-VOICE.md` 至 `PHASE-24-DELIVERY-M2.md`，把 PRD §10 M2 的范围拆成 6 个阶段（声音/质量基线 → 预算与成本 → 路由与异构 → 归档与上下文成本 → 10 万字性能 → QA/内测/验收）。§12.4 增加阶段 19–24，§12.6 增加 M2 任务与阶段的映射，§16.5 增加 PRD M2 四条 → 测试 ID 对照，§14.5 增加 M2 验收报告引用；§12.5 把项目模板、自动补旁白建议改标为「M2 之后（未列入 M2-1..M2-10）」，避免与 M2 范围冲突。迁移编号预留：0012（19，`voice_metric`）、0013（20，`chapter.budget_cny` + `turn_metric.chapter_id`）、0014（22，`memory_entry.archived_at/archive_reason` + `turn_metric.cached_tokens` + `memory_audit` 动作），0015 仅当阶段 23 实测需要索引时使用且只加 `CREATE INDEX`。ADR 编号预留：0007（声音阈值）、0008（路由与故障切换）、0009（异构默认值决策）。新增 IPC（`voice.scene`、`report.cost`、`memory.archive.*`）与迁移 0012–0014 见各阶段文档；执行时同步 §4.3 IPC 表与 §5.5 DDL。**本版只建计划，不改 PRD 契约**：T25 输出扩展、`routing` 设置、`review.hetero` 默认值三处属于阶段执行时的契约变更，先按 §18.4 写 PRD 变更记录与 `docs/tools/*.json` 生成物，再改代码；M2-8 的默认开启由 D4 数据决定，数据不足保持 `off`。
 - **v0.9（阶段 18 实施）**：迁移 `0011_tool_call_chapter.sql`（`tool_call.chapter_id` + 两条回填：`turn_metric.beat_id → beat.chapter_id`、`job.payload_json.chapterId`；新增 `tool_by_project` / `tool_by_chapter` 索引，`LATEST_SCHEMA_VERSION = 11`）；§4.3 IPC 增加 `memory.toolCalls`（只读分页 50，不返回 args）、`update.check`（手动检查，下载仍由 electron-updater 后台做）与仅 dev 注册的 `project.verify`；§5.6 记录工具审计的归属列；§14.3 明确 0.2.0 与通道 `dev/beta/stable`（`latest.yml` / `beta.yml` / `dev.yml`）、只允许同 minor 回退（D5）。**未改 PRD 契约**：42 个工具 manifest 与 `input_schema` 不变，闸门语义不变；新增的只是审计归属与分发/QA 通道。`E2E-M1-SMOKE`（提交门）/ `E2E-M1-A`（nightly）/ `E2E-M1-TOOLCALL` / `scripts/update-drill.mjs` 覆盖；`docs/M1-ACCEPTANCE.md` 记录 M1 五条证据与两项外部依赖。
 - **v0.8（阶段 16 实施）**：迁移 `0010_branch_summary.sql`（`revision_branch`、`revision.branch_id`、`chapter_summary`、`approval_report.provider`，`LATEST_SCHEMA_VERSION = 10`）；§5.19 记录分支/摘要规则；§5.11 verify 增加 `branch_head_invalid` / `current_revision_not_in_branch` / `summary_revision_invalid`；§4.3 IPC 增加 `review.reopen` / `review.branch.create` / `review.branch.switch`；§7.3 增加 L0 `summary.prev` 与裁剪顺序；§9.6 / §9.9 记录重开、分支与异构复检；§10.6 记录重开再定稿自动入队 `memory.rebuild`。**同步 PRD v0.8**：章状态机 `finalized → revising`，实体表新增两表；设置新增 `review.hetero`（默认 off）。`E2E-M1-BRANCH-01` 覆盖。
 - **v0.7（阶段 13 实施）**：§4.3 IPC 增加 `world.projection` / `world.fact.add` / `world.fact.close` / `write.context`；§7.4 明确 ratio 口径；§10.10 记录 as-of 水位、世界投影、作者事实与按章截断规则。**未改 PRD 契约**：工具 `input_schema` 不变，`as_of` 仍是运行时注入并 clamp 到章水位；作者事实走作者权限，不是闸门；未新增迁移（`LATEST_SCHEMA_VERSION = 8`）。`E2E-M1-ASOF-01` / `E2E-M1-CONTEXT-01` 覆盖。
