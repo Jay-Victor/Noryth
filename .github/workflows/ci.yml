@@ -43,6 +43,12 @@ jobs:
   e2e:
     runs-on: windows-latest
     needs: verify
+    # 分两片：历史上迟到的一次静默早退都发生在 memory.spec 之后（同一 runner 连跑 15 个
+    # Electron 用例），分片让 plan.spec 起在干净的 runner 上，也把单 job 时长压掉一半。
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     defaults:
       run:
         shell: bash
@@ -60,7 +66,7 @@ jobs:
       - name: e2e
         run: |
           # 重定向到文件而不是 | tee：Node 写文件是同步的，进程被杀时不会丢尾部输出。
-          pnpm test:e2e > e2e.log 2>&1
+          pnpm test:e2e --shard=${{ matrix.shard }}/2 > e2e.log 2>&1
       - name: e2e failure summary
         if: failure()
         shell: bash
@@ -95,7 +101,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: e2e-log-trace
+          name: e2e-log-trace-${{ matrix.shard }}
           path: |
             e2e.log
             test-results/
