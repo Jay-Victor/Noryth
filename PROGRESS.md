@@ -23,7 +23,7 @@
 | 15 | `docs/PHASE-15-COVERAGE-IMPACT.md` | done | M1-11 覆盖检查（`plan/coverage.ts` 4 类确定性规则 + `CoveragePanel` + G1 阻断/开关 + 结构化标注编辑器）、M1-8 影响分析与变更流程（`plan/impact.ts` + `plan/change.ts`、T29 写 `blueprint_change`、应用只改 outline/角色卡 + 标脏 + 系统提示、未分析拒绝）、M1-10 伏笔（`world/foreshadow.ts` + T22 + 记忆台第六 tab，距离/超期/回收）、跨章标脏（`chapter.invalidated_at/reason` + 创作台/审批台横幅 + 忽略）、T31 ops 支持结构化纲要素并在 G1 后返回 `requires_change`；新增 `0009_blueprint_ops.sql`（`LATEST_SCHEMA_VERSION = 9`）；`E2E-M1-BLUEPRINT-01`、`E2E-M1-FORESHADOW-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 301 modules / unit 746 / integration 46 / chaos 8 / e2e 28 / build / gen:check / 规格脚本） | 覆盖检查只做确定性规则（语义判断 M2）；影响分析不跨项目、不预测语义漂移；伏笔自动识别 M2；`tool_call` 审计面板仍在阶段 18 |
 | 16 | `docs/PHASE-16-BRANCH-LONGFORM.md` | done | M1-21 重新打开定稿（`doc/reopen.ts`：旧 final 保留、新 draft、`write_epoch+1`、再定稿自动执行 `memory.rebuild`）+ 分支树（`doc/branches.ts`：开分支/对比/切回主线，head 随 commit/patch/fork 移动，final 不挂分支）、M1-22 异构复检（`review/hetero.ts` + `review.hetero` 设置；报告记录 `provider`，缺失 `degraded=hetero_unavailable`）、M1-13 章末摘要（`doc/summary.ts`：finalize 同事务、首末拍 + 关键事实 ≤5、≤300 tokens；L0 `summary.prev`）；新增 `0010_branch_summary.sql`（`LATEST_SCHEMA_VERSION = 10`）；`E2E-M1-BRANCH-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 310 modules / unit 769 / integration 46 / chaos 8 / e2e 29 / build / gen:check / 规格脚本） | 分支不做合并（M2）；异构复检默认 `off`，评分校准 M2-8；摘要只做抽取式（模型摘要 M2）；`summary.prev` 只进 L0 装配，不塞进 system 提示词 |
 | 17 | `docs/PHASE-17-DOCX-EXPORT.md` | done | M1-6 DOCX（`doc/export-docx.ts`：标题页 / 目录 / 章标题分页 / 场景分隔 / 首行缩进 2 字符；zip 时间戳 + core 时间 + 书签 id 归一化 → 同清单字节可复现）、M1-14 选项（`format` / `scope` / `includeNotes` / `toc` / `font` / `fontSize` / `lineSpacing` / `author`）、三档格式统一从 revision 清单渲染（未定稿标「草稿」）、`ExportDialog.tsx`、`E2E-M1-DOCX-01`；依赖 `docx` + `fflate`（纯 JS）；未改 schema（`LATEST_SCHEMA_VERSION = 10`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 314 modules / unit 775 / integration 46 / chaos 8 / e2e 30 / build / gen:check / 规格脚本 / perf 2）+ NSIS 159MB + 安装冒烟 PASS + 本机 Word 打开检查；CI 全绿（`d3ac330`：verify + e2e 两片） | 目录页码由 Word/WPS 首次打开时更新（预生成条目保证不空白）；不做 PDF/EPUB、封面、Word 原生批注（M2/不做）；导出批注来自最近一份报告，不做逐条批注定位 |
-| 18 | `docs/PHASE-18-DELIVERY-M1.md` | done | M1-7 更新通道/回退/演练（`update.ts` 三通道 + semver 预发布 + 同 minor 才降级 + `scripts/update-drill.mjs` + 设置页「更新」卡）、M1-15 QA（`E2E-M1-SMOKE` 3 章提交门 / `E2E-M1-A` 30 章 3 卷 nightly / `project.verify` 只读校验 / 内存与孤儿断言）、M1-23 工具审计面板（迁移 0011 `tool_call.chapter_id` + 两条回填 + `memory.toolCalls` + `ToolCallList.tsx` + `E2E-M1-TOOLCALL`）、M1-25 图标/品牌（`scripts/gen-icons.mjs` + `resources/icon.ico|png` + `icons/*` + exe/窗口/随包断言）、版本 0.2.0、`docs/M1-ACCEPTANCE.md` | PRD M1 五条全绿（`E2E-M1-A` 20.8s / 30 final / 私有 512MB；`E2E-M1-TIME-01`、`E2E-M1-REBUILD-01`、`E2E-M1-ASOF-01`、`E2E-M1-DOCX-01` 复跑绿）；本地门禁全绿（typecheck / lint / depcruise 319 modules / unit 794 / integration 46 / chaos 8 / e2e 32 / perf 2 / build / gen:check / 规格脚本）；NSIS 167,298,203 B + 安装冒烟 PASS（Win11，schema 11）；更新演练 PASS（manifest / 四态判定 / 真实下载）；CI run `44045408802`（verify 2m34 + e2e 两片 2m05 / 2m46 均绿，package 按规则跳过）；标签 `phase-18-done` → `1f2b668` | Win10 22H2 与真实第二家 Key：作者决定不测（2026-11-17，外部依赖）；更新演练「安装→重启→迁移」为人工步骤；30 章长跑只在 nightly/发布前跑 |
+| 18 | `docs/PHASE-18-DELIVERY-M1.md` | done | M1-7 更新通道/回退/演练（`update.ts` 三通道 + semver 预发布 + 同 minor 才降级 + `scripts/update-drill.mjs` + 设置页「更新」卡）、M1-15 QA（`E2E-M1-SMOKE` 3 章提交门 / `E2E-M1-A` 30 章 3 卷 nightly / `project.verify` 只读校验 / 内存与孤儿断言）、M1-23 工具审计面板（迁移 0011 `tool_call.chapter_id` + 两条回填 + `memory.toolCalls` + `ToolCallList.tsx` + `E2E-M1-TOOLCALL`）、M1-25 图标/品牌（`scripts/gen-icons.mjs` + `resources/icon.ico|png` + `icons/*` + exe/窗口/随包断言）、版本 0.2.0、`docs/M1-ACCEPTANCE.md` | PRD M1 五条全绿（`E2E-M1-A` 20.8s / 30 final / 私有 512MB；`E2E-M1-TIME-01`、`E2E-M1-REBUILD-01`、`E2E-M1-ASOF-01`、`E2E-M1-DOCX-01` 复跑绿）；本地门禁全绿（typecheck / lint / depcruise 319 modules / unit 794 / integration 46 / chaos 8 / e2e 32 / perf 2 / build / gen:check / 规格脚本）；NSIS 167,298,203 B + 安装冒烟 PASS（Win11，schema 11）；更新演练 PASS（manifest / 四态判定 / 真实下载）；CI run `44045408802`（verify 2m34 + e2e 两片 2m05 / 2m46 均绿，package 按规则跳过）；标签 `phase-18-done` → `1f2b668` | Win10 22H2 与真实第二家 Key：作者决定不测（2026-11-17，外部依赖）；GitHub Release 未上传（首个 release tag 时做）；更新演练「安装→重启→迁移」为人工步骤；30 章长跑只在 nightly/发布前跑 |
 
 状态：`todo` / `in_progress` / `blocked` / `done`。
 
@@ -671,13 +671,13 @@
 - 已知缺口（不阻塞）：
   - **bge 已随包**（阶段 14）：`resources/models/bge-small-zh-v1.5/`（q8 24MB）；`pnpm verify:embed` 冷启动 134ms、单条 6ms、512 维；安装包 157MB（<250MB）；`install-smoke` 断言运行日志 `source=model`。换模型或首次启用走记忆台「重建索引」（分批 32、可恢复）。权重通过 hf-mirror 预置（huggingface.co 直连仍超时），将来升级模型时沿用同一目录结构。
   - 文件树抽屉（Ctrl B）已在阶段 11 交付（W2/W3 overlay 320、焦点进出、200% 缩放）；W1 常驻树的 Ctrl+B 收起仍未做（不阻断验收）。
-  - Windows 10 22H2 未单独做安装冒烟（本机 Win11 PASS）；发布前补一台 VM（M1 阶段 18）。
-  - 自动更新：`src/main/update.ts` 后台检查 + electron-updater 下载，`NORYTH_UPDATE_FEED` 未配置时 `disabled`；首个 release tag 时填 feed（M1 阶段 18）。
+  - Windows 10 22H2 安装冒烟未执行（本机 Win11 PASS，schema 11）；作者决定不测（2026-11-17），有 VM 时补跑 `node scripts/install-smoke.mjs`。
+  - 自动更新：阶段 18 已交付三通道 / 同 minor 回退 / 手动检查 / 演练（`update-drill` PASS）；`NORYTH_UPDATE_FEED` 未配置时仍为 `disabled`，首个 release tag 时填 feed。
   - 按章重建（T40）与关系图已在阶段 14 交付；「按章重建」作用于**当前 final revision**。重新打开定稿（M1-21）已在阶段 16 交付：旧 final 保留、新 draft、再定稿自动入队 `memory.rebuild`。关系图只读、无编辑与自动识别关系变化（M2）。
   - 世界状态作者编辑器已在阶段 13 交付（新增/关闭事实、单值槽 supersede、审计）；批量编辑/导入/导出设定集是 M2。
-  - `tool_call` 审计面板属 P1（工具调用指标面板），M0 未做；记忆台展示 `memory_audit` 动作链，`tool_call` 表已按 §9.5 落库（M1 阶段 18）。
+  - `tool_call` 审计面板已在阶段 18 交付（M1-23）：迁移 0011 归属列、`memory.toolCalls` 只读分页、记忆台「审计 → 工具调用」；仍不显示参数原文、不提供重放。
   - 上下文检查器已在阶段 13 交付；<1600 宽度用对话栅内嵌（UI-DESIGN §2.6 的模态变体未做，未进验收）。分支树与重新打开定稿已在阶段 16 交付（只对比/切换，不做合并——M2；异构复检默认 off，评分校准 M2-8）。`summary.prev` 只影响 L0 预算，不写 system 提示词；角色/旁白仍按 PRD §8.1 只拿脱敏目标，跨章连续性靠检索。
-  - 「预览 tab 上限 6」当前无对应界面：预览区只有正文/分镜两个视图 tab；多文档 tab 留给阶段 13 的上下文检查器与文件预览扩展。W1 常驻树的 Ctrl+B 收起同样后置（不阻断验收）。
+  - 「预览 tab 上限 6」当前无对应界面：预览区只有正文/分镜两个视图 tab；多文档 tab 仍是 M2 候选（阶段 13 的上下文检查器最终用了对话栅内嵌）。W1 常驻树的 Ctrl+B 收起同样后置（不阻断验收）。
   - 关系图 >50 角色用「聚焦某角色邻域」而不是分页；未引入 canvas（SVG + memo，30 角色无压力，未做 50+ 专项 perf）。
   - 覆盖检查只做确定性规则（4 类 + 未标注建议），语义级「章纲与角色卡冲突」仍靠审批；自动语义识别是 M2。
   - 蓝图变更是「记录 + 标脏」，不自动重写下游正文（PHASE-15 §2.2 明确不做）；影响分析不预测语义漂移，只给结构影响面。
@@ -706,7 +706,7 @@
   6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）✅
   7. `E2E-M1-SMOKE`（3 章闭环，提交门）/ `E2E-M1-A`（30 章，nightly）/ `E2E-M1-TOOLCALL` ✅
 - M2 开工前：先按 PRD §10 M2 与 DEV-PLAN §12.6（M2-1..M2-10）建阶段文档；本阶段不预写 M2 规格。
-- 发布注意：首个 release tag（`v0.2.0-m1.1`）前配置 `NORYTH_UPDATE_FEED`（或 electron-builder publish），否则更新状态为 `disabled`；`latest.yml` 随 `pnpm dist` 生成；安装包 159.6MB（上限 250MB）；保留上一版安装包供回滚（`release/` 不入库）。
+- 发布注意：首个 release tag（`v0.2.0-m1.1`）时上传 `release/Noryth-0.2.0-setup.exe` + `latest.yml` + blockmap 到 GitHub Releases，并配置 `NORYTH_UPDATE_FEED`（或 electron-builder publish），否则更新状态为 `disabled`；安装包 159.6MB（上限 250MB）；保留上一版安装包供回滚（`release/` 不入库）。GitHub Release 上传尚未执行（见 `docs/M1-ACCEPTANCE.md` §6 第 8 条）。
 - 文档：`AGENTS.md` 已随阶段 18 收口更新（阶段 18 状态、0.2.0/schema 11、新命令与 CI nightly 长跑）。
 
 ## 更新规则

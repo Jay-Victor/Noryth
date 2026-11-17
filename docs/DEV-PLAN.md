@@ -283,6 +283,7 @@ contextBridge.exposeInMainWorld('noryth', {
 | project | `autoOpen`（M1-24） | — | `{opened, reason, elapsedMs}`；失败不发错误 | — |
 | project | `busy`（阶段 11） | — | `{domains, busy}`；切换前的运行态探测 | — |
 | project | `tree`（M1-16） | — | 文件树节点（结构 + 数据库视图，无正文） | — |
+| project | `verify`（M1-15，仅 dev） | — | `{ok, checkedAt, issues[], stats{}}`；生产包不注册，调用返回 `invalid_args` | — |
 | plan | `send` | sessionId、文本、引用 chips | `{jobId}` | — |
 | plan | `confirmG1` | 蓝图版本、角色清单 | `{registered, setupState}` | G1 |
 | plan | `applySuggestion` | 建议 id | `{draftVersion}` | — |
@@ -325,9 +326,11 @@ contextBridge.exposeInMainWorld('noryth', {
 | memory | `rebuild`（M1-4） | chapterId、token | `{state, detail}`；旧条目 `inactive`，旧事实/边按来源关闭，重放返回首次结果 | author_confirm |
 | memory | `index.issue`（M1-20） | — | `{token, expiresAt, preview{targetModel, pendingCount}}` | author_confirm |
 | memory | `index.rebuild`（M1-20） | token | `{state, detail}`；32 条/批、可恢复、成功才消费令牌 | author_confirm |
+| memory | `toolCalls`（M1-23） | chapterId?、actorId?、status?、page? | `{items[], total, page, pageSize, chapters[], actors[]}`；50 条/页，条目不含 args | — |
 | settings | `setProvider` / `testProvider` | provider、key、baseUrl | `{status, models[], latencyMs}` | — |
 | settings | `bindAgent` | agentKey、provider、model、params | `{bindingVersion}` | — |
 | export | `run` | 范围（本章 / 全书）、格式（md / txt / docx）、批注、DOCX 排版（目录 / 字体 / 字号 / 行距）、作者（仅标题页） | `{format, path, bytes, sha256, chapters, beats, words, revisionIds, drafts}`；从 revision 清单渲染，只读 | — |
+| app | `update.check`（M1-7） | — | `UpdateState{channel, configured, status, version, checkedAt, error}`；下载仍由 electron-updater 后台做，失败不阻塞 | — |
 
 ### 4.4 安全基线（M0 必须全绿）
 
@@ -724,6 +727,11 @@ CREATE TABLE tool_call (
   idempotency_key  TEXT,
   created_at       TEXT NOT NULL
 );
+-- 0011（阶段 18 / M1-23）：审计归属章；规划会话与项目级工具为 NULL。
+-- 回填两条来源：turn_metric.beat_id → beat.chapter_id；job.payload_json.chapterId。
+ALTER TABLE tool_call ADD COLUMN chapter_id TEXT;
+CREATE INDEX tool_by_project ON tool_call(project_id, created_at);
+CREATE INDEX tool_by_chapter ON tool_call(project_id, chapter_id, created_at);
 CREATE UNIQUE INDEX tool_idem ON tool_call(project_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX tool_by_turn ON tool_call(turn_id);
 
@@ -890,7 +898,7 @@ title: 祠堂夜谈
 
 ### 5.10 迁移与 schema 版本
 
-- 迁移文件 `src/main/db/migrations/0001_init.sql`、`0002_outbox_meta.sql`、`0003_planning.sql`，只前进不回滚。
+- 迁移文件 `src/main/db/migrations/0001_init.sql` … `0011_tool_call_chapter.sql`（清单以 `src/main/db/migrations/index.ts` 为准），只前进不回滚；`LATEST_SCHEMA_VERSION = 11`。
 - 每个文件首行 `-- name: ...`；迁移器计算 sha256 存入 `_migration.checksum`，已应用文件被改动 → 启动失败并报 `migration_checksum_mismatch`。
 - `schema_version` = 最大迁移号，写入 `project.schema_version`。
 - 打开更高版本项目：只读打开 + 提示「需要更新应用」；打开更低版本：先备份，再迁移，失败不写库。
@@ -3036,6 +3044,8 @@ jobs:
 ---
 
 ## 16 验收对照
+
+> M1 的验收证据见 `docs/M1-ACCEPTANCE.md`（PRD §10 M1 五条 + 分发/审计/图标）；本节保留 M0 对照。
 
 ### 16.1 PRD M0 退出标准 → 验证手段
 

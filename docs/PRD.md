@@ -457,7 +457,7 @@ M0–M2 **不开放**第三方工具安装、Agent 自建工具、MCP 外接。�
 
 #### 4.9.7 审计、指标与测试
 
-- 每次调用一条 `tool_call` 记录（§7.1）：`job_id`、`turn_id`、`tool`、`version`、`actor_id`、`scope_json`、`args_hash`、`result_ids`、`status`、`error_code`、`latency_ms`、`degraded`。
+- 每次调用一条 `tool_call` 记录（§7.1）：`job_id`、`turn_id`、`tool`、`version`、`actor_id`、`scope_json`、`args_hash`、`result_ids`、`status`、`error_code`、`latency_ms`、`degraded`、`chapter_id`（M1：审计面板按章过滤）。
 - 指标：
 
 | 指标 | 口径 | 目标 / 告警 |
@@ -877,7 +877,7 @@ G6 定稿
 | `approval_report` | id、chapter_id、revision_id、verdict、blocking_json、suggestions_json、dimensions_json | 审批报告 |
 | `gate_record` | id、gate_id、entity_type、entity_id、decision、actor、payload_json、created_at | 闸门审计；G0–G7 每次决策可追溯 |
 | `job` | id、type、status、expected_revision、epoch、idempotency_key、payload_json | 生成/固化/导出任务；幂等与恢复 |
-| `tool_call` | id、job_id、turn_id、tool、tool_version、actor_id、scope_json、args_hash、result_ids_json、status、error_code、latency_ms、degraded | 工具调用审计；`scope_json` 只存 ID 与 `as_of`；不存 `args` 原文，只存 hash；与 `trace_ref` 互为索引 |
+| `tool_call` | id、job_id、turn_id、tool、tool_version、actor_id、scope_json、args_hash、result_ids_json、status、error_code、latency_ms、degraded、chapter_id（M1 审计归属） | 工具调用审计；`scope_json` 只存 ID 与 `as_of`；不存 `args` 原文，只存 hash；与 `trace_ref` 互为索引 |
 | `foreshadow` | id、project_id、text、planted_chapter_id、planned_payoff_chapter_id、payoff_chapter_id、status | 作者标注的伏笔；只报节奏，不自动回收、不进检索 |
 | `blueprint_change` | id、project_id、proposal_id、ops_json、impact_json、status、actor、applied_at | G1 后的蓝图变更记录；未跑影响分析不能应用 |
 

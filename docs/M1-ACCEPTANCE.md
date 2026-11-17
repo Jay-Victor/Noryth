@@ -42,8 +42,8 @@
 | M1-15 QA / 硬化 | `tests/e2e/m1-flow.ts`（一章闭环）、`tests/e2e/m1-smoke.spec.ts`（3 章，提交门）、`tests/e2e-long/m1-a.spec.ts` + `playwright.m1a.config.ts`（30 章，nightly）、`project.verify`（dev 通道） | §1 第 1 条；`pnpm test:e2e` 32 条全绿（含 `E2E-M1-SMOKE` 2.5s / 私有 393MB）；`pnpm test:perf` 见 §3；安全/无障碍见 §5 |
 | M1-23 `tool_call` 审计面板 | 迁移 0011（`chapter_id` + 两条回填 + 两个索引）、`ToolCallRepo.listByProject/countByProject/distinctActors`、`memory.toolCalls` IPC、`ToolCallList.tsx`、记忆台「审计 → 工具调用」 | `tests/unit/db/tool-call.test.ts` 3 条（章/Agent/状态过滤、50 条分页与上限、记录无 args 字段）；`tests/unit/migrator.test.ts` 0011（拍与 job 两条回填、无归属为 NULL、`verifyDatabase` 绿）；`tests/e2e/audit.spec.ts` → ok：真实审批回合落库、按章/Agent 过滤、失败空态、无「重放」按钮、API/UI 均无参数原文、`args_hash` 为 64 位十六进制 |
 | M1-25 图标与品牌资源 | `scripts/gen-icons.mjs`（4× 超采样 + 手写 PNG/ICO）、`resources/icon.png` / `icon.ico` / `icons/*`、`electron-builder.yml`（`win.icon` + extraResources）、`src/main/brand.ts`、`window.ts` 图标参数 | `tests/unit/brand-icon.test.ts` 4 条（512 PNG、各尺寸 PNG、ICO 7 个 32 位 BMP 条目且偏移在文件内、`--check` 与脚本一致）；`pnpm dist` 打包时 rcedit 无报错；`ExtractAssociatedIcon(release/win-unpacked/Noryth.exe)` 取到 32×32 品牌图标（不是 Electron 默认）；`install-smoke` 断言 `resources/icons/*` 随包 |
-| M1-26 真实第二家供应商补测 | —（外部依赖） | 未执行：无 DashScope/Moonshot Key。ADR-0003 已记录；`E2E-M0-PROVIDER` 用本地假服务器证明两家协议的切换与路由 |
-| Win10 22H2 VM 安装冒烟 | —（外部环境） | 未执行：本机无 Win10 VM；Win11 见 §3。复跑命令：`node scripts/install-smoke.mjs` |
+| M1-26 真实第二家供应商补测 | —（外部依赖） | **作者决定不测（2026-11-17）**：无 DashScope/Moonshot Key。ADR-0003 已追加记录；`E2E-M0-PROVIDER` 用本地假服务器证明两家协议的切换与路由 |
+| Win10 22H2 VM 安装冒烟 | —（外部环境） | **作者决定不测（2026-11-17）**：本机无 Win10 VM；Win11 见 §3。将来补跑：`node scripts/install-smoke.mjs` |
 | `docs/M1-ACCEPTANCE.md` | 本文件 | PRD M1 五条逐条证据 + 已知问题里程碑 |
 
 ## 3 安装冒烟与性能记录（本机 Windows 11 x64）
@@ -118,6 +118,7 @@ PERF-M1-01 打开=2ms 切章P95=1ms 列表摘要P95=1ms RSS=150MB
 | 5 | 内存口径 | 断言用「全部进程私有工作集合计」< 600MB（500MB），工作集合计 628MB 作为参考 | 保持；若后续引入 Chromium 缓存优化再统一口径 |
 | 6 | 分支不做合并、异构复检默认 off、摘要抽取式 | 均为 PRD M1 之外的 M2 范围 | M2-8 / M2 分支合并 |
 | 7 | PRD §11 的「每拍确认耗时 / 每千字作者净操作时间」未埋点 | 无遥测（ADR-0006 / D3）；当前只有 `turn_metric` 的成本与延迟、`tool_call` 审计 | M2-5 成本/耗时报表（本地聚合，不上报） |
+| 8 | **GitHub Release 未发布**：`release/` 按规则不入库，仓库内只有构建脚本与 `latest.yml` 生成逻辑 | PHASE-18 §3 的「GitHub Release」交付物尚未上传；不影响本机安装/更新演练 | 首个 release tag（`v0.2.0-m1.1`）时上传 NSIS + `latest.yml` + blockmap，并配置 `NORYTH_UPDATE_FEED` |
 
 ## 7 复跑命令
 
