@@ -59,17 +59,39 @@ jobs:
       - run: pnpm build
       - name: e2e
         run: |
-          set -o pipefail
-          pnpm test:e2e 2>&1 | tee e2e.log
+          # 重定向到文件而不是 | tee：Node 写文件是同步的，进程被杀时不会丢尾部输出。
+          pnpm test:e2e > e2e.log 2>&1
       - name: e2e failure summary
         if: failure()
         shell: bash
         run: |
-          # 把日志尾部变成 annotation：公开仓库无需 token 也能从 API 读到失败用例。
+          # 先打印诊断（进 job 日志），再把尾部变成 annotation（公开仓库可匿名读 API）。
+          echo "=== failure lines ==="
+          grep -nE "✘|Error|error:|failed|Timeout|exited" e2e.log | tail -n 40 || true
+          echo "=== tail ==="
+          tail -n 120 e2e.log || true
           tail -n 60 e2e.log | while IFS= read -r line; do
             line="${line//$'\r'/}"
             if [ -n "$line" ]; then echo "::error title=e2e::$line"; fi
           done
+      - name: crash diagnostics
+        if: failure()
+        shell: pwsh
+        run: |
+          Write-Output '=== OS / memory / disk ==='
+          $os = Get-CimInstance Win32_OperatingSystem
+          Write-Output ("FreePhysicalMB={0} TotalVisibleMB={1}" -f [math]::Round($os.FreePhysicalMemory/1024), [math]::Round($os.TotalVisibleMemorySize/1024))
+          Get-PSDrive C | Select-Object Used,Free | Format-List
+          Write-Output '=== top processes ==='
+          Get-Process | Sort-Object WS -Descending | Select-Object -First 10 Name,Id,@{n='WS_MB';e={[math]::Round($_.WS/1MB)}} | Format-Table
+          Write-Output '=== Application event log (last 20 min) ==='
+          try {
+            Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddMinutes(-20) } -ErrorAction Stop |
+              Select-Object -First 25 TimeCreated,ProviderName,Id,LevelDisplayName,Message |
+              Format-List
+          } catch {
+            Write-Output ("event log unavailable: {0}" -f $_.Exception.Message)
+          }
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

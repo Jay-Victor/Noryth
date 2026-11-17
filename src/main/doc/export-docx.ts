@@ -1,19 +1,6 @@
-import {
-  AlignmentType,
-  Document,
-  Footer,
-  HeadingLevel,
-  LeaderType,
-  PageBreak,
-  PageNumber,
-  Paragraph,
-  Packer,
-  TableOfContents,
-  TextRun,
-  type FileChild,
-  type ISectionOptions
-} from 'docx'
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
+import type * as DocxModule from 'docx'
+import type { Document as DocxDocument, FileChild, ISectionOptions, Paragraph, TextRun } from 'docx'
 import type { ExportFont, ExportFontSize, ExportLineSpacing } from '../../shared/schema/export'
 
 /**
@@ -22,6 +9,9 @@ import type { ExportFont, ExportFontSize, ExportLineSpacing } from '../../shared
  * 结构：标题页（书名 / 作者 / 日期）→ 目录（可选）→ 每章标题 + 场景分隔 + 拍正文段落。
  * 只读：调用方给的是 revision 清单，这里不碰数据库、不写 outbox、不产生 revision。
  *
+ * 按需加载：`docx` 只在真正导出 DOCX 时才 import（PHASE-17 §7），
+ * 否则 19MB 的库拖慢每一次应用启动、也浪费 e2e 每个 Electron 实例的内存。
+ *
  * 可复现（PHASE-17 §5.3）：`docx` 打包时用当前时间做 zip 条目时间与 core 属性时间，
  * 同一份清单两次导出字节不同。这里统一归一化：zip 条目固定 2000-01-01，
  * core 的 created/modified 固定为导出日零点，于是同一天同一份清单两次导出 sha256 相同。
@@ -29,6 +19,16 @@ import type { ExportFont, ExportFontSize, ExportLineSpacing } from '../../shared
 
 /** zip 条目固定时间（PHASE-17 §5.3）。DOS 时间下限是 1980；2000-01-01 足够早且合法。 */
 export const DOCX_ZIP_EPOCH = new Date(Date.UTC(2000, 0, 1, 0, 0, 0))
+
+/** `docx` 的运行时命名空间；不静态 import，避免应用启动就解析整个库。 */
+export type DocxApi = typeof DocxModule
+
+let docxModule: DocxApi | null = null
+
+export async function loadDocx(): Promise<DocxApi> {
+  if (docxModule === null) docxModule = await import('docx')
+  return docxModule
+}
 
 export interface DocxChapterInput {
   title: string
@@ -83,8 +83,13 @@ function dateLabel(at: Date): string {
   return `${at.getFullYear()} 年 ${at.getMonth() + 1} 月 ${at.getDate()} 日`
 }
 
-function run(text: string, input: DocxExportInput, extra: { bold?: boolean; size?: number; color?: string; italics?: boolean } = {}): TextRun {
-  return new TextRun({
+function run(
+  api: DocxApi,
+  text: string,
+  input: DocxExportInput,
+  extra: { bold?: boolean; size?: number; color?: string; italics?: boolean } = {}
+): TextRun {
+  return new api.TextRun({
     text,
     bold: extra.bold ?? false,
     italics: extra.italics ?? false,
@@ -99,72 +104,73 @@ function run(text: string, input: DocxExportInput, extra: { bold?: boolean; size
   })
 }
 
-function bodyParagraph(text: string, input: DocxExportInput): Paragraph {
-  return new Paragraph({
-    children: [run(text, input)],
+function bodyParagraph(api: DocxApi, text: string, input: DocxExportInput): Paragraph {
+  return new api.Paragraph({
+    children: [run(api, text, input)],
     indent: { firstLine: firstLineTwips(input.fontSize) },
     spacing: { line: lineTwips(input.lineSpacing), lineRule: 'auto' },
-    alignment: AlignmentType.JUSTIFIED
+    alignment: api.AlignmentType.JUSTIFIED
   })
 }
 
-function sceneSeparator(input: DocxExportInput): Paragraph {
-  return new Paragraph({
-    children: [run('＊　＊　＊', input, { color: MUTED })],
-    alignment: AlignmentType.CENTER,
+function sceneSeparator(api: DocxApi, input: DocxExportInput): Paragraph {
+  return new api.Paragraph({
+    children: [run(api, '＊　＊　＊', input, { color: MUTED })],
+    alignment: api.AlignmentType.CENTER,
     spacing: { before: 160, after: 160 }
   })
 }
 
-function buildTitlePage(input: DocxExportInput): Paragraph[] {
+function buildTitlePage(api: DocxApi, input: DocxExportInput): Paragraph[] {
   const paragraphs: Paragraph[] = [
-    new Paragraph({
-      children: [run(input.projectTitle, input, { bold: true, size: 44 })],
-      alignment: AlignmentType.CENTER,
+    new api.Paragraph({
+      children: [run(api, input.projectTitle, input, { bold: true, size: 44 })],
+      alignment: api.AlignmentType.CENTER,
       spacing: { before: 3600, after: 480 }
     })
   ]
   if (input.author !== undefined && input.author.trim().length > 0) {
     paragraphs.push(
-      new Paragraph({
-        children: [run(input.author.trim(), input, { size: 28 })],
-        alignment: AlignmentType.CENTER,
+      new api.Paragraph({
+        children: [run(api, input.author.trim(), input, { size: 28 })],
+        alignment: api.AlignmentType.CENTER,
         spacing: { after: 240 }
       })
     )
   }
   paragraphs.push(
-    new Paragraph({
-      children: [run(dateLabel(input.generatedAt), input, { size: 24, color: MUTED })],
-      alignment: AlignmentType.CENTER
+    new api.Paragraph({
+      children: [run(api, dateLabel(input.generatedAt), input, { size: 24, color: MUTED })],
+      alignment: api.AlignmentType.CENTER
     }),
-    new Paragraph({ children: [new PageBreak()] })
+    new api.Paragraph({ children: [new api.PageBreak()] })
   )
   return paragraphs
 }
 
-function buildToc(input: DocxExportInput): FileChild[] {
+function buildToc(api: DocxApi, input: DocxExportInput): FileChild[] {
   return [
-    new Paragraph({
-      children: [run('目录', input, { bold: true, size: 32 })],
-      alignment: AlignmentType.CENTER,
+    new api.Paragraph({
+      children: [run(api, '目录', input, { bold: true, size: 32 })],
+      alignment: api.AlignmentType.CENTER,
       spacing: { after: 240 }
     }),
     // 目录由 docx 依据 Heading1 生成条目（没有页码，Word 打开时按 beginDirty 更新）。
-    new TableOfContents('目录', {
+    new api.TableOfContents('目录', {
       hyperlink: true,
       headingStyleRange: '1-1',
-      tabLeader: LeaderType.DOT
+      tabLeader: api.LeaderType.DOT
     }),
-    new Paragraph({ children: [new PageBreak()] })
+    new api.Paragraph({ children: [new api.PageBreak()] })
   ]
 }
 
-function buildChapter(chapter: DocxChapterInput, input: DocxExportInput): Paragraph[] {
+function buildChapter(api: DocxApi, chapter: DocxChapterInput, input: DocxExportInput): Paragraph[] {
+  const smaller = Math.round(input.fontSize * 2) - 2
   const paragraphs: Paragraph[] = [
-    new Paragraph({
-      children: [run(docxChapterHeading(chapter.ord, chapter.title), input, { bold: true, size: 32 })],
-      heading: HeadingLevel.HEADING_1,
+    new api.Paragraph({
+      children: [run(api, docxChapterHeading(chapter.ord, chapter.title), input, { bold: true, size: 32 })],
+      heading: api.HeadingLevel.HEADING_1,
       pageBreakBefore: true,
       spacing: { after: 200 }
     })
@@ -172,10 +178,8 @@ function buildChapter(chapter: DocxChapterInput, input: DocxExportInput): Paragr
 
   if (chapter.draft) {
     paragraphs.push(
-      new Paragraph({
-        children: [
-          run('草稿 · 尚未定稿', input, { italics: true, size: Math.round(input.fontSize * 2) - 2, color: MUTED })
-        ],
+      new api.Paragraph({
+        children: [run(api, '草稿 · 尚未定稿', input, { italics: true, size: smaller, color: MUTED })],
         spacing: { after: 120 }
       })
     )
@@ -183,26 +187,27 @@ function buildChapter(chapter: DocxChapterInput, input: DocxExportInput): Paragr
 
   const scenes = chapter.scenes.filter((scene) => scene.beats.length > 0)
   scenes.forEach((scene, index) => {
-    if (index > 0) paragraphs.push(sceneSeparator(input))
-    for (const body of scene.beats) paragraphs.push(bodyParagraph(body, input))
+    if (index > 0) paragraphs.push(sceneSeparator(api, input))
+    for (const body of scene.beats) paragraphs.push(bodyParagraph(api, body, input))
   })
 
   if (input.includeNotes && chapter.notes.length > 0) {
     paragraphs.push(
-      new Paragraph({
-        children: [run('修订建议', input, { bold: true, size: 26 })],
-        heading: HeadingLevel.HEADING_2,
+      new api.Paragraph({
+        children: [run(api, '修订建议', input, { bold: true, size: 26 })],
+        heading: api.HeadingLevel.HEADING_2,
         pageBreakBefore: false,
         spacing: { before: 360, after: 100 }
       }),
-      new Paragraph({
+      new api.Paragraph({
         children: [
           run(
+            api,
             chapter.notesMeta !== undefined && chapter.notesMeta !== null && chapter.notesMeta.length > 0
               ? `仅建议，未改正文。来自最近一次审批报告（${chapter.notesMeta}）。`
               : '仅建议，未改正文。来自最近一次审批报告。',
             input,
-            { italics: true, size: Math.round(input.fontSize * 2) - 2, color: MUTED }
+            { italics: true, size: smaller, color: MUTED }
           )
         ],
         spacing: { after: 120 }
@@ -210,8 +215,8 @@ function buildChapter(chapter: DocxChapterInput, input: DocxExportInput): Paragr
     )
     for (const note of chapter.notes) {
       paragraphs.push(
-        new Paragraph({
-          children: [run(note, input, { size: Math.round(input.fontSize * 2) - 2 })],
+        new api.Paragraph({
+          children: [run(api, note, input, { size: smaller })],
           spacing: { after: 60 }
         })
       )
@@ -221,7 +226,7 @@ function buildChapter(chapter: DocxChapterInput, input: DocxExportInput): Paragr
   return paragraphs
 }
 
-function buildDocument(input: DocxExportInput): Document {
+function buildDocument(api: DocxApi, input: DocxExportInput): DocxDocument {
   // 文件属性写「revision / content_hash」：作者用 Word 的「属性」就能核对导出的版本。
   const revisionNote = input.chapters
     .filter((chapter) => chapter.revisionId !== null)
@@ -235,31 +240,31 @@ function buildDocument(input: DocxExportInput): Document {
         page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } }
       },
       footers: {
-        default: new Footer({
+        default: new api.Footer({
           children: [
-            new Paragraph({
+            new api.Paragraph({
               children: [
-                new TextRun({
-                  children: [PageNumber.CURRENT],
+                new api.TextRun({
+                  children: [api.PageNumber.CURRENT],
                   font: { ascii: WESTERN_FONT, hAnsi: WESTERN_FONT, eastAsia: input.font, cs: WESTERN_FONT },
                   size: Math.round(input.fontSize * 2) - 4
                 })
               ],
-              alignment: AlignmentType.CENTER
+              alignment: api.AlignmentType.CENTER
             })
           ]
         }),
-        first: new Footer({ children: [new Paragraph('')] })
+        first: new api.Footer({ children: [new api.Paragraph('')] })
       },
       children: [
-        ...buildTitlePage(input),
-        ...(input.toc ? buildToc(input) : []),
-        ...input.chapters.flatMap((chapter) => buildChapter(chapter, input))
+        ...buildTitlePage(api, input),
+        ...(input.toc ? buildToc(api, input) : []),
+        ...input.chapters.flatMap((chapter) => buildChapter(api, chapter, input))
       ]
     }
   ]
 
-  return new Document({
+  return new api.Document({
     creator: input.author !== undefined && input.author.trim().length > 0 ? input.author.trim() : 'Noryth',
     title: input.projectTitle,
     description: `Noryth 导出${revisionNote.length > 0 ? ` · ${revisionNote}` : ''}`,
@@ -312,15 +317,18 @@ function normalizeBookmarks(xml: string): string {
   })
   const ids = new Map<string, string>()
   let idCount = 0
-  out = out.replace(/(<w:bookmark(?:Start|End)[^>]*w:id=")(\d+)(")/g, (_all, prefix: string, id: string, suffix: string) => {
-    let mapped = ids.get(id)
-    if (mapped === undefined) {
-      idCount += 1
-      mapped = String(idCount)
-      ids.set(id, mapped)
+  out = out.replace(
+    /(<w:bookmark(?:Start|End)[^>]*w:id=")(\d+)(")/g,
+    (_all, prefix: string, id: string, suffix: string) => {
+      let mapped = ids.get(id)
+      if (mapped === undefined) {
+        idCount += 1
+        mapped = String(idCount)
+        ids.set(id, mapped)
+      }
+      return `${prefix}${mapped}${suffix}`
     }
-    return `${prefix}${mapped}${suffix}`
-  })
+  )
   return out
 }
 
@@ -342,6 +350,7 @@ function normalizeArchive(buffer: Buffer, at: Date): Buffer {
 }
 
 export async function renderDocx(input: DocxExportInput): Promise<Buffer> {
-  const raw = await Packer.toBuffer(buildDocument(input))
+  const api = await loadDocx()
+  const raw = await api.Packer.toBuffer(buildDocument(api, input))
   return normalizeArchive(raw, input.generatedAt)
 }

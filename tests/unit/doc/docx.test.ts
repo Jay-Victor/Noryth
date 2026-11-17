@@ -252,6 +252,12 @@ describe('DOCX 导出（PHASE-17）', () => {
     expect(entryText(finalExport.path, 'docProps/core.xml')).toContain(finalized.finalRevisionId)
   })
 
+  it('docx 按需加载：模块顶层不静态 import docx（PHASE-17 §7）', () => {
+    const source = readFileSync('src/main/doc/export-docx.ts', 'utf8')
+    expect(source).not.toMatch(/^import\s+\{[^}]*\}\s+from 'docx'/m)
+    expect(source).toContain("await import('docx')")
+  })
+
   it('同名文件追加序号不覆盖；本章导出缺 chapterId 直接拒绝', async () => {
     const { dir, handle } = setup()
     const first = await exportManuscript(handle.repos, dir, { format: 'docx' }, FIXED_AT)
