@@ -166,6 +166,52 @@ export const MemoryMessageStateSchema = z.strictObject({
 })
 export type MemoryMessageState = z.infer<typeof MemoryMessageStateSchema>
 
+/**
+ * 工具调用审计（PHASE-18 M1-23 / PRD §4.9.7 / UI-DESIGN §7.4 审计）。
+ *
+ * 只读：tool、版本、actor、耗时、degraded、错误码、归属章。
+ * **不返回 args**——审计表只存 `args_hash`；面板也不提供「重放工具」。
+ */
+export const ToolCallStateSchema = z.strictObject({
+  id: z.string(),
+  tool: z.string(),
+  toolVersion: z.string(),
+  actorId: z.string(),
+  /** actor 的人话标签（planner → 规划；character:x → 角色名）。 */
+  actorLabel: z.string(),
+  jobId: z.string(),
+  chapterId: z.string().nullable(),
+  chapterTitle: z.string().nullable(),
+  status: z.enum(['ok', 'error']),
+  errorCode: z.string().nullable(),
+  latencyMs: z.number().int().nonnegative(),
+  degraded: z.string(),
+  createdAt: z.string()
+})
+export type ToolCallState = z.infer<typeof ToolCallStateSchema>
+
+export const ToolCallListInputSchema = z.strictObject({
+  chapterId: z.string().min(1).optional(),
+  actorId: z.string().min(1).optional(),
+  status: z.enum(['ok', 'error']).optional(),
+  /** 1 起；每页 50（主进程固定页大小）。 */
+  page: z.number().int().min(1).max(1000).optional()
+})
+export type ToolCallListInput = z.infer<typeof ToolCallListInputSchema>
+
+export const ToolCallListStateSchema = z.strictObject({
+  projectId: z.string(),
+  readOnly: z.boolean(),
+  items: z.array(ToolCallStateSchema),
+  total: z.number().int().nonnegative(),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+  /** 过滤下拉的可选项（只含本项目出现过的章与 actor，避免下拉里堆空项）。 */
+  chapters: z.array(z.strictObject({ id: z.string(), ord: z.number().int(), title: z.string() })),
+  actors: z.array(z.strictObject({ id: z.string(), label: z.string() }))
+})
+export type ToolCallListState = z.infer<typeof ToolCallListStateSchema>
+
 export const MemoryJobSummarySchema = z.strictObject({
   id: z.string(),
   chapterId: z.string().nullable(),

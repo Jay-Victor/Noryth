@@ -41,3 +41,29 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:chaos
+
+  # E2E-M1-A（PHASE-18 §5.2）：3 卷 × 10 章 = 30 章 / 540 拍连续创作。
+  # 提交门只跑 3 章 E2E-M1-SMOKE；这里是 nightly / 发布前的长跑。
+  m1-a:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: e2e M1-A (30 chapters)
+        run: pnpm test:e2e:m1a
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-m1a-results
+          path: test-results/

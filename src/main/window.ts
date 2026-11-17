@@ -5,6 +5,8 @@ import { assertSecurePreferences, hardenWindow, SECURE_WEB_PREFERENCES } from '.
 export interface CreateWindowOptions {
   preloadPath: string
   devUrl?: string
+  /** 窗口/任务栏图标（M1-25）：打包后来自 extraResources/icons。 */
+  icon?: string
 }
 
 export function createMainWindow(options: CreateWindowOptions): BrowserWindow {
@@ -19,6 +21,7 @@ export function createMainWindow(options: CreateWindowOptions): BrowserWindow {
     backgroundColor: '#f7f5f2',
     title: 'Noryth',
     titleBarStyle: 'hidden',
+    ...(options.icon === undefined ? {} : { icon: options.icon }),
     ...(process.platform === 'win32'
       ? {
           titleBarOverlay: {

@@ -40,6 +40,8 @@ export interface AuditEntry {
   latencyMs: number
   degraded?: string | null
   idempotencyKey?: string | null
+  /** 归属章（PHASE-18 M1-23）：审计面板按章过滤；规划会话为 null。 */
+  chapterId?: string | null
 }
 
 export interface AuditSink {
@@ -65,7 +67,8 @@ export class RepoAuditSink implements AuditSink {
       errorCode: entry.errorCode ?? null,
       latencyMs: entry.latencyMs,
       degraded: entry.degraded ?? null,
-      idempotencyKey: entry.idempotencyKey ?? null
+      idempotencyKey: entry.idempotencyKey ?? null,
+      chapterId: entry.chapterId ?? null
     })
   }
 }

@@ -24,7 +24,8 @@ import { sha256Hex } from './crypto'
 import { ALL_MANIFESTS } from './tools/manifests'
 import { buildRegistry } from './tools/registry'
 import { createMainWindow, preloadPathFor } from './window'
-import { startBackgroundUpdateCheck } from './update'
+import { resolveAppIcon } from './brand'
+import { startBackgroundUpdateCheck, runUpdateCheck, currentUpdateState, channelOf } from './update'
 import { IPC_EVENTS } from '../shared/schema/ipc'
 import type { AppInfo, ProjectStateEvent } from '../shared/schema/project'
 
@@ -75,8 +76,20 @@ function buildAppInfo(): AppInfo {
     platform: process.platform,
     arch: process.arch,
     schemaVersion: LATEST_SCHEMA_VERSION,
-    packaged: app.isPackaged
+    packaged: app.isPackaged,
+    update: currentUpdateState()
   }
+}
+
+/** 启动检查与设置页手动检查共用同一个入口（PHASE-18 M1-7）。 */
+function checkUpdates(): ReturnType<typeof runUpdateCheck> {
+  return runUpdateCheck({
+    packaged: app.isPackaged,
+    currentVersion: app.getVersion(),
+    channel: channelOf(process.env.NORYTH_UPDATE_CHANNEL),
+    ...(process.env.NORYTH_UPDATE_FEED ? { feedUrl: process.env.NORYTH_UPDATE_FEED } : {}),
+    log: (message, details) => logger?.info({ event: message, ...details }, message)
+  })
 }
 
 async function bootstrap(): Promise<void> {
@@ -118,6 +131,7 @@ async function bootstrap(): Promise<void> {
 
   mainWindow = createMainWindow({
     preloadPath: preloadPathFor(__dirname),
+    icon: resolveAppIcon(),
     ...(rendererUrl ? { devUrl: rendererUrl } : {})
   })
 
@@ -270,6 +284,7 @@ async function bootstrap(): Promise<void> {
     logPath: logFilePath(logDir),
     userDataDir,
     appInfo: buildAppInfo,
+    checkUpdates,
     ...(slice ? { slice } : {}),
     devTools: !app.isPackaged
   })
@@ -295,6 +310,7 @@ async function bootstrap(): Promise<void> {
   void startBackgroundUpdateCheck({
     packaged: app.isPackaged,
     currentVersion: app.getVersion(),
+    channel: channelOf(process.env.NORYTH_UPDATE_CHANNEL),
     ...(process.env.NORYTH_UPDATE_FEED ? { feedUrl: process.env.NORYTH_UPDATE_FEED } : {}),
     log: (message, details) => logger?.info({ event: message, ...details }, message)
   })

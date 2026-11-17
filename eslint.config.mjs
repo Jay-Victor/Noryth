@@ -39,8 +39,8 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.node } }
   },
   {
-    // 安装冒烟的 page.evaluate 回调在渲染进程里跑，允许 window
-    files: ['scripts/install-smoke.mjs'],
+    // 安装冒烟 / 更新演练的 page.evaluate 回调在渲染进程里跑，允许 window
+    files: ['scripts/install-smoke.mjs', 'scripts/update-drill.mjs'],
     languageOptions: { globals: { ...globals.node, window: 'readonly' } }
   },
   {

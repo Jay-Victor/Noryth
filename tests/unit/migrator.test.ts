@@ -24,7 +24,7 @@ describe('migrator', () => {
       const db = newDb(dir.path)
       try {
         const first = migrate(db, MIGRATIONS)
-        expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
         expect(first.to).toBe(LATEST_SCHEMA_VERSION)
         expect(currentVersion(db)).toBe(LATEST_SCHEMA_VERSION)
         expect(db.pragma('user_version', { simple: true })).toBe(LATEST_SCHEMA_VERSION)
@@ -102,7 +102,7 @@ describe('migrator', () => {
       ).run()
 
       const result = migrate(db, MIGRATIONS)
-      expect(result.applied).toEqual([8, 9, 10])
+      expect(result.applied).toEqual([8, 9, 10, 11])
       const row = db.prepare('SELECT timeline, story_start, story_end FROM scene WHERE id = ?').get('scn_old') as {
         timeline: string
         story_start: string | null
@@ -146,7 +146,7 @@ describe('migrator', () => {
       ).run()
 
       const result = migrate(db, MIGRATIONS)
-      expect(result.applied).toEqual([9, 10])
+      expect(result.applied).toEqual([9, 10, 11])
 
       const node = db.prepare('SELECT meta_json FROM outline_node WHERE id = ?').get('out_old') as {
         meta_json: string
@@ -219,7 +219,7 @@ describe('migrator', () => {
       ).run()
 
       const result = migrate(db, MIGRATIONS)
-      expect(result.applied).toEqual([10])
+      expect(result.applied).toEqual([10, 11])
 
       const revision = db.prepare('SELECT branch_id FROM revision WHERE id = ?').get('rev_old') as {
         branch_id: string | null
@@ -250,6 +250,97 @@ describe('migrator', () => {
         (column) => column.name
       )
       expect(reportColumns).toContain('provider')
+
+      const report = verifyDatabase(db, { checkMirror: false })
+      expect(report.issues.filter((issue) => issue.severity === 'error')).toEqual([])
+      expect(report.ok).toBe(true)
+    } finally {
+      db.close()
+    }
+  })
+
+  it('0011 迁移旧项目：tool_call 增 chapter_id，按拍与 job 两条来源回填', () => {
+    const dir = tempDir()
+    cleanups.push(dir.cleanup)
+    const db = newDb(dir.path)
+    try {
+      migrate(
+        db,
+        MIGRATIONS.filter((migration) => migration.version <= 10)
+      )
+      db.prepare(
+        `INSERT INTO project (id, title, pov, embedding_model, embedding_dim, default_preset, schema_version, created_at, updated_at)
+         VALUES ('prj_old', '旧项目', 'third_limited', 'bge', 512, 'deepseek', 10, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare(
+        `INSERT INTO outline_node (id, project_id, parent_id, kind, ord, title, content, status, created_at, updated_at)
+         VALUES ('out_ch', 'prj_old', NULL, 'chapter', 1, '旧章', '', 'locked', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare(
+        `INSERT INTO chapter (id, project_id, outline_node_id, ord, status)
+         VALUES ('ch_old', 'prj_old', 'out_ch', 1, 'drafting')`
+      ).run()
+      db.prepare(
+        `INSERT INTO scene (id, project_id, ord, location, participants_json, goal, exit_json, status, created_at, updated_at)
+         VALUES ('scn_old', 'prj_old', 1, '祠堂', '[]', '旧场景', '{}', 'open', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare(
+        `INSERT INTO chapter_scene (chapter_id, scene_id, ord) VALUES ('ch_old', 'scn_old', 1)`
+      ).run()
+      db.prepare(
+        `INSERT INTO revision (id, chapter_id, parent_revision_id, kind, content_hash, created_by, note, created_at)
+         VALUES ('rev_old', 'ch_old', NULL, 'draft', '${'0'.repeat(64)}', 'doc_controller', NULL, '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare(
+        `INSERT INTO beat (id, chapter_id, scene_id, ord, speaker_type, speaker_id, status, created_revision_id, created_at, updated_at)
+         VALUES ('beat_old', 'ch_old', 'scn_old', 1, 'narrator', 'narrator', 'draft', 'rev_old', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      for (const [id, payload] of [
+        ['job_beat', '{}'],
+        ['job_chapter', JSON.stringify({ chapterId: 'ch_old' })],
+        ['job_plan', JSON.stringify({ sessionId: 'sess_1' })]
+      ] as const) {
+        db.prepare(
+          `INSERT INTO job (id, project_id, type, status, epoch, idempotency_key, payload_json, created_at, updated_at)
+           VALUES (?, 'prj_old', 'beat.generate', 'succeeded', 0, ?, ?, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+        ).run(id, `key_${id}`, payload)
+      }
+      db.prepare(
+        `INSERT INTO turn_metric (turn_id, project_id, job_id, beat_id, agent_key, provider, model, binding_version, context_json, created_at)
+         VALUES ('turn_old', 'prj_old', 'job_beat', 'beat_old', 'narrator', 'deepseek', 'deepseek-flash', 1, '{}', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      const insertToolCall = db.prepare(
+        `INSERT INTO tool_call (id, project_id, job_id, turn_id, tool, tool_version, actor_id, scope_json, args_hash,
+                                status, latency_ms, created_at)
+         VALUES (?, 'prj_old', ?, ?, 'memory.search_own', '1.0.0', 'narrator', '{}', ?, 'ok', 5, '2026-01-01T00:00:00.000Z')`
+      )
+      insertToolCall.run('tc_beat', 'job_beat', 'turn_old', 'a'.repeat(64))
+      insertToolCall.run('tc_chapter', 'job_chapter', 'turn_chapter', 'b'.repeat(64))
+      insertToolCall.run('tc_plan', 'job_plan', 'turn_plan', 'c'.repeat(64))
+
+      const result = migrate(db, MIGRATIONS)
+      expect(result.applied).toEqual([11])
+
+      const columns = (db.prepare('PRAGMA table_info(tool_call)').all() as Array<{ name: string }>).map(
+        (column) => column.name
+      )
+      expect(columns).toContain('chapter_id')
+
+      const rows = db
+        .prepare('SELECT id, chapter_id FROM tool_call ORDER BY id')
+        .all() as Array<{ id: string; chapter_id: string | null }>
+      expect(rows).toEqual([
+        { id: 'tc_beat', chapter_id: 'ch_old' },
+        { id: 'tc_chapter', chapter_id: 'ch_old' },
+        { id: 'tc_plan', chapter_id: null }
+      ])
+
+      const indexes = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name IN ('tool_by_project','tool_by_chapter') ORDER BY name"
+        )
+        .all() as Array<{ name: string }>
+      expect(indexes.map((row) => row.name)).toEqual(['tool_by_chapter', 'tool_by_project'])
 
       const report = verifyDatabase(db, { checkMirror: false })
       expect(report.issues.filter((issue) => issue.severity === 'error')).toEqual([])

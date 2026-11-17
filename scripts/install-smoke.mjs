@@ -13,7 +13,8 @@ import Database from 'better-sqlite3'
 import { _electron as electron } from '@playwright/test'
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'))
-const installer = resolve(process.argv[2] ?? join(ROOT, 'release', 'Noryth-0.1.0-setup.exe'))
+const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
+const installer = resolve(process.argv[2] ?? join(ROOT, 'release', `Noryth-${pkg.version}-setup.exe`))
 const installDir = resolve(process.argv[3] ?? join(tmpdir(), `noryth-install-${Date.now()}`))
 const userData = mkdtempSync(join(tmpdir(), 'noryth-install-user-'))
 const projectParent = mkdtempSync(join(tmpdir(), 'noryth-install-project-'))
@@ -77,6 +78,13 @@ async function main() {
     fail('安装包缺少 resources/models（嵌入模型目录）')
     return
   }
+  // PHASE-18 M1-25：品牌资源随包（窗口/任务栏图标）。
+  for (const icon of ['noryth-16.png', 'noryth-256.png', 'noryth-512.png']) {
+    if (!existsSync(join(installDir, 'resources', 'icons', icon))) {
+      fail(`安装包缺少 resources/icons/${icon}`)
+      return
+    }
+  }
   // PHASE-14 M1-20：bge 权重随包（q8 / 512 维）
   if (!existsSync(join(installDir, 'resources', 'models', 'bge-small-zh-v1.5', 'onnx', 'model_quantized.onnx'))) {
     fail('安装包缺少 bge 权重（resources/models/bge-small-zh-v1.5/onnx/model_quantized.onnx）')
@@ -104,7 +112,7 @@ async function main() {
       return
     }
     log(`app.info：version=${info.data.version} schema=${info.data.schemaVersion} packaged=${info.data.packaged}`)
-    if (info.data.schemaVersion < 8) fail(`schemaVersion=${info.data.schemaVersion}，期望 >= 8`)
+    if (info.data.schemaVersion < 11) fail(`schemaVersion=${info.data.schemaVersion}，期望 >= 11`)
 
     // 日志确认嵌入装配走了真模型（不是哈希降级）：source=model + bge 模型名
     const appLog = join(userData, 'logs', 'app.log')

@@ -110,6 +110,7 @@ import {
   MemoryInvalidateInputSchema,
   MemoryRecallInputSchema,
   MemorySendInputSchema,
+  ToolCallListInputSchema,
   MemoryStateInputSchema
 } from '../../shared/schema/memory'
 import type { Logger } from '../observability/logger'
@@ -119,6 +120,7 @@ import type { PlanService } from '../plan/service'
 import type { ProjectService } from '../project/service'
 import type { ReviewService } from '../review/service'
 import type { SettingsStore } from '../settings/store'
+import type { UpdateState } from '../../shared/schema/update'
 import type { SettingsService } from '../settings/service'
 import type { SliceService } from '../slice/service'
 import type { WriteService } from '../scheduler/service'
@@ -146,6 +148,8 @@ export interface IpcDeps {
   memory: MemoryService
   /** 世界状态（PHASE-13）：as-of 投影与作者事实。 */
   world: WorldService
+  /** 更新检查（PHASE-18 M1-7）：与启动后台检查共用 runUpdateCheck。 */
+  checkUpdates?: () => Promise<UpdateState>
 }
 
 interface HandlerDefinition<S extends z.ZodTypeAny, R> {
@@ -251,6 +255,41 @@ export function registerIpc(deps: IpcDeps): void {
   }
 
   register(IPC.appInfo, { schema: EmptySchema, handler: () => deps.appInfo() })
+
+  register(IPC.updateCheck, {
+    schema: EmptySchema,
+    handler: () =>
+      deps.checkUpdates?.() ??
+      Promise.resolve({
+        channel: 'stable' as const,
+        configured: false,
+        status: 'disabled' as const,
+        version: null,
+        checkedAt: null,
+        error: null
+      })
+  })
+
+  if (deps.devTools) {
+    // 只读 DB 校验（M1-15 QA）：生产包不注册；E2E 每 5 章跑一次。
+    register(IPC.projectVerify, {
+      schema: EmptySchema,
+      handler: () => {
+        const report = deps.project.verifyCurrent()
+        if (report === null) throw new AppError('project_not_found', '没有打开的项目')
+        return {
+          ok: report.ok,
+          checkedAt: report.checkedAt,
+          issues: report.issues.map((issue) => ({
+            code: issue.code,
+            severity: issue.severity,
+            message: issue.message
+          })),
+          stats: report.stats as unknown as Record<string, number>
+        }
+      }
+    })
+  }
 
   register(IPC.projectList, { schema: EmptySchema, handler: () => deps.project.list() })
 
@@ -860,6 +899,10 @@ export function registerIpc(deps: IpcDeps): void {
   register(IPC.memoryIsolation, {
     schema: EmptySchema,
     handler: () => memory.isolationReport()
+  })
+  register(IPC.memoryToolCalls, {
+    schema: ToolCallListInputSchema,
+    handler: (payload) => memory.toolCalls(payload)
   })
   register(IPC.memorySend, {
     schema: MemorySendInputSchema,

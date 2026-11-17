@@ -1,18 +1,84 @@
+import { useEffect } from 'react'
 import { useApp } from '../../stores/app'
 import { useSettings } from '../../stores/settings'
+import {
+  UPDATE_CHANNEL_LABELS,
+  UPDATE_STATUS_LABELS,
+  type UpdateState
+} from '../../../shared/schema/update'
 
 /**
- * 常规（UI-DESIGN §8.2 / PHASE-10 I4）。
+ * 常规（UI-DESIGN §8.2 / PHASE-10 I4 / PHASE-18 M1-7）。
  *
  * M0 只交付：语言（中文固定）、数据目录、Key 存储说明、诊断导出。
- * 更新通道与自动更新由 J4 接 electron-updater；这里显示当前状态，不做假开关。
+ * M1：更新通道与最近一次检查结果显示真实状态，手动检查只刷新状态，失败不阻塞。
  */
+
+function UpdateCard({ update }: { update: UpdateState }): React.JSX.Element {
+  const checkUpdates = useApp((state) => state.checkUpdates)
+  const busy = useApp((state) => state.busy)
+  const label = UPDATE_STATUS_LABELS[update.status]
+  return (
+    <section className="side-card">
+      <h2>更新</h2>
+      <div className="kv">
+        <span>通道</span>
+        <b data-testid="update-channel">{UPDATE_CHANNEL_LABELS[update.channel]}</b>
+      </div>
+      <div className="kv">
+        <span>状态</span>
+        <b data-testid="update-status" data-status={update.status}>
+          {label}
+        </b>
+      </div>
+      {update.version ? (
+        <div className="kv">
+          <span>远端版本</span>
+          <b className="mono" data-testid="update-version">
+            {update.version}
+          </b>
+        </div>
+      ) : null}
+      {update.checkedAt ? (
+        <div className="kv">
+          <span>上次检查</span>
+          <b className="mono">{update.checkedAt.replace('T', ' ').slice(0, 19)}</b>
+        </div>
+      ) : null}
+      {update.error ? (
+        <p className="settings-warning" data-testid="update-error">
+          {update.error}
+        </p>
+      ) : null}
+      <p className="settings-hint">
+        启动时后台检查一次；失败只记日志，不阻塞开窗与写作。只允许同一 minor 的回退，跨 minor 一律拒绝。
+      </p>
+      <div style={{ marginTop: 8 }}>
+        <button
+          type="button"
+          className="button"
+          data-testid="update-check"
+          disabled={busy}
+          onClick={() => void checkUpdates()}
+        >
+          检查更新
+        </button>
+      </div>
+    </section>
+  )
+}
 export function GeneralSection(): React.JSX.Element {
   const appInfo = useApp((state) => state.appInfo)
+  const refreshAppInfo = useApp((state) => state.refreshAppInfo)
   const exportDiagnostics = useApp((state) => state.exportDiagnostics)
   const view = useSettings((state) => state.view)
   const setOpenLastProject = useSettings((state) => state.setOpenLastProject)
   const setReviewHetero = useSettings((state) => state.setReviewHetero)
+
+  // 更新状态由主进程后台写入；进入设置页时补一次刷新，避免停在 boot 时的 idle。
+  useEffect(() => {
+    void refreshAppInfo()
+  }, [refreshAppInfo])
 
   return (
     <>
@@ -36,9 +102,11 @@ export function GeneralSection(): React.JSX.Element {
         </div>
         <div className="kv">
           <span>更新通道</span>
-          <b>{appInfo?.packaged ? 'stable · 启动检查，失败不阻塞' : 'dev · 不检查更新'}</b>
+          <b>{UPDATE_CHANNEL_LABELS[appInfo?.update.channel ?? 'stable']}</b>
         </div>
       </section>
+
+      {appInfo ? <UpdateCard update={appInfo.update} /> : null}
 
       <section className="side-card">
         <h2>数据</h2>

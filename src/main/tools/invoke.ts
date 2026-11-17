@@ -157,7 +157,8 @@ export async function invokeTool(
       status: 'error',
       errorCode: code,
       latencyMs: elapsed(),
-      degraded: 'none'
+      degraded: 'none',
+      chapterId: context.chapterId
     })
   }
 
@@ -176,7 +177,8 @@ export async function invokeTool(
       status: 'error',
       errorCode: 'tool_not_found',
       latencyMs: elapsed(),
-      degraded: 'none'
+      degraded: 'none',
+      chapterId: context.chapterId
     })
     return errorResult(intent.callId, 'tool_not_found', elapsed())
   }
@@ -303,7 +305,8 @@ export async function invokeTool(
     status: 'ok',
     latencyMs: result.latency_ms,
     degraded: result.degraded,
-    idempotencyKey: key
+    idempotencyKey: key,
+    chapterId: context.chapterId
   })
   return result
 }

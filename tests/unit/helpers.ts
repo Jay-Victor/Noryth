@@ -33,7 +33,15 @@ export function appInfo(): AppInfo {
     platform: process.platform,
     arch: process.arch,
     schemaVersion: 2,
-    packaged: false
+    packaged: false,
+    update: {
+      channel: 'stable',
+      configured: false,
+      status: 'disabled',
+      version: null,
+      checkedAt: null,
+      error: null
+    }
   }
 }
 

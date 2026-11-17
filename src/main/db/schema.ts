@@ -326,6 +326,8 @@ export interface ToolCallTable {
   degraded: string | null
   idempotency_key: string | null
   created_at: string
+  /** 归属章（迁移 0011）；规划会话与项目级工具为 NULL。 */
+  chapter_id: string | null
 }
 
 export interface ModelBindingTable {

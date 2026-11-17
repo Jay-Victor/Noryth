@@ -10,6 +10,7 @@ import type {
   MemoryState,
   RelationGraph,
   RelationGraphInput,
+  ToolCallListState,
   WorldFactAddInput,
   WorldProjectionState
 } from '../../shared/schema/memory'
@@ -61,6 +62,10 @@ interface MemoryStoreState {
   /** 伏笔（PHASE-15 M1-10）：作者标注 + 距离；不产生任何阻断。 */
   foreshadows: ForeshadowState | null
   foreshadowsLoading: boolean
+  /** 工具调用审计（PHASE-18 M1-23）：只读分页；过滤条件也放在 store 里，翻页不丢。 */
+  toolCalls: ToolCallListState | null
+  toolCallsLoading: boolean
+  toolCallFilters: { chapterId: string; actorId: string; status: 'all' | 'ok' | 'error'; page: number }
   /** 读者视角预览：只看 reveal_seq 已揭示的事实。 */
   readerOnly: boolean
   error: string | null
@@ -84,6 +89,8 @@ interface MemoryStoreState {
   loadRelations(input?: RelationGraphInput): Promise<void>
   /** 伏笔（M1-10）：列表 / 标注 / 回收；距离按当前章计算。 */
   loadForeshadows(chapterId?: string): Promise<void>
+  /** 工具调用审计（M1-23）：只读、分页 50；patch 里省略的过滤条件保持不变。 */
+  loadToolCalls(patch?: Partial<{ chapterId: string; actorId: string; status: 'all' | 'ok' | 'error'; page: number }>): Promise<void>
   createForeshadow(input: ForeshadowCreateInput): Promise<boolean>
   updateForeshadow(input: ForeshadowUpdateInput): Promise<boolean>
   closeForeshadow(foreshadowId: string, payoffChapterId: string): Promise<boolean>
@@ -134,6 +141,9 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
     foreshadowsLoading: false,
     relations: null,
     relationsLoading: false,
+    toolCalls: null,
+    toolCallsLoading: false,
+    toolCallFilters: { chapterId: '', actorId: '', status: 'all', page: 1 },
     readerOnly: false,
     error: null,
 
@@ -216,6 +226,26 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
         return
       }
       set({ foreshadows: result.data })
+    },
+
+    async loadToolCalls(patch = {}) {
+      const bridge = getBridge()
+      if (!bridge) return
+      const filters = { ...get().toolCallFilters, ...patch }
+      set({ toolCallFilters: filters, toolCallsLoading: true })
+      const result = await bridge.memory.toolCalls({
+        ...(filters.chapterId === '' ? {} : { chapterId: filters.chapterId }),
+        ...(filters.actorId === '' ? {} : { actorId: filters.actorId }),
+        ...(filters.status === 'all' ? {} : { status: filters.status }),
+        page: filters.page
+      })
+      set({ toolCallsLoading: false })
+      if (!result.ok) {
+        set({ toolCalls: null })
+        toastError(result.error.message, result.error.code)
+        return
+      }
+      set({ toolCalls: result.data })
     },
 
     async createForeshadow(input) {
@@ -566,6 +596,9 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
         foreshadowsLoading: false,
         relations: null,
         relationsLoading: false,
+        toolCalls: null,
+        toolCallsLoading: false,
+        toolCallFilters: { chapterId: '', actorId: '', status: 'all', page: 1 },
         readerOnly: false,
         error: null,
         busy: false,

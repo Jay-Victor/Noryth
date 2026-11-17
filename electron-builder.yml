@@ -28,11 +28,16 @@ extraResources:
   # 嵌入模型目录（可选）：M0 只有说明文件，放权重即自动随包；见 docs/adr/0004-embedding.md
   - from: resources/models
     to: models
+  # 窗口/任务栏图标（PHASE-18 M1-25）：安装包图标由 win.icon 嵌入 exe，
+  # 运行时窗口图标从 resources/icons 读，两处用同一套源文件。
+  - from: resources/icons
+    to: icons
 # 离线可用：直接用 pnpm 装好的 Electron 运行时，避免打包时再去下载（CI 同样适用）
 electronDist: node_modules/electron/dist
 npmRebuild: false
 buildDependenciesFromSource: false
 win:
+  icon: resources/icon.ico
   target:
     - target: nsis
       arch:

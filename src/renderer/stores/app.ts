@@ -62,6 +62,10 @@ interface AppState {
   relocateProject(projectId: string, path: string): Promise<boolean>
   revealProject(projectId: string): Promise<void>
   exportDiagnostics(): Promise<void>
+  /** 重新读取 AppInfo（更新状态是后台写的，设置页进入时要刷新一次）。 */
+  refreshAppInfo(): Promise<void>
+  /** 手动检查更新（PHASE-18 M1-7）：只刷新状态，不阻塞任何操作。 */
+  checkUpdates(): Promise<void>
   applyStateEvent(event: ProjectStateEvent): void
   toast(toast: Omit<Toast, 'id'>): void
   dismissToast(id: string): void
@@ -329,6 +333,40 @@ export const useApp = create<AppState>((set, get) => {
         detail: `${result.data.path}（${result.data.entries.length} 个文件）`,
         key: 'diagnostics'
       })
+    },
+
+    async refreshAppInfo() {
+      const bridge = getBridge()
+      if (!bridge) return
+      const info = await bridge.app.info()
+      if (info.ok) set({ appInfo: info.data })
+    },
+
+    async checkUpdates() {
+      const bridge = getBridge()
+      if (!bridge) return
+      const result = await bridge.app.checkUpdates()
+      if (!result.ok) {
+        pushError(result.error)
+        return
+      }
+      const info = await bridge.app.info()
+      set({ appInfo: info.ok ? info.data : get().appInfo })
+      if (result.data.status === 'available' || result.data.status === 'downgrade') {
+        get().toast({
+          tone: 'success',
+          title: '发现新版本',
+          detail: `${result.data.version ?? ''}（${result.data.channel} 通道）`,
+          key: 'update'
+        })
+      } else if (result.data.status === 'failed') {
+        get().toast({
+          tone: 'info',
+          title: '更新检查失败（不阻塞使用）',
+          detail: result.data.error ?? undefined,
+          key: 'update'
+        })
+      }
     },
 
     applyStateEvent(event) {

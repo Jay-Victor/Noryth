@@ -304,6 +304,10 @@ export class WriteService {
     beatsPerScene?: number
     chapters?: number
     seedEveryChapter?: boolean
+    characters?: number
+    /** 卷数（1–3）；>1 时按 chaptersPerVolume 铺章，chapters 忽略。 */
+    volumes?: number
+    chaptersPerVolume?: number
     exit?: string
   } = {}): WriteState {
     const host = this.requireWritable()
@@ -331,6 +335,20 @@ export class WriteService {
         cardJson: JSON.stringify({ identity: '女子', want: '找到账本', taboo: '父亲' })
       })
     }
+    // M1 长跑需要第二个角色：关系提案的目标不能是自己（relationship_edge 有 from<>to CHECK）。
+    const characterIds = [characterId]
+    const extras = Math.max(1, Math.min(input.characters ?? 1, 5))
+    const extraNames = ['沈砚', '周叙', '柳七', '管事']
+    for (let index = 1; index < extras; index += 1) {
+      const id = `chr_dev_${index}`
+      host.repos.character.insert({
+        id,
+        projectId: project.id,
+        name: extraNames[index - 1] ?? `配角 ${index}`,
+        cardJson: JSON.stringify({ identity: '族中亲眷', want: '守住祠堂' })
+      })
+      characterIds.push(id)
+    }
     const root = host.repos.outline.insert({
       projectId: project.id,
       parentId: null,
@@ -340,40 +358,60 @@ export class WriteService {
       content: '账本与匣子',
       status: 'approved'
     })
-    const node = host.repos.outline.insert({
-      projectId: project.id,
-      parentId: root.id,
-      kind: 'chapter',
-      ord: 1,
-      title: '祠堂夜谈',
-      content: '沈昼第一次听见匣子',
-      status: 'approved'
-    })
-    const chapter = host.repos.chapter.insert({
-      projectId: project.id,
-      outlineNodeId: node.id,
-      ord: 1,
-      status: 'planned'
-    })
-    // 性能/文件树 E2E：额外章只有节点与章行，不带分镜（devSeed 仍然只演第一章）。
-    const extraChapterIds: string[] = []
-    for (let ord = 2; ord <= chapterCount; ord += 1) {
-      const extra = host.repos.outline.insert({
+    // M1 长跑（PHASE-18 §5.2）用 volumes × chaptersPerVolume 造 3 卷 × 10 章：
+    // 卷是 outline 的中间层，章 ord 仍全局递增。卷存在时第一章挂在第 1 卷下，
+    // 不能在根上再放一个 ord=1 的章（outline_child_ord 唯一）。
+    const volumes = Math.max(1, Math.min(input.volumes ?? 1, 3))
+    const chaptersPerVolume = Math.max(1, Math.min(input.chaptersPerVolume ?? chapterCount, 10))
+    const createChapter = (parentId: string, ord: number, title: string, content: string): string => {
+      const outline = host.repos.outline.insert({
         projectId: project.id,
-        parentId: root.id,
+        parentId,
         kind: 'chapter',
         ord,
-        title: `第 ${ord} 章`,
-        content: '',
-        status: 'draft'
+        title,
+        content,
+        status: ord === 1 ? 'approved' : 'draft'
       })
-      const extraChapter = host.repos.chapter.insert({
+      const created = host.repos.chapter.insert({
         projectId: project.id,
-        outlineNodeId: extra.id,
+        outlineNodeId: outline.id,
         ord,
         status: 'planned'
       })
-      extraChapterIds.push(extraChapter.id)
+      return created.id
+    }
+
+    let chapterId = ''
+    const extraChapterIds: string[] = []
+    if (volumes > 1) {
+      for (let volumeIndex = 1; volumeIndex <= volumes; volumeIndex += 1) {
+        const volume = host.repos.outline.insert({
+          projectId: project.id,
+          parentId: root.id,
+          kind: 'volume',
+          ord: volumeIndex,
+          title: `第 ${volumeIndex} 卷`,
+          content: '',
+          status: 'approved'
+        })
+        for (let index = 1; index <= chaptersPerVolume; index += 1) {
+          const ord = (volumeIndex - 1) * chaptersPerVolume + index
+          const created = createChapter(
+            volume.id,
+            ord,
+            ord === 1 ? '祠堂夜谈' : `第 ${ord} 章`,
+            ord === 1 ? '沈昼第一次听见匣子' : ''
+          )
+          if (ord === 1) chapterId = created
+          else extraChapterIds.push(created)
+        }
+      }
+    } else {
+      chapterId = createChapter(root.id, 1, '祠堂夜谈', '沈昼第一次听见匣子')
+      for (let ord = 2; ord <= chapterCount; ord += 1) {
+        extraChapterIds.push(createChapter(root.id, ord, `第 ${ord} 章`, ''))
+      }
     }
     host.repos.world.insert({
       projectId: project.id,
@@ -385,9 +423,11 @@ export class WriteService {
       validFromSeq: 0,
       sourceType: 'author'
     })
+
+    if (chapterId === '') throw new AppError('internal_error', 'devSeed 没有建出第一章')
     const seedScenes = Array.from({ length: sceneCount }, (_, sceneIndex) => ({
       location: `地点 ${sceneIndex + 1}`,
-      participants: [characterId],
+      participants: characterIds,
       goal: `第 ${sceneIndex + 1} 场目标`,
       entry: '',
       exit,
@@ -400,7 +440,7 @@ export class WriteService {
       }))
     }))
     saveStoryboardDraft(host.repos, {
-      chapterId: chapter.id,
+      chapterId,
       updatedBy: 'author',
       scenes: seedScenes
     })
@@ -409,7 +449,7 @@ export class WriteService {
         saveStoryboardDraft(host.repos, { chapterId: extraId, updatedBy: 'author', scenes: seedScenes })
       }
     }
-    return this.state(chapter.id)
+    return this.state(chapterId)
   }
 
   confirmG2(chapterId: string): WriteActionResult {

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { ProviderSettingsSchema, PresetSchema } from './model'
+import { UpdateStateSchema } from './update'
 import {
   AppearanceSchema,
   AppearancePatchSchema,
@@ -211,6 +212,20 @@ export const SettingsPatchSchema = z
   })
 export type SettingsPatch = z.infer<typeof SettingsPatchSchema>
 
+/** 只读 DB 校验（PHASE-18 M1-15）：E2E 每 5 章跑一次；dev 构建才注册通道。 */
+export const ProjectVerifyIssueSchema = z.strictObject({
+  code: z.string(),
+  severity: z.enum(['error', 'warn']),
+  message: z.string()
+})
+export const ProjectVerifyResultSchema = z.strictObject({
+  ok: z.boolean(),
+  checkedAt: z.string(),
+  issues: z.array(ProjectVerifyIssueSchema),
+  stats: z.record(z.string(), z.number())
+})
+export type ProjectVerifyResult = z.infer<typeof ProjectVerifyResultSchema>
+
 export const AppInfoSchema = z.strictObject({
   name: z.string(),
   version: z.string(),
@@ -220,7 +235,9 @@ export const AppInfoSchema = z.strictObject({
   platform: z.string(),
   arch: z.string(),
   schemaVersion: z.number().int().nonnegative(),
-  packaged: z.boolean()
+  packaged: z.boolean(),
+  /** 更新通道与最近一次检查结果（PHASE-18 M1-7）。 */
+  update: UpdateStateSchema
 })
 export type AppInfo = z.infer<typeof AppInfoSchema>
 

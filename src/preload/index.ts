@@ -44,7 +44,8 @@ const bridge: NorythBridge = {
     removeFromList: (projectId) => invoke(IPC.projectRemoveFromList, { projectId }),
     relocate: (input) => invoke(IPC.projectRelocate, input),
     updateMeta: (input) => invoke(IPC.projectUpdateMeta, input),
-    reveal: (projectId) => invoke(IPC.projectReveal, { projectId })
+    reveal: (projectId) => invoke(IPC.projectReveal, { projectId }),
+    verify: () => invoke(IPC.projectVerify, {})
   },
   dialog: {
     pickDirectory: () => invoke(IPC.dialogPickDirectory, {}),
@@ -179,10 +180,12 @@ const bridge: NorythBridge = {
     rebuild: (input) => invoke(IPC.memoryRebuild, input),
     issueIndexToken: () => invoke(IPC.memoryIndexIssue, {}),
     reindex: (input) => invoke(IPC.memoryIndexRebuild, input),
-    devSeed: (input) => invoke(IPC.memoryDevSeed, input ?? {})
+    devSeed: (input) => invoke(IPC.memoryDevSeed, input ?? {}),
+    toolCalls: (input) => invoke(IPC.memoryToolCalls, input ?? {})
   },
   app: {
-    info: () => invoke(IPC.appInfo, {})
+    info: () => invoke(IPC.appInfo, {}),
+    checkUpdates: () => invoke(IPC.updateCheck, {})
   },
   events: {
     onProjectState: (listener) => {

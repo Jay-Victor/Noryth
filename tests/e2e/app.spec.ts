@@ -95,6 +95,16 @@ test('外壳、安全边界与三档栅格', async () => {
   })
   expect(fetchBlocked).toBe(true)
 
+  // 新窗口：外部地址一律 deny（DEV-PLAN §4.4）；页面自身保持不变。
+  // 不用 location 跳转验证 will-navigate：Playwright 会等一次永不完成的导航。
+  const navigation = await page.evaluate(() => {
+    const before = window.location.href
+    const opened = window.open('https://example.com/', '_blank')
+    return { deniedWindow: opened === null, sameLocation: window.location.href === before }
+  })
+  expect(navigation.deniedWindow).toBe(true)
+  expect(navigation.sameLocation).toBe(true)
+
   // 无项目：规划/创作/审批/记忆置灰，并给出原因
   for (const nav of ['plan', 'write', 'review', 'memory']) {
     const item = page.locator(`[data-nav="${nav}"]`)

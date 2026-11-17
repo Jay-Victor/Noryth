@@ -6,6 +6,7 @@ import { TreeRailTrigger } from '../../app/TreeRailTrigger'
 import { useApp } from '../../stores/app'
 import { useMemory, type MemoryTab } from '../../stores/memory'
 import { AuditList } from './AuditList'
+import { ToolCallList } from './ToolCallList'
 import { GateBar } from './GateBar'
 import { MemoryBrowser } from './MemoryBrowser'
 import { ProposalList } from './ProposalList'
@@ -112,6 +113,8 @@ export function MemoryPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
   const streaming = useMemory((store) => store.streaming)
   const foreshadows = useMemory((store) => store.foreshadows)
   const [message, setMessage] = useState('')
+  /** 审计 tab 的两个视图：记忆变更（memory_audit）与工具调用（tool_call）。 */
+  const [auditScope, setAuditScope] = useState<'memory' | 'tools'>('memory')
 
   useEffect(() => {
     useMemory.getState().reset()
@@ -398,7 +401,38 @@ export function MemoryPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
             <ForeshadowPanel state={foreshadows} />
           )
         ) : null}
-        {tab === 'audit' ? <AuditList state={state} /> : null}
+        {tab === 'audit' ? (
+          <div className="memory-audit-scope">
+            <div className="memory-audit-scope__tabs" role="tablist" aria-label="审计视图">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={auditScope === 'memory'}
+                className={`write-tab${auditScope === 'memory' ? ' is-active' : ''}`}
+                data-testid="audit-scope-memory"
+                onClick={() => setAuditScope('memory')}
+              >
+                记忆变更
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={auditScope === 'tools'}
+                className={`write-tab${auditScope === 'tools' ? ' is-active' : ''}`}
+                data-testid="audit-scope-tools"
+                onClick={() => setAuditScope('tools')}
+              >
+                工具调用
+              </button>
+              <span className="pane-header__meta">
+                {auditScope === 'memory' ? '软失效 · 不删除' : '运行时审计 · 无参数原文'}
+              </span>
+            </div>
+            <div className="memory-audit-scope__body">
+              {auditScope === 'memory' ? <AuditList state={state} /> : <ToolCallList />}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="pane pane--tree" data-testid="pane-tree" aria-label="只读文件树">

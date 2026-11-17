@@ -392,6 +392,11 @@ export const WriteDevSeedInputSchema = z.strictObject({
   chapters: z.number().int().min(1).max(40).optional(),
   /** 每章都带同一套分镜草案（PHASE-12 的多章时间线 E2E 用）。 */
   seedEveryChapter: z.boolean().optional(),
+  /** 角色数（1–5，默认 1）；M1 长跑用 2，避免关系边退化成自环。 */
+  characters: z.number().int().min(1).max(5).optional(),
+  /** 卷数（1–3）与每卷章数（1–10）；M1 长跑 3 × 10。 */
+  volumes: z.number().int().min(1).max(3).optional(),
+  chaptersPerVolume: z.number().int().min(1).max(10).optional(),
   exit: z.string().min(1).max(500).optional()
 })
 

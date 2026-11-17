@@ -17,10 +17,13 @@ import type {
   MemoryRebuildState,
   MemorySendResult,
   MemoryState,
+  ToolCallListState,
   WorldFactState
 } from '../../shared/schema/memory'
 import type { Db } from '../db/project-db'
 import type { Repos } from '../db/repos'
+import { TOOL_CALL_PAGE_SIZE } from '../db/repos/tool-call'
+import { AGENT_LABELS } from '../../shared/schema/settings'
 import type { ChapterRecord } from '../db/repos/chapter'
 import type { JobRecord } from '../db/repos/job'
 import type { MemoryProposalItemRecord } from '../db/repos/memory-proposal'
@@ -337,8 +340,74 @@ export class MemoryService {
     }
   }
 
-  // ── 抽取 ──────────────────────────────────────────────────────────────────
+  /**
+   * 工具调用审计（PHASE-18 M1-23）。
+   *
+   * 只读投影：不返回 args（表里只有 args_hash），也不提供重放入口。
+   * 章 / Agent / 状态三个过滤都下推到 SQL；分页固定 50 条。
+   */
+  toolCalls(input: {
+    chapterId?: string
+    actorId?: string
+    status?: 'ok' | 'error'
+    page?: number
+  } = {}): ToolCallListState {
+    const host = this.requireHost()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'no project in database')
+    const page = Math.max(1, Math.floor(input.page ?? 1))
+    const filter = {
+      ...(input.chapterId === undefined ? {} : { chapterId: input.chapterId }),
+      ...(input.actorId === undefined ? {} : { actorId: input.actorId }),
+      ...(input.status === undefined ? {} : { status: input.status }),
+      limit: TOOL_CALL_PAGE_SIZE,
+      offset: (page - 1) * TOOL_CALL_PAGE_SIZE
+    }
+    const total = host.repos.toolCall.countByProject(project.id, filter)
+    const records = host.repos.toolCall.listByProject(project.id, filter)
+    const chapters = this.chapters()
+    const chapterTitles = new Map(chapters.map((chapter) => [chapter.id, chapter.title]))
+    const characters = new Map(
+      host.repos.character.list(project.id).map((character) => [character.id, character.name])
+    )
+    const actorLabel = (actorId: string): string => {
+      if (actorId.startsWith('character:')) {
+        const characterId = actorId.slice('character:'.length)
+        return characters.get(characterId) ?? characterId
+      }
+      return AGENT_LABELS[actorId as keyof typeof AGENT_LABELS] ?? actorId
+    }
+    return {
+      projectId: project.id,
+      readOnly: host.readOnly,
+      items: records.map((record) => ({
+        id: record.id,
+        tool: record.tool,
+        toolVersion: record.toolVersion,
+        actorId: record.actorId,
+        actorLabel: actorLabel(record.actorId),
+        jobId: record.jobId,
+        chapterId: record.chapterId,
+        chapterTitle:
+          record.chapterId === null ? null : (chapterTitles.get(record.chapterId) ?? record.chapterId),
+        status: record.status,
+        errorCode: record.errorCode,
+        latencyMs: record.latencyMs,
+        degraded: record.degraded ?? 'none',
+        createdAt: record.createdAt
+      })),
+      total,
+      page,
+      pageSize: TOOL_CALL_PAGE_SIZE,
+      chapters: chapters.map((chapter) => ({ id: chapter.id, ord: chapter.ord, title: chapter.title })),
+      actors: host.repos.toolCall.distinctActors(project.id).map((actorId) => ({
+        id: actorId,
+        label: actorLabel(actorId)
+      }))
+    }
+  }
 
+  // ── 抽取 ──────────────────────────────────────────────────────────────────
   /**
    * 确保本章的抽取任务存在并执行。
    * - 已应用 → 不再抽；

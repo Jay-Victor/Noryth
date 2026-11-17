@@ -1,5 +1,6 @@
 import type { IpcResult } from './ipc'
 import type { DiagnosticsExportInput, DiagnosticsExportResult, ExportRequest, ExportResult } from './export'
+import type { UpdateState } from './update'
 import type {
   AppearancePatch,
   BindingAuditEntry,
@@ -64,6 +65,8 @@ import type {
   MemoryState,
   RelationGraph,
   RelationGraphInput,
+  ToolCallListInput,
+  ToolCallListState,
   WorldFactActionResult,
   WorldFactAddInput,
   WorldFactCloseInput,
@@ -99,6 +102,7 @@ import type {
   ProjectStateEvent,
   ProjectSummary,
   ProjectTree,
+  ProjectVerifyResult,
   RelocateProjectInput,
   Settings,
   SettingsPatch,
@@ -127,6 +131,8 @@ export interface ProjectApi {
   relocate(input: RelocateProjectInput): Promise<IpcResult<{ path: string }>>
   updateMeta(input: UpdateProjectMetaInput): Promise<IpcResult<ProjectSummary>>
   reveal(projectId: string): Promise<IpcResult<{ revealed: boolean }>>
+  /** 只读 DB 校验（PHASE-18 M1-15）：仅未打包构建注册；生产包返回 invalid_args。 */
+  verify(): Promise<IpcResult<ProjectVerifyResult>>
 }
 
 export interface DialogApi {
@@ -176,6 +182,8 @@ export interface SliceApi {
 
 export interface AppApi {
   info(): Promise<IpcResult<AppInfo>>
+  /** 手动检查更新（PHASE-18 M1-7）：下载仍由 electron-updater 后台做；失败不阻塞。 */
+  checkUpdates(): Promise<IpcResult<UpdateState>>
 }
 
 /** 规划台 API（PHASE-06）。所有写操作在只读项目上由主进程拒绝。 */
@@ -290,6 +298,9 @@ export interface WriteApi {
     beatsPerScene?: number
     chapters?: number
     seedEveryChapter?: boolean
+    characters?: number
+    volumes?: number
+    chaptersPerVolume?: number
     exit?: string
   }): Promise<IpcResult<WriteState>>
 }
@@ -376,6 +387,8 @@ export interface MemoryApi {
     beatsPerScene?: number
     extraChapters?: number
   }): Promise<IpcResult<MemoryState>>
+  /** 工具调用审计（M1-23）：只读、分页 50；不返回 args。 */
+  toolCalls(input?: ToolCallListInput): Promise<IpcResult<ToolCallListState>>
 }
 
 /** 世界状态（PHASE-13 M1-3 / M1-18）：as-of 投影 + 作者显式新增/关闭事实。 */
