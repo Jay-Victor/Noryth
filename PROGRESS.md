@@ -262,7 +262,9 @@
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
 | 提交 | `45c4781`（feat）、`d880449`（docs） | 已推送 origin/dev |
-| CI | GitHub Actions run `44027558509`（`d880449`） | verify 1m44 + e2e 3m14 均绿；package 按规则跳过（非 `v*` tag） |
+| CI（功能与文档提交） | GitHub Actions run `44027558509`（`d880449`） | verify 1m44 + e2e 3m14 均绿；package 按规则跳过（非 `v*` tag） |
+| CI（标签记录提交） | GitHub Actions run `44028518908`（`dd96cdc`） | verify 绿；e2e 在第 15 条（`memory.spec`）后早退（2m32，退出码 1 且 tail 里只有 `ok 6..15`、无失败用例）→ 同阶段 14/16 的 runner 偶发形态；该提交只改 PROGRESS 一行，代码树与 `44027558509` 相同 |
+| CI（复跑） | GitHub Actions run `44029599184`（`22710d1`，空提交） | verify + e2e 均绿；package 按规则跳过 |
 | 阶段标签 | `phase-17-done` → `06a4596` | 已推送 origin |
 
 ## 当前可运行命令
