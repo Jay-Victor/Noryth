@@ -664,7 +664,7 @@
   6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）✅
   7. `E2E-M1-A`（30 章连续创作，阶段 18 / nightly）。
 - 发布注意：首个 release tag 前配置 `NORYTH_UPDATE_FEED`（或 electron-builder publish），否则更新状态为 `disabled`；`latest.yml` 已随 `pnpm run dist` 生成。安装包 159MB（上限 250MB）。
-- 文档待办：`AGENTS.md` 的「当前状态」仍写「阶段 11–16 已 done」；该文件受保护，需作者手动改成 11–17（PROGRESS 已是最新）。
+- 文档：`AGENTS.md` 已随阶段 17 收口更新（阶段 11–17、常用命令含 chaos/perf/embed、CI 分片与早退说明），提交 `9f61d04`。
 
 ## 更新规则
 
