@@ -301,6 +301,7 @@
 | 提交 | `857e92a`（feat）、`ef846cc`（docs） | 已推送 origin/dev |
 | CI | GitHub Actions run `44045408802`（`ef846cc`） | verify 2m34 绿；e2e (1) 2m05 / e2e (2) 2m46 均绿；package 按规则跳过（非 `v*` tag） |
 | 阶段标签 | `phase-18-done` → `1f2b668` | 已推送 origin；该提交 CI run `44049244747` 全绿 |
+| CI（收口后文档提交） | run `44055566898`（`f58834b`） | verify 绿；e2e (1) `E2E-M1-BRANCH-01` 失败（36.5s；本地连跑 3 次 18s 全绿，同代码的 `ef846cc`/`1f2b668`/`fce9c49` 三次 CI 全绿）→ 判定 runner 偶发；e2e (2) 在 `slice.spec` 后静默早退（已知形态）；待重跑确认 |
 
 ## 当前可运行命令
 
