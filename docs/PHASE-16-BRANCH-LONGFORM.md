@@ -93,13 +93,13 @@
 
 ## 6 验收清单
 
-- [ ] `E2E-M1-BRANCH-01`：定稿 → 重开 → 改一拍 → 再定稿；旧 final 可读；新 final 指向新 revision；`db.verify()` 绿。
-- [ ] 分支：开新分支 → 写 2 拍 → 对比两版差异按拍对齐；切回主线不丢分支。
-- [ ] 重开再定稿后自动入队 `memory.rebuild`；旧记忆 inactive（与阶段 14 联动），不重复入队 `memory.extract`。
-- [ ] 异构复检 `prefer` 自动换第二家；无第二家 `degraded='hetero_unavailable'`，不阻断。
-- [ ] 摘要 ≤300 tokens；L0 总 tokens ≤900；30 章链不 `context_overflow`。
-- [ ] 0010 迁移旧项目：`branch_id=NULL`；摘要表空；`db.verify()` 绿。
-- [ ] 分支 / 重开不产生第二写入口；正文仍只由 `commitBeat` / `patch` / `finalize` 写。
+- [x] `E2E-M1-BRANCH-01`：定稿 → 重开 → 改一拍 → 再定稿；旧 final 可读；新 final 指向新 revision；`db.verify()` 绿。（`tests/e2e/branch.spec.ts`，DB 断言两个 final + `verifyDatabase` 无 error）
+- [x] 分支：开新分支 → 写 2 拍 → 对比两版差异按拍对齐；切回主线不丢分支。（`tests/unit/doc/branches.test.ts` + E2E 同文件）
+- [x] 重开再定稿后自动入队 `memory.rebuild`；旧记忆 inactive（与阶段 14 联动），不重复入队 `memory.extract`。（`tests/unit/memory/rebuild-after-reopen.test.ts` + E2E）
+- [x] 异构复检 `prefer` 自动换第二家；无第二家 `degraded='hetero_unavailable'`，不阻断。（`tests/unit/review/hetero.test.ts` 7 条）
+- [x] 摘要 ≤300 tokens；L0 总 tokens ≤900；30 章链不 `context_overflow`。（`tests/unit/doc/summary.test.ts` + `tests/unit/context/summary-block.test.ts`）
+- [x] 0010 迁移旧项目：`branch_id=NULL`；摘要表空；`db.verify()` 绿。（`tests/unit/migrator.test.ts`）
+- [x] 分支 / 重开不产生第二写入口；正文仍只由 `commitBeat` / `patch` / `finalize` 写。（重开/分支只 INSERT revision 与清单；`beat.body` 写入路径未新增）
 
 ## 7 风险与回退
 
@@ -118,3 +118,22 @@
 3. 异构复检有 provider 记录与缺失降级。
 4. 摘要进 L0 且预算不超；30 章链无 overflow。
 5. 迁移 0010 与 `db.verify()` 全绿。
+
+## 9 实现记录（2026-11-17）
+
+| 交付 | 落点 | 说明 |
+|---|---|---|
+| 重开定稿 | `src/main/doc/reopen.ts` | `finalized → revising`；新 draft（parent = final，复制清单，`branch_id=NULL`）；旧 final 保留；`write_epoch+1` |
+| 分支 | `src/main/doc/branches.ts`、`BranchRepo` | 分支只承载 draft；`head` 随 `commitBeat` / patch / scene fork 移动；切换只改 `current_revision_id`；不做合并 |
+| 异构复检 | `src/main/review/hetero.ts` | `review.hetero=prefer` 时 job 开始解析一次；按 `turn_metric` 判生成 provider，缺失回退旁白绑定；报告写 `provider`，无第二家 `degraded=hetero_unavailable` |
+| 章末摘要 | `src/main/doc/summary.ts`、`ChapterSummaryRepo` | finalize 同事务写；首拍 + 末拍 + 本章新出现客观公开事实 ≤5；≤300 tokens；旧 final 摘要保留 |
+| L0 装配 | `context/summary-block`、`context/budget.ts` | `L0:summary:prev`；L0 ≤900；超预算先压 150 再整块丢（在最近拍之后、pinned 之前） |
+| 记忆联动 | `doc/finalize.ts`、`memory/service.ts` | 重开再定稿入队 `memory.rebuild`（G6 已授权），不再入队 extract；自动执行失败不回滚定稿，UI 显示错误码 |
+| 迁移 | `src/main/db/migrations/0010_branch_summary.sql` | `revision_branch` / `revision.branch_id` / `chapter_summary` / `approval_report.provider`；`LATEST_SCHEMA_VERSION = 10` |
+| 验证 | `db/verify.ts` | `branch_head_invalid` / `current_revision_not_in_branch` / `summary_revision_invalid` |
+
+边界说明：
+
+- 自动重建是定稿后的后台动作；没有 Key / 模型失败时任务标 failed（记忆台可手动重跑），不影响定稿结果。
+- 摘要只从 final 清单与公开客观事实抽取，不调用模型；不写正文，不参与 `content_hash`。
+- 分支切换不改变章的 `current_revision_id` 以外的任何行；其他分支与 final 全部保留。

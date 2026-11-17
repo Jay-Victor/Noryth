@@ -316,6 +316,9 @@ contextBridge.exposeInMainWorld('noryth', {
 | review | `authorizePatches` | reportId | `{jobId}` | G5 |
 | review | `decidePatch` | patchId、accept/reject | `{revisionId?}` | G5 |
 | review | `finalize` | chapterId、revisionId、ackUnreviewed | `{finalRevisionId, memoryJobId}` | G6 |
+| review | `reopen`（M1-21） | chapterId、reason? | `{state, detail}`；旧 final 保留 + 新 draft + `write_epoch+1` | — |
+| review | `branch.create`（M1-21） | chapterId、name（1–40） | `{state, detail}`；从当前 revision 复制 | — |
+| review | `branch.switch`（M1-21） | chapterId、branchId?（null = 主线） | `{state, detail}`；只改 current revision | — |
 | memory | `propose` | chapterId、revisionId | `{jobId}` | — |
 | memory | `apply` | jobId、decisions[] | `{appliedCount}` | G7 |
 | memory | `rebuild.issue`（M1-4） | chapterId? | `{token, expiresAt, preview{entryCount, factCount, edgeCount, blockers}}`；令牌 10 分钟、只存 hash | author_confirm |
@@ -903,7 +906,9 @@ title: 祠堂夜谈
 4. 双活检查：同 `(scene_id, ord)` 存在 >1 条非 superseded 拍。
 5. 归属检查：`(beat.chapter_id, beat.scene_id)` 必在 `chapter_scene` 中（`beat_scene_unlinked`）；同一场景的 live 拍跨章（`scene_cross_chapter_beats`，PHASE-12）。
 6. 镜像检查：`manuscript/*.md` 的 hash 与当前 revision 一致（不一致只告警，不自动改）。
-7. 结果写 `logs/verify-<date>.json`；失败时 UI 显示「项目需要修复」并给出诊断包入口。
+7. 分支（PHASE-16）：`revision_branch.head_revision_id` 必须属于该章且 `kind='draft'`（`branch_head_invalid`）；带 `branch_id` 的 `current_revision_id` 必须是该分支的 head（`current_revision_not_in_branch`）。
+8. 摘要（PHASE-16）：`chapter_summary.revision_id` 必须属于同一章且是 `final`（`summary_revision_invalid`）。
+9. 结果写 `logs/verify-<date>.json`；失败时 UI 显示「项目需要修复」并给出诊断包入口。
 
 ### 5.12 容量与性能估算
 
@@ -1193,6 +1198,45 @@ CREATE INDEX blueprint_change_by_project ON blueprint_change(project_id, created
 - **`invalidated_at` 不改章状态**：蓝图变更只标两列 + 写一条 `write_message` 系统提示；不建 revision、不改正文、不自动重跑；已定稿章同样只标脏。
 - **变更必须可追溯**：`impact_json` 至少含 `analyzed:true` 与章/记忆/边数组；应用前校验它存在，否则 `invalid_args`（不能「假装没影响」）。同一条变更只能应用一次。
 - **伏笔不设时间衰减**：作者标注埋设章与计划回收章，T22 只报「已 N 章未回收」；不自动回收、不进检索、不产生审批阻断。
+
+### 5.19 分支与章末摘要（迁移 0010）
+
+```sql
+CREATE TABLE revision_branch (
+  id               TEXT PRIMARY KEY,
+  project_id       TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  chapter_id       TEXT NOT NULL REFERENCES chapter(id) ON DELETE CASCADE,
+  name             TEXT NOT NULL,
+  base_revision_id TEXT NOT NULL REFERENCES revision(id),
+  head_revision_id TEXT NOT NULL REFERENCES revision(id),
+  status           TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','merged','archived')),
+  created_at       TEXT NOT NULL,
+  updated_at       TEXT NOT NULL,
+  UNIQUE (chapter_id, name)
+);
+ALTER TABLE revision ADD COLUMN branch_id TEXT REFERENCES revision_branch(id);
+
+CREATE TABLE chapter_summary (
+  revision_id    TEXT PRIMARY KEY REFERENCES revision(id) ON DELETE CASCADE,
+  chapter_id     TEXT NOT NULL REFERENCES chapter(id) ON DELETE CASCADE,
+  project_id     TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  summary        TEXT NOT NULL,
+  key_facts_json TEXT NOT NULL DEFAULT '[]',
+  tokens         INTEGER NOT NULL DEFAULT 0,
+  source         TEXT NOT NULL DEFAULT 'extractive' CHECK (source IN ('extractive','model')),
+  created_at     TEXT NOT NULL
+);
+ALTER TABLE approval_report ADD COLUMN provider TEXT;
+```
+
+规则（PHASE-16 / M1-13、M1-21、M1-22）：
+
+- **分支只承载 draft**：`final.branch_id` 永远 `NULL`；「切到 final」不是分支切换，走「重新打开」。
+- **revision 仍只 INSERT**：开分支先建 `revision_branch`（head 暂指 base），再插入带 `branch_id` 的新 draft，最后只 UPDATE 分支的 `head_revision_id`。
+- **head 随写入移动**：`commitBeat` / patch / scene fork 写入的 revision 继承父 revision 的 `branch_id`，并在同一事务把分支 head 移到新 revision；`db.verify()` 校验 head 与 current 的归属。
+- **重开走主线**：重新打开生成的新 draft `branch_id = NULL`，`final_revision_id` 保留旧 final；`write_epoch + 1`。
+- **摘要与 final 同事务**：抽取式（首拍 + 末拍 + 本章新出现的客观公开事实 ≤5 条，≤300 tokens），按 `revision_id` 保存；不写正文、不参与 `content_hash`；旧 final 的摘要永久保留。
+- **异构复检只留痕**：报告写 `provider` + `model`；`degraded='hetero_unavailable'` 表示「开了 prefer 但没有第二家」，不阻断报告。
 
 ---
 
@@ -1629,6 +1673,7 @@ budget        = hardCap - reserveOut
 
 裁剪顺序（超预算时循环执行，直到不超）：
   a. 最近拍 N-1（保留至少 2 拍）
+  a2. 上一章摘要（summary.prev）：先压到 150 tokens，仍超则整块丢（PHASE-16 §5.4）
   b. top_k -1（最低 2）
   c. L3 丢弃张力最低的旁观者（保留发言者与场景目标相关者）
   d. pinned 5 → 3 → 1
@@ -1638,7 +1683,7 @@ budget        = hardCap - reserveOut
 
 | 层 | 内容 | 谁可见 | 备注 |
 |---|---|---|---|
-| L0 | 章纲、本章核心事件、目标、禁揭清单 | 编排/审批全文；角色/旁白只拿脱敏一句话目标 | 禁揭清单永不进角色/旁白 |
+| L0 | 章纲、本章核心事件、目标、禁揭清单；上一章摘要 `summary.prev`（M1） | 编排/审批全文；角色/旁白只拿脱敏一句话目标 | 禁揭清单永不进角色/旁白；摘要来自上一章定稿，L0 总量 ≤900 |
 | L1 | 地点、在场者、场景目标、入口/出口、上一场结果 | 四类工作 Agent | 场景内稳定 |
 | L2 | 角色卡、限知世界、私有记忆、最近拍、本拍意图 | 仅发言者 | 最大块 |
 | L3 | 80–150 token 状态卡 | 在场非发言者 | 离场角色完全移出 |
@@ -2033,7 +2078,13 @@ export function finalize(chapterId: string, revisionId: string, ack: Ack) {
 
 ### 9.6 重新打开定稿章
 
-`finalized → revising`：新建 draft revision，`parent = final`；`final_revision_id` 保留为历史；再次定稿生成新的 final，`final_revision_id` 指向新 final。旧 final 永久可读，用于对比与回退。
+`finalized → revising`（M1-21 / PHASE-16 §5.1）：
+
+- 新建 draft revision，`parent = final`，复制 `revision_beat` 清单，`branch_id = NULL`（回主线）；
+- `final_revision_id` 保留为历史；`write_epoch + 1`，旧窗口里在跑的任务被 epoch 校验挡掉；
+- 旧 final 永久可读，用于对比与回退；`commitBeat` 对 `finalized` 章仍抛 `already_finalized`，重开后（`revising`）才允许写；
+- 再次定稿生成新的 final，`final_revision_id` 指向新 final；首次定稿入队 `memory.extract`，**重开再定稿入队 `memory.rebuild`**（G6 已授权），不重复入队 extract；
+- 摘要随新 final 再写一份，旧 final 的摘要保留。
 
 ### 9.7 维度映射（复检范围）
 
@@ -2051,6 +2102,22 @@ export function finalize(chapterId: string, revisionId: string, ack: Ack) {
 2. 没有 `revision` 的 UPDATE/DELETE；hash 在插入前计算。
 3. 每次写都产生 `outbox` 行；漏写由 `db.verify()` 发现。
 4. 定稿只能由 `finalize` 产生，且必须带 G6 记录。
+
+### 9.9 分支与异构复检（阶段 16）
+
+**分支**（M1-21）：
+
+- `revision_branch` 只承载 draft；final 永远 `branch_id = NULL`，「切到 final」走 §9.6 的重新打开。
+- 开分支 = 从当前 revision 复制清单：新 draft 继承 `parent`，`branch_id` 在插入时一次写对；分支行的 `head_revision_id` 在插入后移到新 revision（唯一允许 UPDATE 的分支行）。
+- `commitBeat` / `applyPatchBatch` / 场景 fork 写入的新 revision 继承父 revision 的 `branch_id`，并在同一事务移动分支 head；切换分支只改 `chapter.current_revision_id`，不删任何版本。
+- `db.verify()` 增加 `branch_head_invalid` 与 `current_revision_not_in_branch`；不做合并（需要合并时作者手动重跑，避免自动合并制造不可审计正文）。
+
+**异构复检**（M1-22）：
+
+- 设置 `review.hetero = 'off' | 'prefer'`，默认 `off`（M2-8 再评估默认开启与评分校准）。
+- `prefer` 时在 job 开始时解析一次：本章正文的生成 provider（`turn_metric` 最近一条带 beat 的调用；没有就退回旁白绑定）与 reviewer 绑定相同，且存在已启用 / 已验证 / 有 Key 的第二家 → 改用第二家；job 内不变。
+- 报告写 `model` + `provider`；找不到第二家 → `degraded='hetero_unavailable'`，不阻断报告，不伪造「已异构」。
+- 讨论与 patch 模式仍用配置的 reviewer 绑定：异构只针对「审」这件事，避免 patch 写入路径随开关漂移。
 
 ---
 
@@ -2239,6 +2306,16 @@ type EmbedRes =
 - **抽取失败 ≠ 重建成功**：`schema_fallback` 直接让 job failed、旧条目保持 active；
   已落库的提案条目下次重试复用，不重复调模型。
 - **不做**：全量重建整个项目（M2）、逐条审提案的重建（走阶段 09 流程）、物理删除。
+
+**阶段 16 实现记录（重开再定稿）**
+
+- `finalizeChapter` 发现 `chapter.final_revision_id` 非空（重开过）时，改入队 `memory.rebuild`
+  （幂等键 `memory.rebuild:<project>:<chapter>:<newFinal>`，payload 带 `gateRecordId`、`previousFinalRevisionId`、`auto:true`），
+  不再入队 `memory.extract`。
+- `MemoryService.runQueuedRebuild(jobId)` 校验「本章 + 当前 final + 已消费的 G6 记录」后，复用同一条
+  `rebuild()` → `rebuildChapter` → `applyMemoryProposals` 链路；job 先置 `running`（崩溃恢复能识别），
+  成功后写 `result_json.applied=true`。
+- 自动重建是定稿后的后台动作：失败不回滚已定稿，任务标 failed + `errorCode`，记忆台显示失败原因并可手动重跑。
 
 ### 10.7 隔离自检（T38）
 
@@ -3104,6 +3181,7 @@ jobs:
 
 ## 变更记录
 
+- **v0.8（阶段 16 实施）**：迁移 `0010_branch_summary.sql`（`revision_branch`、`revision.branch_id`、`chapter_summary`、`approval_report.provider`，`LATEST_SCHEMA_VERSION = 10`）；§5.19 记录分支/摘要规则；§5.11 verify 增加 `branch_head_invalid` / `current_revision_not_in_branch` / `summary_revision_invalid`；§4.3 IPC 增加 `review.reopen` / `review.branch.create` / `review.branch.switch`；§7.3 增加 L0 `summary.prev` 与裁剪顺序；§9.6 / §9.9 记录重开、分支与异构复检；§10.6 记录重开再定稿自动入队 `memory.rebuild`。**同步 PRD v0.8**：章状态机 `finalized → revising`，实体表新增两表；设置新增 `review.hetero`（默认 off）。`E2E-M1-BRANCH-01` 覆盖。
 - **v0.7（阶段 13 实施）**：§4.3 IPC 增加 `world.projection` / `world.fact.add` / `world.fact.close` / `write.context`；§7.4 明确 ratio 口径；§10.10 记录 as-of 水位、世界投影、作者事实与按章截断规则。**未改 PRD 契约**：工具 `input_schema` 不变，`as_of` 仍是运行时注入并 clamp 到章水位；作者事实走作者权限，不是闸门；未新增迁移（`LATEST_SCHEMA_VERSION = 8`）。`E2E-M1-ASOF-01` / `E2E-M1-CONTEXT-01` 覆盖。
 - **v0.6（阶段 12 实施）**：迁移 `0008_story_time.sql`（scene 三轴 + `scene_timeline` 索引，`LATEST_SCHEMA_VERSION = 8`）；§5.17 记录三轴与多对多规则；§5.11 verify 增加 `scene_cross_chapter_beats`；§4.3 IPC 增加 `write.scene.*` 与 `write.timeline`；§6.9 标注 T23 已实现。**未改 PRD 契约**：`timeline.query` 仍是只读、无闸门；T23 的输出是 §5.2 形状的超集（每行多一个 `timeline` 标签，另加 `scenes[]`）。
 - **v0.5（M1 阶段文档）**：新增 `PHASE-11-SCALE.md` 至 `PHASE-18-DELIVERY-M1.md`，把 PRD §10 M1 的范围拆成 8 个阶段（多项目/30 章 → 场景与时间三轴 → as-of 与世界状态 → 记忆重建/关系图/bge → 覆盖/影响/伏笔 → 分支/重开/摘要 → DOCX → 分发与 M1 验收）。§12.4 增加阶段 11–18，§12.6 增加 M1-16–M1-26。未改 PRD 契约、工具 `input_schema`、闸门语义；M1 需要的迁移编号从 `0008` 起，`LATEST_SCHEMA_VERSION` 阶段 12/15/16 分别到 8/9/10。

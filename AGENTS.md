@@ -12,12 +12,13 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 - 阶段 06 已 `done`（2026-11-14）：规划会话/流式/停止/重试、T42 作者选择、蓝图与角色卡草案、提案表 `agent_proposal`、G1 注册 + 5 私有/1 公共命名空间 + 隔离自检、覆盖检查占位；新增 `0003_planning.sql`（`LATEST_SCHEMA_VERSION = 3`）；`E2E-PLAN-01/02`。CI run `43603698391` 全绿；标签 `phase-06-done` → `bbea9df`。真实规划模型需 `NORYTH_PLAN_API_KEY`（设置页 Key 在阶段 10）。
 - 阶段 09 已 `done`（2026-11-15）：`memory/extract|apply|retrieve`、`MemoryExecutor`（单事务 + 向量 + 审计 + G7）、记忆台四分区与软失效；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01`。CI run `43681891589` 全绿；标签 `phase-09-done` → `4fca40c`。
 - 阶段 10 已 `done`（2026-11-15）：I1–I4 设置中心（safeStorage Key、逐 Agent 绑定 + 批次审计 + 回滚、测试连接、外观）、J1–J6（fixture 假服务器、`E2E-M0-A` 14 步、`E2E-M0-PROVIDER`、`CHAOS-01..08`、NSIS + 安装冒烟 + 更新检查、PERF-01、安全/无障碍/200% 缩放）、导出 Markdown/TXT；新增 `0007_settings.sql`（`LATEST_SCHEMA_VERSION = 7`）；M0 验收报告 `docs/M0-ACCEPTANCE.md`。
-- M1 阶段文档已建（2026-11-15）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`；阶段 11–13 已 `done`，其余 `todo`；阶段顺序与任务 ID 见 `docs/DEV-PLAN.md` §12.4 / §12.6。
+- M1 阶段文档已建（2026-11-15）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`；阶段 11–16 已 `done`，其余 `todo`；阶段顺序与任务 ID 见 `docs/DEV-PLAN.md` §12.4 / §12.6。
 - 阶段 11 已 `done`（2026-11-15）：M1-12 多项目切换（`project.busy` 探针 + `cancelRunning` + 切换确认框 + 事件按 projectId 丢弃）、M1-9 章节摘要 + `VirtualList` + `PERF-M1-01`、M1-16 文件树抽屉（Ctrl B，320 overlay + 焦点陷阱）、M1-24 `openLastProject` + 诊断包 zip；`E2E-M1-SWITCH-01`、`E2E-M1-TREE-01`。未改 schema（`LATEST_SCHEMA_VERSION = 7`）；0008 从阶段 12 开始。CI run `43700004809` 全绿；标签 `phase-11-done` → `c2ef570`。
 - 阶段 12 已 `done`（2026-11-15）：M1-1 场景库（链接/解链/排序/fork/删除）、M1-2 时间三轴、T23 `timeline.query`、verify `scene_cross_chapter_beats`；新增 `0008_story_time.sql`（`LATEST_SCHEMA_VERSION = 8`）。标签 `phase-12-done` → `374578b`。
 - 阶段 13 已 `done`（2026-11-15）：M1-3 as-of 投影 + 世界时间线、M1-18 作者事实编辑器（`applyAuthorFact`）、M1-17 上下文检查器（`turn_metric.context_json`）、M1-19 审批/检索 as-of 边界（review 用 `covered_until_seq`）；`world.projection` / `world.fact.add` / `world.fact.close` / `write.context`；`E2E-M1-ASOF-01`、`E2E-M1-CONTEXT-01`。未改 schema（`LATEST_SCHEMA_VERSION = 8`）；CI run `43714545719` 全绿，标签 `phase-13-done` → `3f82a16`。
 - 阶段 14 已 `done`（2026-11-15）：M1-4 按章重建（`memory/rebuild.ts`、`ApplyInput.rebuild` 同事务清旧、`author_confirm`、T40 打开）、M1-5 关系图（`world/relations.ts` 确定性圆环 + as-of 回放 + 来源，记忆台第五 tab）、M1-20 bge 权重随包（q8 24MB，`pnpm verify:embed` 冷启动 134ms）+ `index.rebuild`（分批 32、可恢复、`author_confirm`）；NSIS 157MB + 安装冒烟 PASS（日志 `source=model`）；新增 `E2E-M1-REBUILD-01`、`CHAOS-09`；未改 schema（`LATEST_SCHEMA_VERSION = 8`）。
 - 阶段 15 已 `done`（2026-11-15）：M1-11 覆盖检查（`plan/coverage.ts` 4 类确定性规则 + G1 阻断/开关 + 结构化标注）、M1-8 影响分析与变更流程（T29 写 `blueprint_change`、未分析不可应用、应用只标脏）、M1-10 伏笔（T22 + 记忆台第六 tab）、跨章标脏（`chapter.invalidated_at` + G2/G4 提示 + 忽略）；新增 `0009_blueprint_ops.sql`（`LATEST_SCHEMA_VERSION = 9`）；`E2E-M1-BLUEPRINT-01`、`E2E-M1-FORESHADOW-01`。
+- 阶段 16 已 `done`（2026-11-17）：M1-21 重新打开定稿（`doc/reopen.ts`；旧 final 保留、`write_epoch+1`、再定稿入队 `memory.rebuild`）+ 分支树（`doc/branches.ts`、`revision_branch`、`BranchTree.tsx`；只对比/切换，不合并）、M1-22 异构复检（`review/hetero.ts` + `review.hetero` 设置，默认 off；报告记录 `provider`，缺失 `degraded=hetero_unavailable`）、M1-13 章末摘要 + L0 `summary.prev`（`doc/summary.ts`、`chapter_summary`；≤300 tokens，L0 ≤900）；新增 `0010_branch_summary.sql`（`LATEST_SCHEMA_VERSION = 10`）；`E2E-M1-BRANCH-01`。
 - S3 按「DeepSeek 一家」收口（`deepseek-flash` 实测），第二家供应商顺延到阶段 04 D1 前补测；见 `docs/adr/0003-providers.md`。
 - `docs/` 已入库，是项目规格的一部分；不要删除、移动或重写。
 - 进度与交接写 `PROGRESS.md`；阶段范围与验收以 `docs/PHASE-0X-*.md` 为准。
@@ -61,7 +62,7 @@ M1：11 规模底座 → 12 场景/时间三轴 → 13 as-of → 14 重建/关�
 - 阶段 07 已 `done`（2026-11-14）：创作台与调度器、G2、11 状态迁移、自动模式；`LATEST_SCHEMA_VERSION = 4`；标签 `phase-07-done`。
 - 阶段 08 已 `done`（2026-11-15）：审批报告、patch、G4–G6、定稿与记忆抽取入队；`LATEST_SCHEMA_VERSION = 5`；CI run `43676789043` 全绿，标签 `phase-08-done` → `4639eb9`。
 - 阶段 09 已 `done`（2026-11-15）：H1–H5、`MemoryExecutor`、检索管线（vec+FTS+RRF）、记忆台与 G7；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01`。CI run `43681891589` 全绿，标签 `phase-09-done` → `4fca40c`；下一阶段从 `PHASE-10-DELIVERY.md` 开工。
-- 阶段 05 已通过；阶段 06 已通过；阶段 07 已通过；阶段 08 已通过；阶段 09 已通过；阶段 10 已通过（M0）；阶段 11 已通过（多项目/30 章/文件树抽屉/诊断包）；阶段 12 已通过（场景/时间三轴）；阶段 13 已通过（as-of/作者事实/上下文检查器/审批水位）；阶段 14 已通过（重建/关系图/bge 随包）；阶段 15 已通过（覆盖检查/影响分析/伏笔/跨章标脏）。
+- 阶段 05 已通过；阶段 06 已通过；阶段 07 已通过；阶段 08 已通过；阶段 09 已通过；阶段 10 已通过（M0）；阶段 11 已通过（多项目/30 章/文件树抽屉/诊断包）；阶段 12 已通过（场景/时间三轴）；阶段 13 已通过（as-of/作者事实/上下文检查器/审批水位）；阶段 14 已通过（重建/关系图/bge 随包）；阶段 15 已通过（覆盖检查/影响分析/伏笔/跨章标脏）；阶段 16 已通过（重开定稿/分支/异构复检/章末摘要）。
 
 ## 不能违反的规则
 

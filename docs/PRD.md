@@ -657,8 +657,9 @@ M0–M2 **不开放**第三方工具安装、Agent 自建工具、MCP 外接。�
 - 作者授权后（G5），审批产出结构化 patch：`turn_id / before / after / reason / issue_ref`。
 - 作者逐条接受/拒绝；文档控制器落盘，生成新 revision；只复检受影响维度。
 - 修订最多 3 轮；超过转人工，保留所有报告与 patch 记录。
-- 复检尽量换模型或至少换提示词，降低「自己改自己评」的偏置。
+- 复检尽量换模型或至少换提示词，降低「自己改自己评」的偏置。M1 提供**手动异构复检**（默认关闭）：开启后，若审批与生成同一家且另有已验证的第二家，自动改用第二家并在报告记录 `provider`；无第二家时标 `degraded`，不阻断。
 - 定稿按钮只在作者侧出现（G6）；审批没有这个按钮。
+- **重新打开定稿**（M1）：作者可从旧 final 复制出新 draft 继续修改；旧 final 永久保留，可用于对比或回退。再次定稿会产生新的 final，并自动重建该章记忆（旧记忆软失效，不删除）。
 
 **不能做什么**：
 
@@ -819,7 +820,7 @@ G6 定稿
 | `under_review` | G4 报告生成 | `revising`、`approved` |
 | `revising` | G5 授权 | `approved`、`human_takeover`、`under_review` |
 | `approved` | 审批通过或作者接受 | `finalized`、`revising` |
-| `finalized` | G6 作者定稿 | 终态；重新打开需新 revision |
+| `finalized` | G6 作者定稿 | `revising`（重新打开：旧 final 保留，新 draft + `write_epoch+1`） |
 | `paused` | 预算/冲突/拒演 | `drafting`、`abandoned` |
 | `abandoned` | 作者放弃或长期未动 | 终态；可复制为新项目 |
 
@@ -865,7 +866,9 @@ G6 定稿
 | `chapter` | id、project_id、outline_node_id、ord、status、covered_until_seq、current_revision_id、final_revision_id | `covered_until_seq` 是知识边界的锚点 |
 | `scene` | id、ord、location、participants_json、goal、entry、exit_json | 章↔场景用 `chapter_scene` 连接表；M0 建表，UI 先支持一章一场景 |
 | `beat` | id、scene_id、ord、speaker_type、speaker_id、intent、body、grounding_json、trace_ref、status、supersedes_id、revision_id | 正文与轨迹分离；`trace` 只存引用 |
-| `revision` | id、chapter_id、parent_revision_id、kind（draft/final）、content_hash、created_by、created_at | 不可变；定稿是快照 |
+| `revision` | id、chapter_id、parent_revision_id、kind（draft/final）、branch_id、content_hash、created_by、created_at | 不可变；定稿是快照；`branch_id=NULL` = 主线 |
+| `revision_branch` | id、chapter_id、name、base_revision_id、head_revision_id、status | 分支只承载 draft；final 不挂分支；M1 只对比/切换，不合并 |
+| `chapter_summary` | revision_id、chapter_id、summary、key_facts_json、tokens、source | 定稿同事务写入的抽取式摘要；按 final 保存，旧摘要永久保留 |
 | `patch` | id、revision_id、beat_id、before、after、reason、issue_ref、status | 审批修订的结构化单位 |
 | `memory_entry` | id、character_id、kind、text、learned_seq、source_chapter_id、source_revision_id、importance、pinned、valid_from_seq、valid_to_seq、supersedes_id、embedding_model、status | 角色私有记忆；带来源与有效期 |
 | `world_fact` | id、subject、predicate、object、truth、visibility、known_by_json、reveal_seq、valid_from_seq、valid_to_seq、source | 客观事实；`reveal_seq` 控制旁白能说到哪 |
@@ -1425,6 +1428,7 @@ G6 定稿
 
 ## 变更记录
 
+- **v0.8**：阶段 16 契约收口（分支、重开、异构复检、章末摘要）：章状态机 `finalized → revising`（重新打开，旧 final 永久保留）；实体表新增 `revision_branch` 与 `chapter_summary`，`revision.branch_id`（NULL = 主线）；`approval_report.provider` 记录异构复检的实际供应商；设置新增 `review.hetero = off | prefer`（默认 off）；审批台新增「重新打开」与分支树（对比 / 切换，不做合并）。摘要为抽取式（首拍 + 末拍 + 本章客观公开事实 ≤5 条，≤300 tokens），作为 L0 `summary.prev` 参与装配；不写正文、不参与 `content_hash`。
 - **v0.7**：阶段 15 契约收口：`coverage.check`（T26）输出改为可定位的 `gaps[{code, severity, node_id, message}]`，明确「`error` 才阻断 G1、`warn` 只计数、项目开关可关」；`impact.analyze`（T29）改为「`proposal_id` / `ops` / `character_card` 三选一」并把结果写入 `blueprint_change(status=proposed)`（因此类从「校验」改为「提案」）；`foreshadow.list_open`（T22）输入改 `chapter_id?`、输出补埋设章与当前章距离；`blueprint.propose_patch`（T31）ops 允许结构化纲要素并在 G1 后返回 `requires_change`。新增实体 `foreshadow` / `blueprint_change`，`outline_node.meta_json` 与 `chapter.invalidated_at/reason` 两列。
 - **v0.6**：补工具层设计：工具与 Agent 解耦（注册表、清单契约、白名单解析、运行时注入身份、提案/提交分离、错误码与契约测试）；新增 42 个 Agent 可调用工具与 8 个系统能力的清单、授权摘要、`tool_call` 审计实体；`grounding` 收紧为工具返回引用的子集。同步修订权限矩阵（规划公共设定读、角色脱敏目标、审批 patch 为建议型）、拍状态机（`waiting_for_human` / `author_edited` / `interrupted`）、失败退化表与风险表。
 - **v0.5**：补页面设计（`docs/UI-DESIGN.md`）：六页布局、四分区折叠规则、逐拍确认条、闸门行动条、状态矩阵与验收清单；界面形态由「三栏 + tab」改为「四分区 + 断点折叠」，保留 1440 px 不做四栅的结论。

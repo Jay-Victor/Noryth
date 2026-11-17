@@ -21,7 +21,7 @@
 | 13 | `docs/PHASE-13-ASOF-WORLD.md` | done | M1-3 as-of 投影（`world/projection.ts` 纯函数）+ 世界时间线（章 + seq 滑杆、读者已知、`world.projection`）；M1-18 作者事实编辑器（`world/author-facts.ts` + `applyAuthorFact`/`closeAuthorFact`、`world.fact.add`/`world.fact.close`、source_type=author + 审计）；M1-17 上下文检查器（`turn_metric.context_json` 只读、预算条、`write.context`）；M1-19 审批/检索 as-of 边界（review 用 `covered_until_seq`、零水位拒绝复审、manuscript 按章截断）；`E2E-M1-ASOF-01`、`E2E-M1-CONTEXT-01`；未改 schema（`LATEST_SCHEMA_VERSION = 8`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 284 modules / unit 673 / integration 41 / chaos 7 / e2e 25 / build / gen:check / 规格脚本 / perf 2） | tool_call 审计面板仍缺（M1 阶段 18）；上下文检查器内嵌对话栅（<1600 未做模态变体）；世界状态无批量编辑 |
 | 14 | `docs/PHASE-14-REBUILD-GRAPH.md` | done | M1-4 按章重建（`memory/rebuild.ts` + `ApplyInput.rebuild` 同事务清旧 + `author_confirm` + T40 打开）、M1-5 关系图（`world/relations.ts` 确定性圆环 + as-of 回放 + 来源；记忆台第五 tab）、M1-20 bge 权重随包（q8/24MB，`pnpm verify:embed`）+ `index.rebuild`（32/批、可恢复、`author_confirm`）、记忆台按章重建按钮启用；`E2E-M1-REBUILD-01`、`CHAOS-09`；未改 schema（`LATEST_SCHEMA_VERSION = 8`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 288 modules / unit 693 / integration 41 / chaos 8 / e2e 26 / build / gen:check / 规格脚本）+ NSIS 157MB + 安装冒烟 PASS | 全量重建整个项目（M2）；关系图编辑（只读）；`tool_call` 审计面板仍在阶段 18；「重新打开定稿」后端仍属阶段 16（本阶段重建作用于当前 final revision） |
 | 15 | `docs/PHASE-15-COVERAGE-IMPACT.md` | done | M1-11 覆盖检查（`plan/coverage.ts` 4 类确定性规则 + `CoveragePanel` + G1 阻断/开关 + 结构化标注编辑器）、M1-8 影响分析与变更流程（`plan/impact.ts` + `plan/change.ts`、T29 写 `blueprint_change`、应用只改 outline/角色卡 + 标脏 + 系统提示、未分析拒绝）、M1-10 伏笔（`world/foreshadow.ts` + T22 + 记忆台第六 tab，距离/超期/回收）、跨章标脏（`chapter.invalidated_at/reason` + 创作台/审批台横幅 + 忽略）、T31 ops 支持结构化纲要素并在 G1 后返回 `requires_change`；新增 `0009_blueprint_ops.sql`（`LATEST_SCHEMA_VERSION = 9`）；`E2E-M1-BLUEPRINT-01`、`E2E-M1-FORESHADOW-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 301 modules / unit 746 / integration 46 / chaos 8 / e2e 28 / build / gen:check / 规格脚本） | 覆盖检查只做确定性规则（语义判断 M2）；影响分析不跨项目、不预测语义漂移；伏笔自动识别 M2；`tool_call` 审计面板仍在阶段 18 |
-| 16 | `docs/PHASE-16-BRANCH-LONGFORM.md` | todo | — | — | — |
+| 16 | `docs/PHASE-16-BRANCH-LONGFORM.md` | done | M1-21 重新打开定稿（`doc/reopen.ts`：旧 final 保留、新 draft、`write_epoch+1`、再定稿自动执行 `memory.rebuild`）+ 分支树（`doc/branches.ts`：开分支/对比/切回主线，head 随 commit/patch/fork 移动，final 不挂分支）、M1-22 异构复检（`review/hetero.ts` + `review.hetero` 设置；报告记录 `provider`，缺失 `degraded=hetero_unavailable`）、M1-13 章末摘要（`doc/summary.ts`：finalize 同事务、首末拍 + 关键事实 ≤5、≤300 tokens；L0 `summary.prev`）；新增 `0010_branch_summary.sql`（`LATEST_SCHEMA_VERSION = 10`）；`E2E-M1-BRANCH-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 310 modules / unit 769 / integration 46 / chaos 8 / e2e 29 / build / gen:check / 规格脚本） | 分支不做合并（M2）；异构复检默认 `off`，评分校准 M2-8；摘要只做抽取式（模型摘要 M2）；`summary.prev` 只进 L0 装配，不塞进 system 提示词 |
 | 17 | `docs/PHASE-17-DOCX-EXPORT.md` | todo | — | — | — |
 | 18 | `docs/PHASE-18-DELIVERY-M1.md` | todo | — | — | — |
 
@@ -206,13 +206,40 @@
 | CI（文档提交） | GitHub Actions run `43730656629`（`a261e06`）、`43730675276`（`c6a1b59`） | verify + e2e 均绿 |
 | 阶段标签 | `phase-15-done` → `048ab10` | 已推送 origin（树与 `be72ee7` 相同） |
 
+## 验证记录（阶段 16，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 310 modules / 1535 deps，0 违规 |
+| Lint | `pnpm lint` | 通过（新增 `BranchTree` / `ReopenDialog` / 异构设置卡） |
+| 单元 + 契约 | `pnpm test:unit` | 769 passed（新增 reopen 4 / branches 3 / summary 3 / summary-block 4 / hetero 7 / rebuild-after-reopen 1 / migrator 0010 1） |
+| 集成 | `pnpm vitest run tests/integration` | 46 passed |
+| 混沌 | `pnpm test:chaos` | 8 passed / CHAOS-01..09 |
+| E2E | `pnpm test:e2e` | 29 passed（新增 `E2E-M1-BRANCH-01`；`E2E-M0-A` schema 断言 9 → 10） |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→…→0010；旧 revision `branch_id=NULL`、`chapter_summary` 空表、`approval_report.provider` 列存在、迁后 `verifyDatabase` 无 error |
+| 重开定稿 | `tests/unit/doc/reopen.test.ts` | 4 条：旧 final 保留 + 新 draft（parent/清单/hash 相同）+ epoch+1 + 旧 epoch 写入被拒；非定稿章拒绝；再定稿新 final + `memory.rebuild` 入队（extract 不重复）+ 两份摘要；重复重开拒绝 |
+| 分支 | `tests/unit/doc/branches.test.ts` | 3 条：开分支复制清单、提交移动 head 且 `branch_id` 继承、切回主线不丢分支、对比按拍对齐、verify 绿；同名/定稿后/未知分支拒绝；坏 head 与 current 越界被 verify 报告 |
+| 章末摘要 | `tests/unit/doc/summary.test.ts` | 3 条：首末拍 + 本章关键事实（≤5）、≤300 tokens、不写正文；超长截断；collectContext 把上一章摘要交给 L0（第一章无摘要） |
+| L0 预算 | `tests/unit/context/summary-block.test.ts` | 4 条：`L0:summary:prev` 存在且章纲在前、L0 ≤900；超长摘要 ≤300；预算不足先压 150 再整块丢；30 章循环不抛 overflow |
+| 异构复检 | `tests/unit/review/hetero.test.ts` | 7 条：off 不切换；prefer + 同家 + 已测试第二家 → openai + 记录 provider；无第二家 → `hetero_unavailable` 且报告照常；生成已是别家不切换；停用/未测试/无 Key 不算第二家；服务级 report.provider/model 与 degraded 断言 |
+| 自动重建 | `tests/unit/memory/rebuild-after-reopen.test.ts` | 1 条：首页记忆固化 → 重开改拍再定稿 → `runQueuedRebuild` 执行 → 旧 8 条 inactive / 新 8 条 active，rebuild job succeeded，不重复入队 extract |
+| 分支 E2E | `tests/e2e/branch.spec.ts` | `E2E-M1-BRANCH-01`：定稿 → 记忆固化 → 重开（旧 final 保留）→ 改一拍 → 开分支写 2 拍 → 对比（≥2 拍变化 / 6 hunks）→ 切回主线不丢分支 → 再定稿（新 final）→ 自动 `memory.rebuild` applied → 旧 final 可读；DB：两个 final / 6 条清单、分支 head 与 3 条分支 revision、两份摘要 ≤300、旧记忆 inactive、无重复 extract、`db.verify()` 无 error |
+| 性能 | `pnpm test:perf` | PERF-01：打开 1ms、切章 P95 1ms、检索 P95 27ms、导出 17ms（14.04 万字）、RSS 264MB；PERF-M1-01：切章 P95 1ms、列表摘要 P95 1ms、RSS 149MB |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 提交 | `e024b6f`（feat）+ 本提交（docs） | 待推送 origin/dev |
+| CI | 待推送 | — |
+| 阶段标签 | 待打 | — |
+
 ## 当前可运行命令
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（746：unit+contract） / `pnpm vitest run tests/integration`（46）
+- `pnpm test:unit`（769：unit+contract） / `pnpm vitest run tests/integration`（46）
 - `pnpm test:perf`（PERF-01 + PERF-M1-01 基线；nightly，不进提交门）
-- `pnpm test:chaos`（8 条 / CHAOS-01..09） / `pnpm test:e2e`（28）
+- `pnpm test:chaos`（8 条 / CHAOS-01..09） / `pnpm test:e2e`（29）
 - `pnpm verify:embed`（bge 冷启动/单条/维度门槛；打包前手工跑）
 - `node scripts/install-smoke.mjs`（安装冒烟：装 → 建项 → 卸载）
 - `pnpm gen:layout` / `pnpm gen:tools` / `pnpm gen:check`
@@ -545,10 +572,18 @@
 | 跨章标脏 | 应用变更只写 `chapter.invalidated_at/reason` + 一条 `write_message` 系统提示；不建 revision、不改正文/章状态；已定稿章同样只标脏；作者可「忽略」清两列 | `db/repos/chapter.ts`、`plan/change.ts` |
 | 伏笔 | 作者手写标注（埋设章 / 计划回收章 / 回收章）；距离 = 当前章 ord − 埋设章 ord；超期只标「已 N 章未回收（超计划）」；不自动回收、不进检索、不阻断 | `world/foreshadow.ts`、`ForeshadowPanel.tsx` |
 | T31 契约 | ops 允许 `meta`（结构化纲要素）；G1 后返回 `requires_change=true`，提案只能作为变更流程输入 | `tools/manifests/propose.ts`、PRD §4.10 |
+| 重开定稿 | `finalized → revising`；新 draft（parent=final，复制清单，`branch_id=NULL`）；旧 final 保留；`write_epoch+1`；正文仍只有 `commitBeat`/patch/finalize 写 | `doc/reopen.ts`、`scheduler/transitions.ts` |
+| 再定稿记忆 | 首次定稿入队 `memory.extract`；重开再定稿入队 `memory.rebuild`（payload 带 G6 记录）；后台执行失败不回滚定稿，任务标 failed + errorCode | `doc/finalize.ts`、`memory/service.ts` |
+| 分支 | `revision_branch` 只承载 draft；final 永远 `branch_id=NULL`；开分支复制清单，head 随 commit/patch/fork 移动；切换只改 `current_revision_id`；不做合并 | `doc/branches.ts`、`db/repos/branch.ts`、迁移 0010 |
+| 分支审计 | 开分支/切换写 `review_message` 系统消息（`scheduler_event.kind` 的 CHECK 不允许新类型，M1 不重建该表） | `review/service.ts` |
+| 章末摘要 | finalize 同事务写 `chapter_summary`：首拍 + 末拍 + 本章新出现的客观公开事实 ≤5，≤300 tokens；不调模型、不写正文、不参与 hash；旧 final 摘要保留 | `doc/summary.ts`、迁移 0010 |
+| L0 摘要 | `L0:summary:prev` 只在上一章有摘要时加；章纲先占位、摘要用剩余 L0 额度（≤300）；超预算先压 150 再整块丢（最近拍之后、pinned 之前） | `context/assemble.ts`、`context/budget.ts`、`context/sources.ts` |
+| 异构复检 | `review.hetero=off/prefer` 默认 off；prefer 时 job 开始解析一次：生成 provider（turn_metric，缺失回退旁白）与 reviewer 相同且第二家已启用/已测试/有 Key → 切换；报告写 provider；无第二家 `degraded=hetero_unavailable` 不阻断 | `review/hetero.ts`、`review/run.ts`、设置页 |
+| 分支 verify | `branch_head_invalid`（head 缺/跨章/非 draft）、`current_revision_not_in_branch`、`summary_revision_invalid` | `db/verify.ts` |
 
 ## 当前阻塞
 
-- 无阻塞。阶段 15 已 `done`（2026-11-15）：本地门禁全绿（typecheck / lint / depcruise 301 modules / unit 746 / integration 46 / chaos 8 / e2e 28 / build / gen:check / 规格脚本）；`LATEST_SCHEMA_VERSION = 9`（新增 `0009_blueprint_ops.sql`）。
+- 无阻塞。阶段 16 已 `done`（2026-11-17）：本地门禁全绿（typecheck / lint / depcruise 310 modules / unit 769 / integration 46 / chaos 8 / e2e 29 / build / gen:check / 规格脚本）；`LATEST_SCHEMA_VERSION = 10`（新增 `0010_branch_summary.sql`）。
 - 遗留观察（不阻塞）：阶段 12 的文档提交 run `43708534963`（`37af4db`）e2e 在第 10 条（provider）之前中断：日志只有 `Downloading Electron binary...`，前 9 条已 `ok`，verify 全绿。形态与阶段 11 的 `43699407599` 一致（runner 上 `node_modules/electron/dist` 不可用），判断为环境偶发；复跑记录见「验证记录（阶段 12）」。
 - 真实模型 Key：设置页（阶段 10）已接管——Key 经 safeStorage 加密存 `%APPDATA%/noryth/secrets.bin`，环境变量只做兜底（`NORYTH_<PROVIDER>_API_KEY` / `NORYTH_WRITE_API_KEY` 等）；未配置时失败为 `model_auth`，不伪造正文、报告或提案。E2E 用 `NORYTH_*_FAKE=1` 假适配器，生产包不认。
 - 待补测（不阻塞阶段 10）：真实第二家供应商（DashScope/Moonshot）需要作者提供 Key；见 `docs/adr/0003-providers.md` 阶段 04 记录（M1 阶段 18，M1-26）。
@@ -557,10 +592,10 @@
   - 文件树抽屉（Ctrl B）已在阶段 11 交付（W2/W3 overlay 320、焦点进出、200% 缩放）；W1 常驻树的 Ctrl+B 收起仍未做（不阻断验收）。
   - Windows 10 22H2 未单独做安装冒烟（本机 Win11 PASS）；发布前补一台 VM（M1 阶段 18）。
   - 自动更新：`src/main/update.ts` 后台检查 + electron-updater 下载，`NORYTH_UPDATE_FEED` 未配置时 `disabled`；首个 release tag 时填 feed（M1 阶段 18）。
-  - 按章重建（T40）与关系图已在阶段 14 交付；「按章重建」作用于**当前 final revision**，「重新打开定稿」后端仍属 M1-21（阶段 16）。关系图只读、无编辑与自动识别关系变化（M2）。
+  - 按章重建（T40）与关系图已在阶段 14 交付；「按章重建」作用于**当前 final revision**。重新打开定稿（M1-21）已在阶段 16 交付：旧 final 保留、新 draft、再定稿自动入队 `memory.rebuild`。关系图只读、无编辑与自动识别关系变化（M2）。
   - 世界状态作者编辑器已在阶段 13 交付（新增/关闭事实、单值槽 supersede、审计）；批量编辑/导入/导出设定集是 M2。
   - `tool_call` 审计面板属 P1（工具调用指标面板），M0 未做；记忆台展示 `memory_audit` 动作链，`tool_call` 表已按 §9.5 落库（M1 阶段 18）。
-  - 上下文检查器已在阶段 13 交付；<1600 宽度用对话栅内嵌（UI-DESIGN §2.6 的模态变体未做，未进验收）。M0 分支只有线性 revision（M1 阶段 16）；审批的异构复检在 M1（阶段 16）；「重新打开定稿」后端未接（DEV-PLAN §9.6，M1 阶段 16）。
+  - 上下文检查器已在阶段 13 交付；<1600 宽度用对话栅内嵌（UI-DESIGN §2.6 的模态变体未做，未进验收）。分支树与重新打开定稿已在阶段 16 交付（只对比/切换，不做合并——M2；异构复检默认 off，评分校准 M2-8）。`summary.prev` 只影响 L0 预算，不写 system 提示词；角色/旁白仍按 PRD §8.1 只拿脱敏目标，跨章连续性靠检索。
   - 「预览 tab 上限 6」当前无对应界面：预览区只有正文/分镜两个视图 tab；多文档 tab 留给阶段 13 的上下文检查器与文件预览扩展。W1 常驻树的 Ctrl+B 收起同样后置（不阻断验收）。
   - 关系图 >50 角色用「聚焦某角色邻域」而不是分页；未引入 canvas（SVG + memo，30 角色无压力，未做 50+ 专项 perf）。
   - 覆盖检查只做确定性规则（4 类 + 未标注建议），语义级「章纲与角色卡冲突」仍靠审批；自动语义识别是 M2。
@@ -569,20 +604,22 @@
 
 ## 下一阶段交接
 
-- 阶段 15 已 `done`（2026-11-15）。下一阶段从 `docs/PHASE-16-BRANCH-LONGFORM.md` 开工（分支树 + 重新打开定稿 + 异构复检）。
-- 阶段 15 直接复用（阶段 16 会用到）：
-  - **覆盖检查规则**：`plan/coverage.ts` 的 `analyzeCoverage` / `coverageGaps` 是唯一实现；不要在 UI 或 T26 里再写一套判定。
-  - **影响分析**：`plan/impact.ts` 的 `computeImpact` 是纯函数（节点/章/记忆/边 + 可选 `speakersByChapter`）；新增「受影响对象」类型时只改这里与 `ImpactResult`，服务层不用动。
-  - **变更流程**：`plan/change.ts` 的 `applyChange` 必须由调用方用 `withTransaction` 包住；`impact_json.analyzed` 是应用前的硬校验。阶段 16 的「重新打开定稿」如果改蓝图，也应走同一条变更记录。
-  - **标脏提示**：`chapter.invalidated_at` 已进 `WriteChapterSummary` 与 `ReviewChapterSummary`；新增章级 UI 时沿用这两个字段，不要另建表。
-  - **迁移**：0009 已应用；阶段 16 从 0010 起（若需要）。迁移测试 `tests/unit/migrator.test.ts` 的 `applied` 列表要同步。
+- 阶段 16 已 `done`（2026-11-17）。下一阶段从 `docs/PHASE-17-DOCX-EXPORT.md` 开工（DOCX 导出）。
+- 阶段 16 直接复用（阶段 17 会用到）：
+  - **revision 链**：`RevisionRepo` 新增 `branchId`；final 永远 `branch_id=NULL`。DOCX 导出只读 `chapter.final_revision_id` 的清单，不要碰 current/branch。
+  - **章末摘要**：`doc/summary.ts` 的 `buildChapterSummary` / `summaryText` 是唯一实现；导出可选附摘要时直接读 `chapter_summary`，不要重新抽。
+  - **多 revision 导出**：重新打开后 `final_revision_id` 永远指向最新 final，旧 final 仍可按 id 读取（`review.compare` 已支持）；导出的版本号用 final revision 的 `created_at`/hash，不用章状态猜测。
+  - **审核报告 provider**：`approval_report.provider` 可用于导出「本轮由哪家审」；缺失时为 NULL。
+  - **迁移**：0010 已应用；阶段 17 若需要从 0011 起。迁移测试 `tests/unit/migrator.test.ts` 的 `applied` 列表要同步。
+  - **设置视图**：`SettingsView.review.hetero` 已存在；新增设置键时沿用「补丁不带 default」的写法。
 - M1 的关键回归：
   1. `E2E-M1-TIME-01`（闪回不误报，阶段 12）✅
   2. `E2E-M1-ASOF-01`（第 3 章读不到第 20 章事实，阶段 13）✅
   3. `E2E-M1-REBUILD-01`（按章重建旧记忆 inactive + 关系图回放 + 索引重建，阶段 14）✅
   4. `E2E-M1-BLUEPRINT-01`（蓝图变更必须过影响分析 + 标脏不改正文，阶段 15）✅
-  5. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）。
-  6. `E2E-M1-A`（30 章连续创作，阶段 18 / nightly）。
+  5. `E2E-M1-BRANCH-01`（重开定稿 / 分支对比与切换 / 再定稿自动重建记忆，阶段 16）✅
+  6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）。
+  7. `E2E-M1-A`（30 章连续创作，阶段 18 / nightly）。
 - 发布注意：首个 release tag 前配置 `NORYTH_UPDATE_FEED`（或 electron-builder publish），否则更新状态为 `disabled`；`latest.yml` 已随 `pnpm run dist` 生成。安装包 157MB（上限 250MB）。
 
 ## 更新规则
