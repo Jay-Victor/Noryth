@@ -261,6 +261,8 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 提交 | `45c4781`（feat）、`d880449`（docs） | 已推送 origin/dev |
+| CI | GitHub Actions run `44027558509`（`d880449`） | verify 1m44 + e2e 3m14 均绿；package 按规则跳过（非 `v*` tag） |
 
 ## 当前可运行命令
 
