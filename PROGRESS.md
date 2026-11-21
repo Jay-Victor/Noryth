@@ -401,6 +401,7 @@
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
 | 提交 | `70ea573`（feat + 文档） | 已推送 origin/dev |
 | CI | GitHub Actions run `44920083884`（`70ea573`） | verify 2m34 绿；e2e (1) 2m24 / e2e (2) 2m33 均绿；package 按规则跳过（非 `v*` tag） |
+| CI（文档提交） | GitHub Actions run `44920593930`（`49e541d`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-20-done` → `70ea573` | 已推送 origin |
 
 ## 当前可运行命令
