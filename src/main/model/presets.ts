@@ -4,12 +4,17 @@ import type { Capabilities, ProviderPreset } from '../../shared/schema/model'
  * 内置预设（PRD §9.3）：作者只需填 Key，其余预填。
  *
  * - `baseUrl` 与模型清单来自各家的 OpenAI-compatible 端点。
- * - `contextWindow` / `maxOutput` 是保守默认值，能力探测与真实 usage 可以覆盖；
- *   `pricing` 未核实时写 0，成本显示「未知」而不是假装精确。
+ * - `contextWindow` / `maxOutput` 是保守默认值，能力探测与真实 usage 可以覆盖。
+ * - `pricing`：DeepSeek 按公开价折算成人民币/百万 token（本地估算，以账单为准）；
+ *   其余供应商在真实 Key 补测前保持 0 → 成本显示「未知/下限」，不假装精确
+ *   （ADR-0003、PHASE-20 §7 风险表）。
  * - 第二家真实补测按 ADR-0003 执行；CI 只跑假服务器，不调真实 API。
  */
 
 const UNPRICED = { in: 0, out: 0 }
+
+/** 人民币/百万 token（DeepSeek 公开价，2026-11 折算；输入按 cache miss）。 */
+const DEEPSEEK_PRICING = { in: 2, out: 8 }
 
 function capabilities(patch: Partial<Capabilities> = {}): Capabilities {
   return {
@@ -29,8 +34,14 @@ export const PROVIDER_PRESETS: readonly ProviderPreset[] = [
     label: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com/v1',
     models: [
-      { id: 'deepseek-flash', capabilities: capabilities({ contextWindow: 64_000, maxOutput: 8_192 }) },
-      { id: 'deepseek-chat', capabilities: capabilities({ contextWindow: 64_000, maxOutput: 8_192 }) }
+      {
+        id: 'deepseek-flash',
+        capabilities: capabilities({ contextWindow: 64_000, maxOutput: 8_192, pricing: DEEPSEEK_PRICING })
+      },
+      {
+        id: 'deepseek-chat',
+        capabilities: capabilities({ contextWindow: 64_000, maxOutput: 8_192, pricing: DEEPSEEK_PRICING })
+      }
     ]
   },
   {

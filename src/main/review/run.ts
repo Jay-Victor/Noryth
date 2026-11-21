@@ -9,6 +9,9 @@ import type { Repos } from '../db/repos'
 import { newId } from '../db/repos/common'
 import type { ChatAdapter, ChatMessage, ChatResult, ChatToolCall } from '../model/adapter'
 import { resolveBinding, type CapabilitiesLookup } from '../model/bindings'
+import { capabilitiesFor } from '../model/presets'
+import { promptTokensOf, recordTurnMetric, simpleContextJson, sumUsages } from '../model/usage'
+import { PROMPT_VERSION } from '../agents/prompts'
 import type { RegistrySnapshot } from '../tools/registry'
 import { RepoAuditSink } from '../tools/audit'
 import { TurnBudget } from '../tools/budget'
@@ -355,68 +358,103 @@ export async function runReviewTurn(
   let finalText = ''
   /** PRD §5.3：没有跑完 consistency.check 时不能「干净地」给 pass。 */
   let consistencyChecked = false
+  /** 全链路计量（PHASE-20 §5.3）：本轮所有模型调用都累计在这里。 */
+  const turns: ChatResult[] = []
+  const startedAt = Date.now()
+  const blockTokens = promptTokensOf(
+    chat.map((message) => (typeof message.content === 'string' ? message.content : ''))
+  )
 
-  for (let round = 0; round < (deps.maxRounds ?? DEFAULT_MAX_ROUNDS); round += 1) {
-    let roundText = ''
-    const result: ChatResult = await deps.adapter.stream(
-      {
-        messages: chat,
-        stream: true,
-        ...(tools.length > 0 ? { tools, toolChoice: 'auto' as const } : {}),
-        temperature: options.mode === 'discuss' ? 0.5 : 0.2,
-        ...(deps.signal === undefined ? {} : { signal: deps.signal }),
-        meta: { agentKey: 'reviewer' }
-      },
-      {
-        onText: (delta, text) => {
-          roundText = text
-          deps.hooks?.onText?.(delta, text)
+  try {
+    for (let round = 0; round < (deps.maxRounds ?? DEFAULT_MAX_ROUNDS); round += 1) {
+      let roundText = ''
+      const result: ChatResult = await deps.adapter.stream(
+        {
+          messages: chat,
+          stream: true,
+          ...(tools.length > 0 ? { tools, toolChoice: 'auto' as const } : {}),
+          temperature: options.mode === 'discuss' ? 0.5 : 0.2,
+          ...(deps.signal === undefined ? {} : { signal: deps.signal }),
+          meta: { agentKey: 'reviewer' }
         },
-        onReset: () => {
-          roundText = ''
+        {
+          onText: (delta, text) => {
+            roundText = text
+            deps.hooks?.onText?.(delta, text)
+          },
+          onReset: () => {
+            roundText = ''
+          }
         }
-      }
-    )
-
-    if (result.toolCalls.length === 0) {
-      finalText = roundText.length > 0 ? roundText : result.text
-      break
-    }
-
-    chat.push({
-      role: 'assistant',
-      content: result.text,
-      tool_calls: result.toolCalls.map((call) => ({
-        id: call.id,
-        type: 'function' as const,
-        function: { name: call.name, arguments: call.arguments }
-      }))
-    } as never)
-
-    for (const call of result.toolCalls) {
-      const parsed = tryParse(call.arguments.trim().length === 0 ? '{}' : call.arguments) ?? {}
-      const toolResult = await invokeTool(
-        { callId: call.id, tool: call.name, args: parsed },
-        turnContext,
-        { toolset, budget, audit, idempotency, gateSecret: deps.gateSecret, turnRefs },
-        services
       )
-      toolCalls += 1
-      if (call.name === 'report.submit' && toolResult.ok) {
-        const data = toolResult.data as { report_id?: unknown } | null
-        if (typeof data?.report_id === 'string') reportId = data.report_id
+      turns.push(result)
+
+      if (result.toolCalls.length === 0) {
+        finalText = roundText.length > 0 ? roundText : result.text
+        break
       }
-      if (call.name === 'patch.propose' && toolResult.ok) {
-        const data = toolResult.data as { patch_ids?: unknown } | null
-        if (Array.isArray(data?.patch_ids)) {
-          patchIds = data.patch_ids.filter((id): id is string => typeof id === 'string')
-        }
-      }
-      if (call.name === 'consistency.check' && toolResult.ok) consistencyChecked = true
-      deps.hooks?.onToolCall?.(call, toolResult)
+
       chat.push({
-        role: 'tool',
-        content: `<tool_result tool="${call.name}" call_id="${call.id}" ok="${String(toolResult.ok)}">\n${toolPayload(toolResult)}\n</tool_result>`
+        role: 'assistant',
+        content: result.text,
+        tool_calls: result.toolCalls.map((call) => ({
+          id: call.id,
+          type: 'function' as const,
+          function: { name: call.name, arguments: call.arguments }
+        }))
+      } as never)
+
+      for (const call of result.toolCalls) {
+        const parsed = tryParse(call.arguments.trim().length === 0 ? '{}' : call.arguments) ?? {}
+        const toolResult = await invokeTool(
+          { callId: call.id, tool: call.name, args: parsed },
+          turnContext,
+          { toolset, budget, audit, idempotency, gateSecret: deps.gateSecret, turnRefs },
+          services
+        )
+        toolCalls += 1
+        if (call.name === 'report.submit' && toolResult.ok) {
+          const data = toolResult.data as { report_id?: unknown } | null
+          if (typeof data?.report_id === 'string') reportId = data.report_id
+        }
+        if (call.name === 'patch.propose' && toolResult.ok) {
+          const data = toolResult.data as { patch_ids?: unknown } | null
+          if (Array.isArray(data?.patch_ids)) {
+            patchIds = data.patch_ids.filter((id): id is string => typeof id === 'string')
+          }
+        }
+        if (call.name === 'consistency.check' && toolResult.ok) consistencyChecked = true
+        deps.hooks?.onToolCall?.(call, toolResult)
+        chat.push({
+          role: 'tool',
+          content: `<tool_result tool="${call.name}" call_id="${call.id}" ok="${String(toolResult.ok)}">\n${toolPayload(toolResult)}\n</tool_result>`
+        })
+      }
+    }
+  } finally {
+    // 失败也记账：模型已经消耗的 token 不能凭空消失；turn_id 稳定，重试 upsert。
+    if (turns.length > 0) {
+      recordTurnMetric({
+        repos,
+        projectId: project.id,
+        jobId,
+        turnId,
+        agentKey: 'reviewer',
+        chapterId: chapter.id,
+        beatId: null,
+        provider: binding.provider,
+        model: binding.model,
+        bindingVersion: binding.version,
+        usage: sumUsages(turns.map((turn) => turn.usage)),
+        capabilities: binding.capabilities ?? capabilitiesFor(binding.provider, binding.model),
+        latencyMs: Date.now() - startedAt,
+        firstTokenMs: turns.find((turn) => turn.firstTokenMs !== null)?.firstTokenMs ?? null,
+        contextJson: simpleContextJson({
+          kind: 'review',
+          promptVersion: PROMPT_VERSION,
+          toolsetVersion: deps.registry.version,
+          blockTokens
+        })
       })
     }
   }

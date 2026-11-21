@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { GRID, type LayoutMode } from '../../../shared/layout/grid'
+import { formatBudgetCost, formatBudgetTokens, BUDGET_REASON_LABELS } from '../../../shared/domain/budget'
 import { WRITE_CHAPTER_STATUS_LABELS } from '../../../shared/schema/write'
 import { Icon } from '../../components/Icon'
 import { VirtualList } from '../../components/VirtualList'
@@ -309,7 +310,24 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
             <div className="write-pause-banner" data-testid="write-pause-banner" data-reason={pauseBanner.reason}>
               <strong>{pauseBanner.reason}</strong>
               <span>{pauseBanner.text}</span>
+              {pauseBanner.reason === 'budget_exceeded' ? (
+                <span className="write-pause-budget" data-testid="write-budget-pause-detail">
+                  已用 {formatBudgetCost(state.budget)} · {formatBudgetTokens(state.budget.tokensUsed)}/
+                  {formatBudgetTokens(state.budget.tokensLimit)} tokens
+                  {state.budget.reason !== null ? `（${BUDGET_REASON_LABELS[state.budget.reason]}）` : ''}
+                </span>
+              ) : null}
               <div className="write-pause-actions">
+                {pauseBanner.reason === 'budget_exceeded' ? (
+                  <button
+                    type="button"
+                    className="plan-btn"
+                    data-testid="write-budget-open"
+                    onClick={() => useApp.getState().setCostOpen(true)}
+                  >
+                    提高预算
+                  </button>
+                ) : null}
                 <button type="button" className="plan-btn" onClick={() => void useWrite.getState().resume()}>
                   继续
                 </button>
@@ -371,8 +389,9 @@ export function WritePage({ mode }: { mode: LayoutMode }): React.JSX.Element {
               </button>
             ))}
           </div>
-          <span className="pane-header__meta">
-            {state.budget.spent}/{state.budget.limit} tokens
+          <span className="pane-header__meta" data-testid="write-budget" data-exceeded={state.budget.exceeded}>
+            {formatBudgetCost(state.budget)} · {formatBudgetTokens(state.budget.tokensUsed)}/
+            {formatBudgetTokens(state.budget.tokensLimit)} tokens
             {state.autoRunning ? ' · 自动运行中' : ''}
             {state.readOnly ? ' · 只读' : ''}
           </span>

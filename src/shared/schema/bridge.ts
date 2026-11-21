@@ -27,6 +27,7 @@ import type {
   ForeshadowUpdateInput
 } from './foreshadow'
 import type { VoiceSceneInput, VoiceSceneState } from './voice'
+import type { CostReport, CostReportInput, WriteBudgetInput } from './cost'
 import type {
   PlanAddOutlineInput,
   PlanCharacterAddInput,
@@ -293,6 +294,8 @@ export interface WriteApi {
   }): Promise<IpcResult<WriteActionResult>>
   /** T23 的只读投影（M1-2）。 */
   timeline(chapterId: string): Promise<IpcResult<WriteTimeline>>
+  /** 章预算编辑（PHASE-20 M2-3）：null = 恢复默认值。 */
+  setBudget(input: WriteBudgetInput): Promise<IpcResult<WriteActionResult>>
   /** 仅未打包构建：E2E 脚手架，生产包调用返回 invalid_args。 */
   devSeed(input?: {
     scenes?: number
@@ -413,6 +416,11 @@ export interface VoiceApi {
   scene(input: VoiceSceneInput): Promise<IpcResult<VoiceSceneState>>
 }
 
+/** 成本/耗时报表（PHASE-20 M2-5）：只读；数字与 DB 同口径。 */
+export interface ReportApi {
+  cost(input?: CostReportInput): Promise<IpcResult<CostReport>>
+}
+
 export interface NorythBridge {
   project: ProjectApi
   dialog: DialogApi
@@ -426,6 +434,7 @@ export interface NorythBridge {
   memory: MemoryApi
   world: WorldApi
   voice: VoiceApi
+  report: ReportApi
   app: AppApi
   events: EventApi
 }

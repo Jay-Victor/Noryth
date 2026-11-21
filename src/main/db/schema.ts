@@ -66,6 +66,8 @@ export interface ChapterTable {
   opened_at: string | null
   finalized_at: string | null
   budget_tokens: number | null
+  /** 章级人民币预算（0013，PHASE-20 M2-3）；NULL = 默认 ¥5.00。 */
+  budget_cny: number | null
   /** 蓝图变更后的跨章标脏（0009，PHASE-15 §5.2）；只提示，不改状态与正文。 */
   invalidated_at: string | null
   invalidated_reason: string | null
@@ -382,6 +384,8 @@ export interface TurnMetricTable {
   project_id: string
   job_id: string
   beat_id: string | null
+  /** 费用归因（0013，PHASE-20 M2-5）：拍/审批/记忆/讨论记章；规划为 NULL。 */
+  chapter_id: string | null
   agent_key: string
   provider: string
   model: string

@@ -13,7 +13,7 @@ import type { ChatAdapter, ChatMessage, ChatResult, ChatToolCall } from '../mode
 import { ModelError } from '../model/adapter'
 import { bindingFor, type ResolvedBinding } from '../model/bindings'
 import { parseFallbackResponse } from '../model/json-fallback'
-import { capabilitiesFor, estimateCostCny } from '../model/presets'
+import { capabilitiesFor } from '../model/presets'
 import { estimateTokens } from '../context/tokens'
 import type { ModelToolDescriptor } from '../tools/define'
 import type { RegistrySnapshot } from '../tools/registry'
@@ -25,6 +25,7 @@ import { RepoAuditSink } from '../tools/audit'
 import { TurnBudget } from '../tools/budget'
 import { RepoIdempotencyStore } from '../tools/idempotency'
 import { invokeTool, type TurnContext } from '../tools/invoke'
+import { recordTurnMetric } from '../model/usage'
 import { TurnRefRegistry } from '../tools/turn-refs'
 import type { TurnJobPayload } from './job'
 import { parseTurnJobPayload } from './job'
@@ -464,7 +465,6 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
   }
 
   const usage = sumUsage(runtime.rounds)
-  const cost = estimateCostCny(capabilities, usage.tokensIn, usage.tokensOut)
 
   let committed: TurnCommitResult | null = null
   if (deps.commit) {
@@ -490,18 +490,20 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
   }
 
   if (deps.writeMetric !== false) {
-    repos.turnMetric.upsert({
-      turnId,
+    // 统一入口（PHASE-20 §5.3）：写拍也走 recordTurnMetric，chapter_id 来自 job。
+    recordTurnMetric({
+      repos,
       projectId: project.id,
       jobId: job.id,
+      turnId,
       beatId: beat.id,
+      chapterId: payload.chapter_id,
       agentKey: baseAgentOf(actor),
       provider: binding.provider,
       model: binding.model,
       bindingVersion: binding.version,
-      tokensIn: usage.tokensIn,
-      tokensOut: usage.tokensOut,
-      costCny: cost,
+      usage: { tokensIn: usage.tokensIn, tokensOut: usage.tokensOut },
+      capabilities,
       latencyMs: now() - started,
       firstTokenMs: runtime.rounds.find((round) => round.firstTokenMs !== null)?.firstTokenMs ?? null,
       contextJson: contextSnapshot(assembled.bundle, prompt.prefixHash, {
@@ -512,7 +514,7 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
         actor,
         as_of: collected.asOf
       }),
-      degradedJson: JSON.stringify(validation.envelope.meta.degraded ? runtime.degradedSources : []),
+      degraded: validation.envelope.meta.degraded ? runtime.degradedSources : [],
       createdAt: new Date(now()).toISOString()
     })
   }

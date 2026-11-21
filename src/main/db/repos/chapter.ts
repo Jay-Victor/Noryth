@@ -29,6 +29,8 @@ export interface ChapterRecord {
   openedAt: string | null
   finalizedAt: string | null
   budgetTokens: number | null
+  /** 章级人民币预算（0013，PHASE-20 M2-3）；null = 默认 ¥5.00。 */
+  budgetCny: number | null
   /** 蓝图变更后的跨章标脏（0009）；只提示，不改状态与正文。 */
   invalidatedAt: string | null
   invalidatedReason: string | null
@@ -89,6 +91,7 @@ function mapChapter(row: ChapterRow): ChapterRecord {
     openedAt: row.opened_at,
     finalizedAt: row.finalized_at,
     budgetTokens: row.budget_tokens,
+    budgetCny: row.budget_cny,
     invalidatedAt: row.invalidated_at,
     invalidatedReason: row.invalidated_reason
   }
@@ -234,6 +237,52 @@ export class ChapterRepo extends BaseRepo {
       this.runner,
       this.runner.db.updateTable('chapter').set({ budget_tokens: budgetTokens }).where('id', '=', id)
     )
+  }
+
+  /** 章级人民币预算（PHASE-20 M2-3）：null = 默认 ¥5.00；负数由 schema 与 CHECK 双层拒绝。 */
+  setBudgetCny(id: string, budgetCny: number | null): void {
+    runStatement(
+      this.runner,
+      this.runner.db.updateTable('chapter').set({ budget_cny: budgetCny }).where('id', '=', id)
+    )
+  }
+
+  /**
+   * 报表字数口径（PHASE-20 §5.5）：定稿章取 final revision 清单，
+   * 其余章取 current revision；没有 revision 的章计 0，不读 live 拍。
+   * 两次聚合（final / current）后按章择一，避免逐章查询。
+   */
+  wordCountsFromRevisions(projectId: string): Map<string, number> {
+    const finalRows = allRows<{ chapter_id: string; words: number | null }>(
+      this.runner,
+      this.runner.db
+        .selectFrom('chapter')
+        .innerJoin('revision_beat', 'revision_beat.revision_id', 'chapter.final_revision_id')
+        .innerJoin('beat', 'beat.id', 'revision_beat.beat_id')
+        .select([
+          'chapter.id as chapter_id',
+          (eb) => eb.fn.sum<number>('beat.word_count').as('words')
+        ])
+        .where('chapter.project_id', '=', projectId)
+        .groupBy('chapter.id')
+    )
+    const currentRows = allRows<{ chapter_id: string; words: number | null }>(
+      this.runner,
+      this.runner.db
+        .selectFrom('chapter')
+        .innerJoin('revision_beat', 'revision_beat.revision_id', 'chapter.current_revision_id')
+        .innerJoin('beat', 'beat.id', 'revision_beat.beat_id')
+        .select([
+          'chapter.id as chapter_id',
+          (eb) => eb.fn.sum<number>('beat.word_count').as('words')
+        ])
+        .where('chapter.project_id', '=', projectId)
+        .groupBy('chapter.id')
+    )
+    const counts = new Map<string, number>()
+    for (const row of currentRows) counts.set(row.chapter_id, Number(row.words ?? 0))
+    for (const row of finalRows) counts.set(row.chapter_id, Number(row.words ?? 0))
+    return counts
   }
 
   markOpened(id: string): void {

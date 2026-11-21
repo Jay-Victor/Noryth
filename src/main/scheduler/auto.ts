@@ -1,8 +1,9 @@
 import { AppError } from '../../shared/domain/app-error'
+import { BUDGET_REASON_LABELS } from '../../shared/domain/budget'
 import type { Repos } from '../db/repos'
 import type { BeatRecord } from '../db/repos/beat'
 import type { ChapterRecord } from '../db/repos/chapter'
-import { capabilitiesFor, defaultModelFor, estimateCostCny } from '../model/presets'
+import { forecastBudget, type ForecastRange } from './forecast'
 import {
   chapterBudget,
   confirmedCountOf,
@@ -15,7 +16,7 @@ import {
 } from './loop'
 
 /**
- * 自动模式（PHASE-07 F6 / DEV-PLAN §8.5）。
+ * 自动模式（PHASE-07 F6 / DEV-PLAN §8.5 / PHASE-20 M2-3）。
  *
  * 预检必须在开跑前给出：剩余拍数、预估 token/费用区间、max_beats、预算余额。
  * 运行中每拍检查一次；四类停止条件（出口 / max_beats / 预算 / 耗尽）与
@@ -30,15 +31,17 @@ export interface AutoPreflight {
   remainingBeats: number
   /** 场景拍数上限合计。 */
   maxBeats: number
-  /** 最近 5 拍中位数；没有历史时 900。 */
+  /** 最近 5 拍中位数；没有 5 拍历史时 900（`basis='default'`）。 */
   estimatedTokensPerBeat: number
-  estimatedTokens: { min: number; max: number }
-  estimatedCostCny: { min: number; max: number }
+  /** 0.7–1.3 区间；不写「精确值」。 */
+  estimatedTokens: ForecastRange
+  /** 无计价时为 null —— UI 只显示 token，不把未知当 0。 */
+  estimatedCostCny: ForecastRange | null
+  forecastBasis: 'recent' | 'default'
+  forecastSamples: number
   budget: BudgetState
   consecutiveBeats: number
 }
-
-const DEFAULT_TOKENS_PER_BEAT = 900
 
 export function autoPreflight(repos: Repos, chapterId: string): AutoPreflight {
   const chapter = repos.chapter.get(chapterId)
@@ -50,22 +53,21 @@ export function autoPreflight(repos: Repos, chapterId: string): AutoPreflight {
   const scenes = repos.scene.listByChapter(chapter.id)
   const maxBeats = scenes.reduce((sum, entry) => sum + entry.scene.maxBeats, 0)
   const budget = chapterBudget(repos, chapter)
-
-  const usage = repos.turnMetric.sumByChapter(chapter.id)
-  const perBeat = usage.turns > 0 ? Math.max(1, Math.round((usage.tokensIn + usage.tokensOut) / usage.turns)) : DEFAULT_TOKENS_PER_BEAT
-  const estimatedTokens = { min: Math.round(remaining.length * perBeat * 0.7), max: Math.round(remaining.length * perBeat * 1.3) }
-
   const project = repos.project.get()
-  const provider = project?.defaultPreset ?? 'deepseek'
-  const capabilities = capabilitiesFor(provider, defaultModelFor(provider))
-  const estimate = (tokens: number): number =>
-    estimateCostCny(capabilities, Math.round(tokens * 0.7), Math.round(tokens * 0.3)) ?? 0
+
+  // 预测只用本章最近的写拍；审批/记忆调用不混进「每拍」口径（PHASE-20 §5.2）。
+  const forecast = forecastBudget({
+    remainingBeats: remaining.length,
+    recent: repos.turnMetric.recentBeatsByChapter(chapter.id, 5)
+  })
 
   const blockers: string[] = []
   if (remaining.length === 0) blockers.push('没有剩余拍')
   if (project?.setupState !== 'complete') blockers.push('setup_incomplete')
   if (project?.blueprintLockedAt === null) blockers.push('蓝图未过 G1')
-  if (budget.exceeded) blockers.push('预算已用尽')
+  if (budget.exceeded) {
+    blockers.push(budget.reason === null ? '预算已用尽' : `预算已用尽：${BUDGET_REASON_LABELS[budget.reason]}`)
+  }
 
   return {
     chapterId,
@@ -73,9 +75,14 @@ export function autoPreflight(repos: Repos, chapterId: string): AutoPreflight {
     blockers,
     remainingBeats: remaining.length,
     maxBeats,
-    estimatedTokensPerBeat: perBeat,
-    estimatedTokens,
-    estimatedCostCny: { min: estimate(estimatedTokens.min), max: estimate(estimatedTokens.max) },
+    estimatedTokensPerBeat:
+      forecast.basis === 'recent' && forecast.beats > 0
+        ? Math.round(forecast.tokens.mid / forecast.beats)
+        : 900,
+    estimatedTokens: forecast.tokens,
+    estimatedCostCny: forecast.cost,
+    forecastBasis: forecast.basis,
+    forecastSamples: forecast.sampleSize,
     budget,
     consecutiveBeats: remaining.length
   }
@@ -125,14 +132,19 @@ export async function runAutoLoop(
 
     const current = repos.chapter.get(chapter.id)
     if (!current) throw new AppError('project_not_found', `chapter ${chapter.id} not found`)
-    const decision: LoopDecision = decideNext(repos, current, { auto: true, budget: chapterBudget(repos, current) })
+    const budget = chapterBudget(repos, current)
+    const decision: LoopDecision = decideNext(repos, current, { auto: true, budget })
 
     if (decision.kind === 'complete') {
       hooks.onComplete?.()
       return { stopped: 'complete', beatsRun, message: PAUSE_REASON_TEXT.draft_complete }
     }
     if (decision.kind === 'pause') {
-      hooks.onPause?.(decision.reason, { beatsRun })
+      // 预算暂停把两套数字一起带给服务：UI 横幅与 job.result_json 用同一份。
+      hooks.onPause?.(
+        decision.reason,
+        decision.reason === 'budget_exceeded' ? { beatsRun, budget } : { beatsRun }
+      )
       return { stopped: decision.reason, beatsRun, message: PAUSE_REASON_TEXT[decision.reason] }
     }
     if (decision.kind === 'close_scene') {

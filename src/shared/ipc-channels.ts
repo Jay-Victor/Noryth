@@ -100,10 +100,13 @@ export const IPC = {
   writeSceneTime: 'write.scene.time',
   writeTimeline: 'write.timeline',
   writeContext: 'write.context',
+  writeSetBudget: 'write.budget.set',
   // 未打包构建的 E2E 脚手架（生产包不注册）
   writeDevSeed: 'write.devSeed',
   // 声音指标（PHASE-19 M2-1）：只读；缺行/旧行按需重算
   voiceScene: 'voice.scene',
+  /** 成本/耗时报表（PHASE-20 M2-5）：只读。 */
+  reportCost: 'report.cost',
   // 审批台（PHASE-08）
   reviewState: 'review.state',
   reviewRun: 'review.run',

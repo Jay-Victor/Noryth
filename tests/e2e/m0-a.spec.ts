@@ -99,7 +99,7 @@ test('E2E-M0-A：空项目 → 一章定稿 → 记忆固化 → 第 2 章召回
       db.close()
     }
   }
-  expect(schemaOf()).toBe(12)
+  expect(schemaOf()).toBe(13)
 
   // ── 2. 规划对话 → 应用蓝图与角色清单 ─────────────────────────────────────
   await page.locator('[data-testid="plan-new-session"]').click()

@@ -42,6 +42,8 @@ interface AppState {
   appInfo: AppInfo | null
   busy: boolean
   paletteOpen: boolean
+  /** 费用报表对话框（PHASE-20 M2-5）：状态栏与暂停横幅共用一个入口。 */
+  costOpen: boolean
   toasts: Toast[]
   newProjectOpen: boolean
   confirmRemoveId: string | null
@@ -70,6 +72,7 @@ interface AppState {
   toast(toast: Omit<Toast, 'id'>): void
   dismissToast(id: string): void
   setPalette(open: boolean): void
+  setCostOpen(open: boolean): void
   setNewProjectOpen(open: boolean): void
   setConfirmRemove(projectId: string | null): void
 }
@@ -100,6 +103,7 @@ export const useApp = create<AppState>((set, get) => {
     appInfo: null,
     busy: false,
     paletteOpen: false,
+    costOpen: false,
     toasts: [],
     newProjectOpen: false,
     confirmRemoveId: null,
@@ -394,6 +398,10 @@ export const useApp = create<AppState>((set, get) => {
 
     setPalette(open) {
       set({ paletteOpen: open })
+    },
+
+    setCostOpen(open) {
+      set({ costOpen: open })
     },
 
     setNewProjectOpen(open) {

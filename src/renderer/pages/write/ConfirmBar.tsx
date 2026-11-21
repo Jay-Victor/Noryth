@@ -157,18 +157,23 @@ export function ConfirmBar({
           <div className="write-preflight__head">自动模式预检</div>
           <ul>
             <li>将连续生成 {state.preflight.remainingBeats} 拍（本章上限 {state.preflight.maxBeats}）</li>
-            <li>
-              预估 token {state.preflight.estimatedTokens.min}–{state.preflight.estimatedTokens.max}（每拍中位数{' '}
-              {state.preflight.estimatedTokensPerBeat}）
+            <li data-testid="write-preflight-tokens">
+              预估 token {state.preflight.estimatedTokens.low}–{state.preflight.estimatedTokens.high}（中位数{' '}
+              {state.preflight.estimatedTokens.mid}
+              {state.preflight.forecastBasis === 'default' ? ' · 样本不足，按每拍 900 估' : ''}）
             </li>
-            <li>
-              预估费用 ¥{state.preflight.estimatedCostCny.min.toFixed(3)}–¥
-              {state.preflight.estimatedCostCny.max.toFixed(3)}
+            <li data-testid="write-preflight-cost">
+              {state.preflight.estimatedCostCny === null
+                ? '预估费用：没有可用计价（只按 token 约束）'
+                : `预估费用 ¥${state.preflight.estimatedCostCny.low.toFixed(3)}–¥${state.preflight.estimatedCostCny.high.toFixed(3)}（区间，不含审批与记忆）`}
             </li>
-            <li>
-              章预算 {state.budget.spent}/{state.budget.limit}，剩余 {state.budget.remaining}
+            <li data-testid="write-preflight-budget">
+              章预算 ¥{state.budget.costUsed.toFixed(2)} / ¥{state.budget.costLimit.toFixed(2)} ·{' '}
+              {state.budget.tokensUsed}/{state.budget.tokensLimit} tokens
+              {state.budget.unpricedCalls > 0 ? ' · 费用为下限' : ''}
             </li>
           </ul>
+          <p className="write-note">预检只估自动模式的拍；审批、记忆与导出不在其中。</p>
           {state.preflight.blockers.length > 0 ? (
             <p className="write-note">{state.preflight.blockers.join('；')}</p>
           ) : null}

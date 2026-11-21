@@ -29,6 +29,7 @@ import {
   evaluateSceneExit,
   markChapterComplete,
   nextActionableBeat,
+  type BudgetState,
   type PauseReason
 } from './loop'
 import { autoPreflight, runAutoLoop } from './auto'
@@ -525,6 +526,44 @@ export class WriteService {
     return { state: this.state(input.chapterId), detail: `「${scene.location}」时间轴：${label}` }
   }
 
+  /**
+   * 章预算编辑（PHASE-20 M2-3）：`undefined` = 不改，`null` = 恢复默认值。
+   * 只写 `chapter.budget_tokens/budget_cny`，不动正文、不建 revision。
+   */
+  setBudget(input: {
+    chapterId: string
+    budgetCny?: number | null
+    budgetTokens?: number | null
+  }): WriteActionResult {
+    const host = this.requireWritable()
+    const chapter = host.repos.chapter.get(input.chapterId)
+    if (!chapter) throw new AppError('invalid_args', '本章不存在', { chapterId: input.chapterId })
+    if (input.budgetCny === undefined && input.budgetTokens === undefined) {
+      throw new AppError('invalid_args', '没有要修改的预算字段')
+    }
+    if (this.running || this.autoRunning) {
+      throw new AppError('invalid_args', '生成中不能改预算，请先暂停或等本拍结束')
+    }
+    if (input.budgetCny !== undefined) {
+      if (input.budgetCny !== null && (!Number.isFinite(input.budgetCny) || input.budgetCny < 0)) {
+        throw new AppError('invalid_args', '费用预算必须是非负数', { budgetCny: input.budgetCny })
+      }
+      host.repos.chapter.setBudgetCny(chapter.id, input.budgetCny)
+    }
+    if (input.budgetTokens !== undefined) {
+      if (input.budgetTokens !== null && (!Number.isFinite(input.budgetTokens) || input.budgetTokens < 0)) {
+        throw new AppError('invalid_args', 'token 预算必须是非负数', { budgetTokens: input.budgetTokens })
+      }
+      host.repos.chapter.setBudgetTokens(chapter.id, input.budgetTokens)
+    }
+    this.log('write_budget_set', {
+      chapterId: chapter.id,
+      budgetCny: input.budgetCny ?? null,
+      budgetTokens: input.budgetTokens ?? null
+    })
+    return { state: this.state(chapter.id), detail: '章预算已更新' }
+  }
+
   /** T23 的只读投影（PHASE-12 M1-2）；与工具共用 `queryTimeline`。 */
   timeline(chapterId: string): WriteTimeline {
     const host = this.requireHost()
@@ -857,9 +896,8 @@ export class WriteService {
           return closed.chapterComplete
         }
       )
-      if (result.stopped !== 'complete' && result.stopped !== 'character_refusal' && result.stopped !== 'model_error') {
-        this.pause(chapterId, result.stopped as PauseReason, { beatsRun: result.beatsRun })
-      }
+      // 每个非 complete 的停止都由 runAutoLoop 的 onPause 记过（取消由 cancel() 记）；
+      // 这里不再补写一次，避免同一暂停出现两条事件/消息/预算账本。
       return { state: this.state(chapterId), detail: result.message }
     } finally {
       this.autoRunning = false
@@ -1243,13 +1281,19 @@ export class WriteService {
     const session = this.sessionOf(chapterId)
     session.pauseReason = reason
     session.autoPaused = this.autoRunning && reason !== 'draft_complete'
+    // 预算暂停：事件 / 消息 / job 三处用同一份数字（PHASE-20 §5.1）。
+    const budget =
+      reason === 'budget_exceeded'
+        ? ((detail.budget as BudgetState | undefined) ?? chapterBudget(host.repos, chapter))
+        : null
+    const payload = budget === null ? detail : { ...detail, budget }
     host.repos.schedulerEvent.insert({
       projectId: chapter.projectId,
       chapterId,
       jobId: null,
       kind: 'paused',
       reason,
-      payloadJson: JSON.stringify(detail)
+      payloadJson: JSON.stringify(payload)
     })
     host.repos.writeMessage.insert({
       projectId: chapter.projectId,
@@ -1257,9 +1301,58 @@ export class WriteService {
       role: 'system',
       kind: reason === 'character_refusal' ? 'refusal' : 'pause',
       body: PAUSE_REASON_TEXT[reason] ?? String(reason),
-      metaJson: JSON.stringify(detail)
+      metaJson: JSON.stringify(payload)
     })
-    this.log('write_paused', { chapterId, reason, ...detail })
+    if (budget !== null) this.recordBudgetPauseJob(host, chapter, budget)
+    this.log('write_paused', { chapterId, reason, ...payload })
+  }
+
+  /**
+   * 预算暂停的任务记录（PHASE-20 §5.1）。
+   *
+   * 自动模式没有独立的 job 类型（0013 不改 job 表）：这里写一条 `paused` 的
+   * `beat.generate` 账本行，`result_json.budget` 带两套 limit/used/reason，
+   * 供 E2E / 验收报告引用。它不参与发牌，也不会被启动恢复当成运行中的任务。
+   */
+  private recordBudgetPauseJob(host: WriteHost, chapter: ChapterRecord, budget: BudgetState): void {
+    const project = host.repos.project.get()
+    if (!project) return
+    this.attemptSeq += 1
+    const job = host.repos.job.insert({
+      projectId: project.id,
+      type: 'beat.generate',
+      status: 'paused',
+      expectedRevision: chapter.currentRevisionId,
+      epoch: project.writeEpoch,
+      idempotencyKey: `auto_budget:${chapter.id}:${Date.now()}:${this.attemptSeq}`,
+      payloadJson: JSON.stringify({
+        kind: 'auto_budget_pause',
+        chapterId: chapter.id,
+        reason: 'budget_exceeded'
+      })
+    })
+    host.repos.job.setStatus(job.id, 'paused', {
+      resultJson: JSON.stringify({
+        kind: 'auto_budget_pause',
+        chapter_id: chapter.id,
+        budget: {
+          tokens_limit: budget.tokensLimit,
+          tokens_used: budget.tokensUsed,
+          cost_limit: budget.costLimit,
+          cost_used: budget.costUsed,
+          priced_calls: budget.pricedCalls,
+          unpriced_calls: budget.unpricedCalls,
+          reason: budget.reason
+        }
+      })
+    })
+    this.log('write_budget_paused', {
+      chapterId: chapter.id,
+      jobId: job.id,
+      reason: budget.reason,
+      tokensUsed: budget.tokensUsed,
+      costUsed: budget.costUsed
+    })
   }
 
   private publish(host: WriteHost): void {

@@ -307,6 +307,7 @@ contextBridge.exposeInMainWorld('noryth', {
 | write | `scene.time`（M1-2） | chapterId、sceneId、storyStart?、storyEnd?、timeline? | `{state, detail}`；省略 = 不改，`null` = 清空 | — |
 | write | `timeline`（M1-2） | chapterId | `{idx, storyStart/End, scenes[], timeline[]}`；T23 的只读投影 | — |
 | write | `context`（M1-17） | beatId | `{blocks[], totalTokens, trimmed[], prefixHash, usage, estimate, budget}`；只读 `turn_metric.context_json`，不回传正文 | — |
+| write | `budget.set`（M2-3） | chapterId、budgetCny?、budgetTokens?（`null` = 恢复默认） | `{state, detail}`；预算为负数 → `invalid_args`，不动正文 | — |
 | world | `projection`（M1-3） | chapterId?、asOf? | `{asOf, facts[], beliefs[], edges[], counts{}}`；作者视图含秘密，读者已知用 `readerKnown` 标记 | — |
 | world | `relations`（M1-5） | chapterId?、asOf?、focusId? | `{asOf, seqHead, nodes[], edges[], counts{}}`；节点坐标是主进程算好的确定性圆环，只读、不含记忆正文 | — |
 | world | `fact.add`（M1-18） | subject/predicate/object、truth、visibility、knownBy?、revealSeq?、validFromSeq? | `{projection, factId, detail}`；`source_type='author'`，单值槽先关旧值 | 作者权限（非闸门） |
@@ -314,6 +315,7 @@ contextBridge.exposeInMainWorld('noryth', {
 | world | `foreshadow.list`（M1-10） | chapterId? | `{items[], chapters[], openCount, closedCount}`；距离按基准章算 | — |
 | world | `foreshadow.create/update/close/reopen/remove`（M1-10） | text、plantedChapterId、plannedPayoffChapterId? / payoffChapterId | `{state, item}`；只做标注，不产生阻断 | — |
 | voice | `scene`（M2-1） | sceneId、revisionId?（省略 = 当前稿 / 定稿） | `{sceneId, chapterId, revisionId, found, stale, threshold{version, distinctnessMin}, insufficientData, aggregate{}, characters[], pairs[], belowThreshold}`；只读；缺行或阈值版本变化时按需重算并落 `voice_metric` | — |
+| report | `cost`（M2-5） | chapterId?、from?、to? | `CostReport{total{tokensIn/Out, costCny, pricedCalls, unpricedCalls, words, costPer10k}, byChapter[], byAgent[], projectLevel{}, shareBasis, confirm{samples,p50,p95,missingBeats}, generatedAt}`；只读；字数取 revision 清单，项目级规划单列 | — |
 | review | `run` | chapterId、revisionId | `{jobId}` | G4 |
 | review | `authorizePatches` | reportId | `{jobId}` | G5 |
 | review | `decidePatch` | patchId、accept/reject | `{revisionId?}` | G5 |
@@ -1272,6 +1274,28 @@ CREATE INDEX voice_metric_by_chapter ON voice_metric(project_id, chapter_id, cre
 - **阈值版本**：`metrics_json` 带 `threshold`，表里另存 `threshold_version`；换语料必须升版本并重算历史行（UI 不写死 0.18）。
 - **不进入提示词**：`agents/prompts/**` 与 `context/**` 不读 `voice_metric` / `distinctness`；指标只进 UI 与报告建议。
 - **只告警**：`voice` 不在 `BLOCKING_ISSUE_TYPES`；报告条目由运行时追加为 `severity='suggestion'`，G6 不受影响。
+
+### 5.21 成本与章预算（迁移 0013）
+
+```sql
+ALTER TABLE chapter ADD COLUMN budget_cny REAL
+  CHECK (budget_cny IS NULL OR budget_cny >= 0);
+ALTER TABLE turn_metric ADD COLUMN chapter_id TEXT;
+UPDATE turn_metric
+   SET chapter_id = (SELECT beat.chapter_id FROM beat WHERE beat.id = turn_metric.beat_id)
+ WHERE chapter_id IS NULL AND beat_id IS NOT NULL;
+CREATE INDEX turn_metric_by_chapter ON turn_metric(project_id, chapter_id, created_at);
+CREATE INDEX turn_metric_by_agent   ON turn_metric(project_id, agent_key, created_at);
+```
+
+规则（PHASE-20 / M2-3、M2-5）：
+
+- **双预算**：`chapter.budget_tokens`（默认 120k）与 `chapter.budget_cny`（NULL = ¥5.00）任一超限都算 `budget_exceeded`；判定顺序固定 `exit → max_beats → budget`，出口满足时先关场景。
+- **归因**：写拍/审批/记忆/讨论写 `chapter_id`；规划是项目级 → NULL，报表单列，不摊到章。`chapter_id` 不设外键：删章后费用仍保留做审计，报表显示「已删除章」。
+- **单一入口**：`chapterBudget()` 同时返回 token/费用；报表只走 `buildCostReport()`（一次 `(chapter, agent)` 聚合 + 一次耗时样本查询，无 N+1）。
+- **无计价**：`cost_cny` 为空的行只计 token；`unpricedCalls > 0` 时费用是下限，UI 显示 `≥`，不把未知当 0。预设只给 DeepSeek 折算价（本地估算），其他供应商保持 0。
+- **暂停记录**：`scheduler_event(reason='budget_exceeded')` + `job.status='paused'` 的账本行（type 仍为 `beat.generate`，`result_json.budget` 带两套 limit/used/reason）。自动模式没有独立 job 类型，0013 不改 job 表。
+- **报表**：字数取 revision 清单（定稿 final / 其余 current），`costPer10k = cost / words × 10000`（words=0 → null）；P50/P95 线性插值、样本 <5 只给中位数；每拍确认耗时来自 `scheduler_event` 的 `beat_committed → beat_confirmed`，自动确认（无 `beat_confirmed`）计为缺失，不补 0。
 
 ---
 
@@ -2715,7 +2739,7 @@ type UiState = {
 
 **M2 依赖链**：19 → 20 → 21 → 22 → 23 → 24。0012 在 19（`voice_metric`）、0013 在 20（`chapter.budget_cny` + `turn_metric.chapter_id`）、0014 在 22（归档列 + `cached_tokens` + 审计动作）；23 默认不加迁移，若实测必须加索引则只用 0015 且只加 `CREATE INDEX`；24 不动 schema。任一环阻塞先砍该阶段 P2/P3，不砍 PRD M2 的四条退出标准。
 
-**现状（2026-11-21）**：阶段 11–19 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（`LATEST_SCHEMA_VERSION = 12`，ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20–24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
+**现状（2026-11-21）**：阶段 11–20 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20 交付双预算自动模式与成本报表（`LATEST_SCHEMA_VERSION = 13`，基线 `docs/M2-COST-BASELINE.md`）；阶段 21–24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
 
 ### 12.5 M0 砍单清单（写死在范围里）
 

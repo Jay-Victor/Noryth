@@ -132,10 +132,28 @@ export const WriteStoryboardSchema = z.strictObject({
 export type WriteStoryboardState = z.infer<typeof WriteStoryboardSchema>
 
 export const WriteBudgetSchema = z.strictObject({
+  /** token 上限（`tokensLimit` 的兼容别名）。 */
   limit: z.number().int().nonnegative(),
+  /** token 已用（`tokensUsed` 的兼容别名）。 */
   spent: z.number().int().nonnegative(),
   remaining: z.number().int().nonnegative(),
-  exceeded: z.boolean()
+  exceeded: z.boolean(),
+  /** 超限原因（PHASE-20 M2-3）：tokens / cost / both；未超限 null。 */
+  reason: z.enum(['tokens', 'cost', 'both']).nullable(),
+  tokensUsed: z.number().int().nonnegative(),
+  tokensLimit: z.number().int().nonnegative(),
+  costUsed: z.number().nonnegative(),
+  costLimit: z.number().nonnegative(),
+  pricedCalls: z.number().int().nonnegative(),
+  /** >0 时费用只是下限（没有计价的调用无法换算成钱）。 */
+  unpricedCalls: z.number().int().nonnegative()
+})
+export type WriteBudgetState = z.infer<typeof WriteBudgetSchema>
+
+export const WriteForecastRangeSchema = z.strictObject({
+  low: z.number(),
+  mid: z.number(),
+  high: z.number()
 })
 
 export const WritePreflightSchema = z.strictObject({
@@ -144,8 +162,11 @@ export const WritePreflightSchema = z.strictObject({
   remainingBeats: z.number().int().nonnegative(),
   maxBeats: z.number().int().nonnegative(),
   estimatedTokensPerBeat: z.number().int().nonnegative(),
-  estimatedTokens: z.strictObject({ min: z.number().int().nonnegative(), max: z.number().int().nonnegative() }),
-  estimatedCostCny: z.strictObject({ min: z.number(), max: z.number() }),
+  estimatedTokens: WriteForecastRangeSchema,
+  /** 无计价时为 null：UI 只显示 token（PHASE-20 §5.2）。 */
+  estimatedCostCny: WriteForecastRangeSchema.nullable(),
+  forecastBasis: z.enum(['recent', 'default']),
+  forecastSamples: z.number().int().nonnegative(),
   consecutiveBeats: z.number().int().nonnegative()
 })
 export type WritePreflightState = z.infer<typeof WritePreflightSchema>

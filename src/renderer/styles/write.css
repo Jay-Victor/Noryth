@@ -1241,3 +1241,97 @@
 .write-voice__parts {
   color: var(--muted);
 }
+
+/* ---------- 成本/耗时报表（PHASE-20 M2-5） ---------- */
+.cost-card {
+  width: 680px;
+  max-width: calc(100vw - 48px);
+}
+
+.cost-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 0 4px;
+}
+
+.cost-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 10px 0 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.cost-summary strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.cost-table-wrap {
+  display: grid;
+  gap: 1px;
+  margin: 6px 0;
+  overflow-x: auto;
+}
+
+.cost-row {
+  display: grid;
+  gap: 8px;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--fg-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+.cost-row--head {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.cost-row__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cost-vlist {
+  max-height: 320px;
+}
+
+.cost-note {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.cost-error {
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.cost-budget {
+  display: grid;
+  grid-template-columns: auto 150px 150px auto auto;
+  gap: 8px;
+  align-items: end;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.cost-budget__title {
+  align-self: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.write-pause-budget {
+  font-size: 11px;
+  color: var(--fg-soft);
+}

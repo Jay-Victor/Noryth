@@ -269,4 +269,21 @@ export class SchedulerEventRepo extends BaseRepo {
     )
     return row ? mapEvent(row) : null
   }
+
+  /**
+   * 拍级时序（PHASE-20 §5.5）：`beat_committed` → `beat_confirmed` 的对子。
+   * 一次取回项目（或某章）的全部事件，报表在内存里配对；不逐拍查询。
+   * 自动模式只写 `beat_committed`（payload.autoConfirmed=true），因此
+   * 没有 `beat_confirmed` 的拍就是「自动确认 / 未确认」，计为缺失而不补 0。
+   */
+  listBeatTiming(projectId: string, chapterId?: string): SchedulerEventRecord[] {
+    let query = this.runner.db
+      .selectFrom('scheduler_event')
+      .selectAll()
+      .where('project_id', '=', projectId)
+      .where('kind', 'in', ['beat_committed', 'beat_confirmed'] as SchedulerEventKind[])
+    if (chapterId !== undefined) query = query.where('chapter_id', '=', chapterId)
+    const rows = allRows<EventRow>(this.runner, query.orderBy('created_at'))
+    return rows.map(mapEvent)
+  }
 }

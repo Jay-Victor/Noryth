@@ -195,6 +195,7 @@ describe('循环停止条件', () => {
       projectId: w.projectId,
       jobId: 'job_budget',
       beatId,
+      chapterId: w.chapterId,
       agentKey: 'character',
       provider: 'deepseek',
       model: 'deepseek-flash',

@@ -175,17 +175,17 @@ type CostReport = {
 
 ## 6 验收清单
 
-- [ ] 0013 迁移：`chapter.budget_cny`、`turn_metric.chapter_id`、两个索引存在；beat 指标回填正确；`db.verify()` 绿；`LATEST_SCHEMA_VERSION = 13`（`tests/unit/migrator.test.ts`）。
-- [ ] 双预算：token 超限与费用超限分别触发 `budget_exceeded`；`reason` 正确；`job.result_json.budget` 有两套数字（`tests/unit/scheduler/forecast.test.ts`、`tests/integration/budget.spec.ts`）。
-- [ ] 出口优先：预算刚好够出口拍时场景 `closed`，不是 `paused`（`tests/integration/budget.spec.ts`）。
-- [ ] 预测：最近 5 拍中位数、区间 0.7–1.3、样本不足回落 900、无计价返回 null；两次调用相等。
-- [ ] `E2E-M2-BUDGET-01`：自动模式开到预算上限 → 暂停横幅显示原因与数字 → 提高预算恢复 → 已完成拍逐字不变 → 出口满足后关闭。
-- [ ] 全链路计量：写拍/审批/记忆/讨论/规划各写一行；重试 upsert 不重复；`chapter_id` 归属正确，规划为 NULL（`tests/integration/usage.spec.ts`）。
-- [ ] `E2E-M2-COST-01`：状态栏打开报表 → 按章/按 Agent 数字与 `report.cost` 一致 → 每万字成本与字数口径一致 → 无计价显示「下限」→ 空项目空态。
-- [ ] 每拍确认耗时来自 `scheduler_event`（作者确认才计入，自动确认排除）；每千字净操作时间在阶段 24 内测用秒表记录，不伪造自动化埋点。
-- [ ] `COST-M2-01`：报表合计 = `turn_metric` 直接汇总；`byChapter + projectLevel = total`；无 N+1（查询计数断言）。
-- [ ] 手动模式超预算只提示、不暂停；自动模式才暂停（`tests/e2e/budget.spec.ts`）。
-- [ ] 门禁：typecheck / lint / depcruise / unit / integration / e2e / build / gen:check。
+- [x] 0013 迁移：`chapter.budget_cny`、`turn_metric.chapter_id`、两个索引存在；beat 指标回填正确；`db.verify()` 绿；`LATEST_SCHEMA_VERSION = 13`（`tests/unit/migrator.test.ts`）。
+- [x] 双预算：token 超限与费用超限分别触发 `budget_exceeded`；`reason` 正确；`job.result_json.budget` 有两套数字（`tests/unit/scheduler/forecast.test.ts`、`tests/integration/budget.spec.ts`）。
+- [x] 出口优先：预算刚好够出口拍时场景 `closed`，不是 `paused`（`tests/integration/budget.spec.ts`）。
+- [x] 预测：最近 5 拍中位数、区间 0.7–1.3、样本不足回落 900、无计价返回 null；两次调用相等。
+- [x] `E2E-M2-BUDGET-01`：自动模式开到预算上限 → 暂停横幅显示原因与数字 → 提高预算恢复 → 已完成拍逐字不变 → 出口满足后关闭。
+- [x] 全链路计量：写拍/审批/记忆/讨论/规划各写一行；重试 upsert 不重复；`chapter_id` 归属正确，规划为 NULL（`tests/integration/usage.spec.ts`）。
+- [x] `E2E-M2-COST-01`：状态栏打开报表 → 按章/按 Agent 数字与 `report.cost` 一致 → 每万字成本与字数口径一致 → 无计价显示「下限」→ 空项目空态。
+- [x] 每拍确认耗时来自 `scheduler_event`（作者确认才计入，自动确认排除）；每千字净操作时间在阶段 24 内测用秒表记录，不伪造自动化埋点。
+- [x] `COST-M2-01`：报表合计 = `turn_metric` 直接汇总；`byChapter + projectLevel = total`；无 N+1（查询计数断言）。
+- [x] 手动模式超预算只提示、不暂停；自动模式才暂停（`tests/e2e/budget.spec.ts`）。
+- [x] 门禁：typecheck / lint / depcruise / unit / integration / e2e / build / gen:check。
 
 ## 7 风险与回退
 

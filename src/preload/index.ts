@@ -135,6 +135,7 @@ const bridge: NorythBridge = {
     setSceneTime: (input) => invoke(IPC.writeSceneTime, input),
     timeline: (chapterId) => invoke(IPC.writeTimeline, { chapterId }),
     context: (beatId) => invoke(IPC.writeContext, { beatId }),
+    setBudget: (input) => invoke(IPC.writeSetBudget, input),
     devSeed: (input) => invoke(IPC.writeDevSeed, input ?? {})
   },
   review: {
@@ -167,6 +168,9 @@ const bridge: NorythBridge = {
   },
   voice: {
     scene: (input) => invoke(IPC.voiceScene, input)
+  },
+  report: {
+    cost: (input) => invoke(IPC.reportCost, input ?? {})
   },
   memory: {
     state: (chapterId) => invoke(IPC.memoryState, chapterId === undefined ? {} : { chapterId }),

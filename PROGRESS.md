@@ -25,7 +25,7 @@
 | 17 | `docs/PHASE-17-DOCX-EXPORT.md` | done | M1-6 DOCX（`doc/export-docx.ts`：标题页 / 目录 / 章标题分页 / 场景分隔 / 首行缩进 2 字符；zip 时间戳 + core 时间 + 书签 id 归一化 → 同清单字节可复现）、M1-14 选项（`format` / `scope` / `includeNotes` / `toc` / `font` / `fontSize` / `lineSpacing` / `author`）、三档格式统一从 revision 清单渲染（未定稿标「草稿」）、`ExportDialog.tsx`、`E2E-M1-DOCX-01`；依赖 `docx` + `fflate`（纯 JS）；未改 schema（`LATEST_SCHEMA_VERSION = 10`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 314 modules / unit 775 / integration 46 / chaos 8 / e2e 30 / build / gen:check / 规格脚本 / perf 2）+ NSIS 159MB + 安装冒烟 PASS + 本机 Word 打开检查；CI 全绿（`d3ac330`：verify + e2e 两片） | 目录页码由 Word/WPS 首次打开时更新（预生成条目保证不空白）；不做 PDF/EPUB、封面、Word 原生批注（M2/不做）；导出批注来自最近一份报告，不做逐条批注定位 |
 | 18 | `docs/PHASE-18-DELIVERY-M1.md` | done | M1-7 更新通道/回退/演练（`update.ts` 三通道 + semver 预发布 + 同 minor 才降级 + `scripts/update-drill.mjs` + 设置页「更新」卡）、M1-15 QA（`E2E-M1-SMOKE` 3 章提交门 / `E2E-M1-A` 30 章 3 卷 nightly / `project.verify` 只读校验 / 内存与孤儿断言）、M1-23 工具审计面板（迁移 0011 `tool_call.chapter_id` + 两条回填 + `memory.toolCalls` + `ToolCallList.tsx` + `E2E-M1-TOOLCALL`）、M1-25 图标/品牌（`scripts/gen-icons.mjs` + `resources/icon.ico` / `resources/icon.png` + `icons/*` + exe/窗口/随包断言）、版本 0.2.0、`docs/M1-ACCEPTANCE.md` | PRD M1 五条全绿（`E2E-M1-A` 20.8s / 30 final / 私有 512MB；`E2E-M1-TIME-01`、`E2E-M1-REBUILD-01`、`E2E-M1-ASOF-01`、`E2E-M1-DOCX-01` 复跑绿）；本地门禁全绿（typecheck / lint / depcruise 319 modules / unit 794 / integration 46 / chaos 8 / e2e 32 / perf 2 / build / gen:check / 规格脚本）；NSIS 167,298,203 B + 安装冒烟 PASS（Win11，schema 11）；更新演练 PASS（manifest / 四态判定 / 真实下载）；CI run `44045408802`（verify 2m34 + e2e 两片 2m05 / 2m46 均绿，package 按规则跳过）；标签 `phase-18-done` → `1f2b668` | Win10 22H2 与真实第二家 Key：作者决定不测（2026-11-17，外部依赖）；GitHub Release 未上传（首个 release tag 时做）；更新演练「安装→重启→迁移」为人工步骤；30 章长跑只在 nightly/发布前跑 |
 | 19 | `docs/PHASE-19-VOICE.md` | done | M2-1：T25 `voice.metrics` 实现（逐角色 + 两两分项 + `threshold`，1.1.0，审批白名单 19→20）；`zh-v1` 中文夹具语料校准（0.252；FPR 2.0% / TPR 97.5%）+ `scripts/calibrate-voice.mjs`；迁移 0012 `voice_metric`（scene + revision 一行）+ `voice.scene` 只读 IPC；M2-2：创作台场景头徽标 + 审批台 `VoicePanel` + 报告运行时 `voice` 建议（只建议，不阻断 G6）；`scripts/m2-baseline.mjs` + `docs/M2-METRICS-BASELINE.md` + ADR-0007；`E2E-M2-VOICE-01`、`E2E-M2-METRICS-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 328 modules / unit 827 / integration 48 / chaos 8 / e2e 34 / perf 2 / build / gen:check / 规格脚本）；CI run `44914033792` 全绿（verify + e2e 两片）；标签 `phase-19-done` → `eed3ef1` | 语料是合成夹具（阈值是起点，真实项目需复跑基线）；项目基线用假模型文本（最低一对 0 分，不代表真实分数）；旁白不参与两两区分度；声音建议只在 G4 全量报告追加（复检报告不重复） |
-| 20 | `docs/PHASE-20-COST-BUDGET.md` | todo | M2-3 预算化自动模式 + 费用预测；M2-5 全链路计量 + 成本/耗时报表；迁移 0013 | — | 阶段文档已建（2026-11-17），未开工 |
+| 20 | `docs/PHASE-20-COST-BUDGET.md` | done | M2-3 章预算（token + ¥，出口优先，暂停/恢复不丢拍，`job.result_json.budget`）+ 费用预测（最近 5 拍中位数 / 0.7–1.3 / 无计价 null）+ 状态栏预算段；M2-5 全链路计量（`turn_metric.chapter_id`：写拍/审批/记忆/讨论/规划）+ `report.cost` + `CostReportDialog`（本章/全书、按章/按 Agent、预算编辑、费用下限）+ 迁移 0013 + `docs/M2-COST-BASELINE.md`；`E2E-M2-BUDGET-01`、`E2E-M2-COST-01`、`COST-M2-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 335 modules / unit 840 / integration 58 / chaos 8 / e2e 36 / perf 2 / build / gen:check / 规格脚本）；基线 30 章 / 540 拍 / 2.73 万字 / ¥3.0912（¥1.1316 每万字） | 每千字净操作时间留阶段 24 秒表；非 DeepSeek 预设仍不计价（显示下限）；自动模式暂停账本行用 `beat.generate`（0013 不改 job 表，无独立 auto job 类型）；假 usage 基线不是报价；`E2E-M2-A` 100k 长跑在阶段 24 |
 | 21 | `docs/PHASE-21-ROUTING-HETERO.md` | todo | M2-4 多供应商路由/故障切换；M2-8 异构默认值 + 评分校准；ADR-0008/0009 | — | 阶段文档已建（2026-11-17），未开工 |
 | 22 | `docs/PHASE-22-ARCHIVE-CONTEXT.md` | todo | M2-7 非事实类记忆归档；M2-9 上下文成本优化；迁移 0014 | — | 阶段文档已建（2026-11-17），未开工 |
 | 23 | `docs/PHASE-23-SCALE-100K.md` | todo | M2-6 10 万字性能专项；`PERF-M2-01`；0015 仅按需加索引 | — | 阶段文档已建（2026-11-17），未开工 |
@@ -375,6 +375,31 @@
 | CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 
+## 验证记录（阶段 20，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 335 modules / 1658 deps，0 违规（新增 `report/cost.ts`、`model/usage.ts`、`scheduler/forecast.ts`） |
+| Lint | `pnpm lint` | 通过（新增 `CostReportDialog` / 基线脚本 / 两个 E2E） |
+| 单元 + 契约 | `pnpm test:unit` | 840 passed（新增 forecast 5 / report cost 7 / migrator 0013 1） |
+| 集成 | `pnpm vitest run tests/integration` | 58 passed（新增 `budget.spec.ts` 5、`usage.spec.ts` 5） |
+| 混沌 | `pnpm test:chaos` | 8 passed / CHAOS-01..09 |
+| E2E | `pnpm test:e2e` | 36 passed（新增 `E2E-M2-BUDGET-01` 10.9s、`E2E-M2-COST-01` 6.7s；`E2E-M0-A` schema 断言 12 → 13；`a11y` bridge 命名空间加 `report`；provider 断言排除项目级规划行） |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→…→0013：`chapter.budget_cny`、`turn_metric.chapter_id`、两个索引；beat 指标按 `beat.chapter_id` 回填、规划行保持 NULL；CHECK 拒绝负预算；迁后 `verifyDatabase` 绿 |
+| 双预算 | `tests/integration/budget.spec.ts` | 费用超限 `reason=cost` / token 超限 `reason=tokens`；`job.result_json.budget` 两套 limit/used/reason；提高预算恢复后已确认拍逐字不变、无重复暂停账本 |
+| 出口优先 | 同上 | 预算 500 tokens、出口 `beats(1)`：1 拍后 `draft_complete`、无 paused 事件、`scene_closed(reason=exit_satisfied)` |
+| 手动模式 | 同上 | 预算 0 时仍可逐拍生成；只提示 `budget.exceeded`，不暂停 |
+| 预测 | `tests/unit/scheduler/forecast.test.ts` | 5 拍中位数 1400 × 4 = 5600（3920–7280）；不足 5 拍回落 900/拍；无计价 null；两次 deep-equal；只取最近 5 条 |
+| 全链路计量 | `tests/integration/usage.spec.ts` | 写拍 `chapter_id` + `beat_id`；审批/讨论/记忆各 ≥2 行且 `beat_id=NULL`；规划 `chapter_id=NULL`；同 turn upsert 只 1 行；非写拍 `context_json` 只有 kind/prompt_version/toolset_version/block_tokens |
+| 报表对账 | `tests/unit/report/cost.test.ts` + `E2E-M2-COST-01` | 合计 = `turn_metric` 直接汇总；`byChapter + projectLevel = total`；字数 = revision 清单；`costPer10k` 与字数一致；查询计数 ≤ 8；删除章显示「已删除章」 |
+| 确认耗时 | `tests/unit/report/cost.test.ts` | 作者确认 500ms/300ms → samples 2、P50 400、P95 null（<5）；自动确认（无 `beat_confirmed`）计 missing 1 |
+| 基线 | `node scripts/m2-cost-baseline.mjs`（30 章夹具） | 30 章 / 540 拍 / 2.73 万字 / 240 记忆；¥3.0912；¥1.1316 每万字；审批 40.06% / 角色 23.76% / 旁白 23.76% / 记忆 12.42%；确认 P50 23ms / P95 34ms（60 样本 / 480 缺失） |
+| 性能 | `pnpm test:perf` | 2 passed（PERF-01 / PERF-M1-01 不变；报表不在关账热路径） |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具变更） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+
 ## 当前可运行命令
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
@@ -386,6 +411,7 @@
 - `pnpm verify:embed`（bge 冷启动/单条/维度门槛；打包前手工跑）
 - `node scripts/calibrate-voice.mjs`（声音阈值校准；固定夹具，不进提交门）
 - `node scripts/m2-baseline.mjs <项目目录>`（只读质量基线：声音区分度 + 伏笔回收率）
+- `node scripts/m2-cost-baseline.mjs <项目目录>`（只读成本基线：总费用 / 每万字 / 按章 / 按 Agent）
 - `node scripts/install-smoke.mjs`（安装冒烟：装 → 建项 → 卸载）
 - `node scripts/update-drill.mjs`（更新演练：manifest 完整性 + 四态判定 + 下载）
 - `node scripts/gen-icons.mjs` / `node scripts/gen-icons.mjs --check`
@@ -762,8 +788,8 @@
 
 ## 当前阻塞
 
-- 阶段 19 已 `done`（2026-11-21）：T25 声音指标（逐角色 + 两两分项 + `threshold`）+ `zh-v1` 校准（0.252，FPR 2.0% / TPR 97.5%）+ 迁移 0012 `voice_metric` + `voice.scene` IPC + 创作台徽标 / 审批台面板 / 报告 `voice` 建议（只建议）+ 质量基线脚本；本地门禁全绿（unit 827 / integration 48 / e2e 34 / chaos 8 / perf 2）。`LATEST_SCHEMA_VERSION = 12`。
-- M2 进行中（2026-11-21）：阶段 19 已 `done`；阶段 20–24 仍为 `todo`，下一步从 `docs/PHASE-20-COST-BUDGET.md` 开始（预算化自动模式 + 成本报表，迁移 0013）。
+- 阶段 20 已 `done`（2026-11-21）：M2-3 双预算自动模式（token + ¥、退出优先、暂停/恢复不丢拍、`job.result_json.budget`）+ 费用预测；M2-5 全链路计量（`turn_metric.chapter_id`）+ `report.cost` + `CostReportDialog` + 状态栏预算段；迁移 0013；成本基线 `docs/M2-COST-BASELINE.md`（30 章 / 540 拍 / 2.73 万字 / ¥3.0912 / ¥1.1316 每万字）。`LATEST_SCHEMA_VERSION = 13`。
+- M2 进行中（2026-11-21）：阶段 19–20 已 `done`；阶段 21–24 仍为 `todo`，下一步从 `docs/PHASE-21-ROUTING-HETERO.md` 开始（多供应商路由/故障切换 + 异构默认值）。
 - **作者决定不测的外部依赖（2026-11-17，不阻断 M1 收口）**：
   - Windows 10 22H2 安装冒烟：本机只有 Win11，未执行；在 Win10 VM 上跑 `node scripts/install-smoke.mjs`（PHASE-18 §7）。
   - 真实第二家供应商补测：无 DashScope/Moonshot Key；ADR-0003 记录，M1-26。
@@ -789,7 +815,7 @@
 
 ## 下一阶段交接
 
-- 阶段 19 已 `done`（2026-11-21）；M2-1/M2-2 交付（声音指标 / 阈值校准 / 漂移告警 / 质量基线）。阶段 18 的 M1 收口证据见 `docs/M1-ACCEPTANCE.md`。
+- 阶段 20 已 `done`（2026-11-21）；M2-1/M2-2/M2-3/M2-5 交付（声音 / 预算 / 成本报表）。阶段 18 的 M1 收口证据见 `docs/M1-ACCEPTANCE.md`。
 - 作者决定不测的两项外部依赖（2026-11-17）：
   1. Win10 22H2 VM 安装冒烟（`node scripts/install-smoke.mjs`；不阻断 M1）；
   2. 真实第二家供应商 Key（ADR-0003 / M1-26；不阻断 M1）。
@@ -809,7 +835,15 @@
   5. `E2E-M1-BRANCH-01`（重开定稿 / 分支对比与切换 / 再定稿自动重建记忆，阶段 16）✅
   6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）✅
   7. `E2E-M1-SMOKE`（3 章闭环，提交门）/ `E2E-M1-A`（30 章，nightly）/ `E2E-M1-TOOLCALL` ✅
-- 阶段 20 开工（M2-3 / M2-5，`docs/PHASE-20-COST-BUDGET.md`）：迁移 0013 计划为 `chapter.budget_cny` + `turn_metric.chapter_id`；先按 §18.4 写 PRD 变更记录，再改契约与代码。M2 验收口径见 `docs/DEV-PLAN.md` §16.5 与 `docs/PRD.md` §10。
+- 阶段 21 开工（M2-4 / M2-8，`docs/PHASE-21-ROUTING-HETERO.md`）：显式故障切换与异构默认值；不改 0013 的 `turn_metric` 报表口径，路由只影响绑定解析与 `provider` 记录。M2 验收口径见 `docs/DEV-PLAN.md` §16.5 与 `docs/PRD.md` §10。
+- 阶段 20 直接复用（M2 会用到）：
+  - **预算口径**：`chapterBudget()`（`src/main/scheduler/loop.ts`）同时返回 token/费用；`sumByChapter()`（`TurnMetricRepo`）按 `chapter_id` 汇总。新增报表或预算提示必须复用这两处，不要再写第二套口径。
+  - **计量入口**：所有模型调用走 `recordTurnMetric()`（`src/main/model/usage.ts`）；turn_id 稳定 + upsert。新增运行时入口（例如路由探测）必须带 `chapterId` 或显式 NULL（项目级）。
+  - **报表**：`buildCostReport()`（`src/main/report/cost.ts`）一次聚合 + 一次耗时样本；`report.cost` 只读 IPC。阶段 22/24 的上下文成本、100k 长跑都复用这个入口。
+  - **迁移 0013**：`chapter.budget_cny`（NULL = ¥5.00）+ `turn_metric.chapter_id` + 两个索引；`chapter_id` 不设外键（删章保留审计）。`LATEST_SCHEMA_VERSION = 13`。
+  - **计价**：只有 DeepSeek 预设写了折算价（¥2/¥8 每百万 token）；其他供应商保持 0 → 报表显示「费用为下限」。补真实价格前不要伪造。
+  - **暂停账本**：自动模式没有独立 job 类型；预算暂停写 `scheduler_event(reason='budget_exceeded')` + 一条 `paused` 的 `beat.generate` 账本行（`result_json.budget`）。改 job 表结构前先评估恢复与诊断。
+  - **基线**：`node scripts/m2-cost-baseline.mjs <项目目录>` 只读；夹具用 `tests/e2e-long/_cost-baseline.spec.ts`（默认 skip，`NORYTH_COST_BASELINE=1` 才跑）。阶段 24 的 100k 长跑用同一脚本更新数字。
 - 阶段 19 直接复用（M2 会用到）：
   - **声音指标**：`computeVoiceMetrics` 是纯函数（无 import/无模型），新增指标先改 `src/main/voice/metrics.ts` 与契约测试；写入只走 `voice/service.ts`（`resolveSceneVoice` / `syncChapterVoice`）。
   - **阈值**：只读 `VOICE_THRESHOLD`（`src/shared/domain/voice.ts`）；换语料必须升 `version` 并重跑 `scripts/calibrate-voice.mjs`，不要手改 `calibration-result.json`。

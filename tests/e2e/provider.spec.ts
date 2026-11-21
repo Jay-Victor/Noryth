@@ -251,12 +251,23 @@ test('E2E-M0-PROVIDER：规划 DeepSeek、旁白两段切换、审批绑通义�
     expect(providersOf(jobs.length - 1)).toEqual(['tongyi'])
 
     const metrics = db
-      .prepare('SELECT provider, model, COUNT(*) AS count FROM turn_metric GROUP BY provider, model ORDER BY provider')
+      .prepare(
+        `SELECT provider, model, COUNT(*) AS count FROM turn_metric
+          WHERE agent_key <> 'planner'
+          GROUP BY provider, model ORDER BY provider`
+      )
       .all() as Array<{ provider: string; model: string; count: number }>
     // 绑定在下一拍生效：计入哪一家取决于改绑落在哪一次作业之前，但两家都必须有真实用量
     expect(metrics.map((row) => `${row.provider}/${row.model}`)).toEqual(['deepseek/deepseek-flash', 'tongyi/qwen-plus'])
     for (const row of metrics) expect(row.count).toBeGreaterThan(0)
     expect(metrics.reduce((sum, row) => sum + row.count, 0)).toBeGreaterThanOrEqual(5)
+
+    // 规划是项目级（chapter_id = NULL），不计入按章成本。
+    const planner = db
+      .prepare("SELECT chapter_id FROM turn_metric WHERE agent_key = 'planner'")
+      .all() as Array<{ chapter_id: string | null }>
+    expect(planner.length).toBeGreaterThan(0)
+    expect(planner.every((row) => row.chapter_id === null)).toBe(true)
   } finally {
     db.close()
   }

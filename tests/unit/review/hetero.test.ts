@@ -112,6 +112,7 @@ describe('resolveHeteroReview', () => {
       projectId: w.world.projectId,
       jobId: 'job_test_1',
       beatId: beat.id,
+      chapterId: w.world.chapterId,
       agentKey: 'narrator',
       provider: 'openai',
       model: 'gpt-4.1-mini',

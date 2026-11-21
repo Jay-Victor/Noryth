@@ -25,6 +25,8 @@ import {
 } from '../../shared/schema/settings'
 import { PresetSchema } from "../../shared/schema/model"
 import { VoiceSceneInputSchema } from '../../shared/schema/voice'
+import { CostReportInputSchema, WriteBudgetInputSchema } from '../../shared/schema/cost'
+import { buildCostReport } from '../report/cost'
 import { DiagnosticsExportInputSchema, ExportInputSchema } from '../../shared/schema/export'
 import { exportManuscript } from '../doc/export'
 import { isBusyError } from '../db/busy'
@@ -773,6 +775,20 @@ export function registerIpc(deps: IpcDeps): void {
   register(IPC.writeContext, {
     schema: WriteContextInputSchema,
     handler: (payload) => write.inspectContext(payload.beatId)
+  })
+  register(IPC.writeSetBudget, {
+    schema: WriteBudgetInputSchema,
+    mutation: true,
+    handler: (payload) => write.setBudget(payload)
+  })
+  // 费用报表（PHASE-20 M2-5）：只读；数字与 DB 同口径，不写任何东西。
+  register(IPC.reportCost, {
+    schema: CostReportInputSchema,
+    handler: (payload) => {
+      const handle = deps.project.currentHandle()
+      if (!handle) throw new AppError('project_not_found', '请先打开一个项目')
+      return buildCostReport(handle.repos, payload)
+    }
   })
   // 声音指标（PHASE-19 M2-1）：只读；只读项目不落库，但仍返回计算结果。
   register(IPC.voiceScene, {

@@ -48,6 +48,8 @@ export interface TurnMetricInput {
   projectId: string
   jobId: string
   beatId: string | null
+  /** 费用归因（PHASE-20 M2-5）：拍/审批/记忆/讨论记章；规划为 NULL。 */
+  chapterId: string | null
   agentKey: string
   provider: string
   model: string
@@ -103,6 +105,7 @@ function mapMetric(row: TurnMetricRow): TurnMetricRecord {
     projectId: row.project_id,
     jobId: row.job_id,
     beatId: row.beat_id,
+    chapterId: row.chapter_id,
     agentKey: row.agent_key,
     provider: row.provider,
     model: row.model,
@@ -336,6 +339,7 @@ export class TurnMetricRepo extends BaseRepo {
       project_id: input.projectId,
       job_id: input.jobId,
       beat_id: input.beatId,
+      chapter_id: input.chapterId,
       agent_key: input.agentKey,
       provider: input.provider,
       model: input.model,
@@ -362,6 +366,7 @@ export class TurnMetricRepo extends BaseRepo {
         .updateTable('turn_metric')
         .set({
           beat_id: input.beatId,
+          chapter_id: input.chapterId,
           agent_key: input.agentKey,
           provider: input.provider,
           model: input.model,
@@ -460,28 +465,149 @@ export class TurnMetricRepo extends BaseRepo {
   }
 
   /**
-   * 章预算口径（DEV-PLAN §8.5）：本章所有 turn 的 token 合计。
+   * 章预算口径（DEV-PLAN §8.5 / PHASE-20 §5.1）：本章所有已计量调用。
+   *
+   * 口径是 `chapter_id`（0013 起）：写拍、审批、记忆、讨论都记到章；
+   * 不再用 beat join 推导（旧的 beat join 只用于迁移回填）。
    * 重跑同一 turn 会覆盖指标，所以这里等于「最近一次真实消耗」。
    */
-  sumByChapter(chapterId: string): { tokensIn: number; tokensOut: number; costCny: number; turns: number } {
-    const row = firstRow<{ tokens_in: number | null; tokens_out: number | null; cost_cny: number | null; turns: number }>(
+  sumByChapter(chapterId: string): {
+    tokensIn: number
+    tokensOut: number
+    costCny: number
+    pricedCalls: number
+    unpricedCalls: number
+    turns: number
+  } {
+    const row = firstRow<{
+      tokens_in: number | null
+      tokens_out: number | null
+      cost_cny: number | null
+      priced_calls: number
+      turns: number
+    }>(
       this.runner,
       this.runner.db
         .selectFrom('turn_metric')
-        .innerJoin('beat', 'beat.id', 'turn_metric.beat_id')
         .select([
-          (eb) => eb.fn.sum<number>('turn_metric.tokens_in').as('tokens_in'),
-          (eb) => eb.fn.sum<number>('turn_metric.tokens_out').as('tokens_out'),
-          (eb) => eb.fn.sum<number>('turn_metric.cost_cny').as('cost_cny'),
+          (eb) => eb.fn.sum<number>('tokens_in').as('tokens_in'),
+          (eb) => eb.fn.sum<number>('tokens_out').as('tokens_out'),
+          (eb) => eb.fn.sum<number>('cost_cny').as('cost_cny'),
+          (eb) => eb.fn.count<number>('cost_cny').as('priced_calls'),
           (eb) => eb.fn.countAll<number>().as('turns')
         ])
-        .where('beat.chapter_id', '=', chapterId)
+        .where('chapter_id', '=', chapterId)
     )
+    const turns = Number(row?.turns ?? 0)
+    const pricedCalls = Number(row?.priced_calls ?? 0)
     return {
-      tokensIn: row?.tokens_in ?? 0,
-      tokensOut: row?.tokens_out ?? 0,
-      costCny: row?.cost_cny ?? 0,
-      turns: row?.turns ?? 0
+      tokensIn: Number(row?.tokens_in ?? 0),
+      tokensOut: Number(row?.tokens_out ?? 0),
+      costCny: Number(row?.cost_cny ?? 0),
+      pricedCalls,
+      unpricedCalls: Math.max(0, turns - pricedCalls),
+      turns
     }
   }
+
+  /** 最近 N 次**拍**调用（费用预测只用写拍，审批/记忆不混进来）。 */
+  recentBeatsByChapter(chapterId: string, limit = 5): TurnMetricRecord[] {
+    const rows = allRows<TurnMetricRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('turn_metric')
+        .selectAll()
+        .where('chapter_id', '=', chapterId)
+        .where('beat_id', 'is not', null)
+        .orderBy('created_at', 'desc')
+        .orderBy('turn_id', 'desc')
+        .limit(limit)
+    )
+    return rows.map(mapMetric).reverse()
+  }
+
+  /**
+   * 报表聚合（PHASE-20 §5.5）：一次按 (chapter, agent) 分组，覆盖
+   * 按章 / 按 Agent / 项目级 / 合计四个视角，避免 N+1。
+   */
+  aggregate(projectId: string, filter: CostQueryFilter = {}): TurnMetricAggregateRow[] {
+    let query = this.runner.db
+      .selectFrom('turn_metric')
+      .select([
+        'chapter_id',
+        'agent_key',
+        (eb) => eb.fn.sum<number>('tokens_in').as('tokens_in'),
+        (eb) => eb.fn.sum<number>('tokens_out').as('tokens_out'),
+        (eb) => eb.fn.sum<number>('cost_cny').as('cost_cny'),
+        (eb) => eb.fn.countAll<number>().as('calls'),
+        (eb) => eb.fn.count<number>('cost_cny').as('priced_calls')
+      ])
+      .where('project_id', '=', projectId)
+      .groupBy(['chapter_id', 'agent_key'])
+    if (filter.chapterId !== undefined) query = query.where('chapter_id', '=', filter.chapterId)
+    if (filter.from !== undefined) query = query.where('created_at', '>=', filter.from)
+    if (filter.to !== undefined) query = query.where('created_at', '<=', filter.to)
+    const rows = allRows<{
+      chapter_id: string | null
+      agent_key: string
+      tokens_in: number | null
+      tokens_out: number | null
+      cost_cny: number | null
+      calls: number
+      priced_calls: number
+    }>(this.runner, query)
+    return rows.map((row) => ({
+      chapterId: row.chapter_id,
+      agentKey: row.agent_key,
+      tokensIn: Number(row.tokens_in ?? 0),
+      tokensOut: Number(row.tokens_out ?? 0),
+      costCny: Number(row.cost_cny ?? 0),
+      calls: Number(row.calls),
+      pricedCalls: Number(row.priced_calls)
+    }))
+  }
+
+  /** 耗时样本（报表 P50/P95）：一次取回，不在循环里按章查。 */
+  latencySamples(projectId: string, filter: CostQueryFilter = {}): TurnMetricLatencyRow[] {
+    let query = this.runner.db
+      .selectFrom('turn_metric')
+      .select(['chapter_id', 'agent_key', 'latency_ms'])
+      .where('project_id', '=', projectId)
+      .where('latency_ms', 'is not', null)
+    if (filter.chapterId !== undefined) query = query.where('chapter_id', '=', filter.chapterId)
+    if (filter.from !== undefined) query = query.where('created_at', '>=', filter.from)
+    if (filter.to !== undefined) query = query.where('created_at', '<=', filter.to)
+    const rows = allRows<{ chapter_id: string | null; agent_key: string; latency_ms: number | null }>(
+      this.runner,
+      query
+    )
+    return rows.map((row) => ({
+      chapterId: row.chapter_id,
+      agentKey: row.agent_key,
+      latencyMs: Number(row.latency_ms ?? 0)
+    }))
+  }
+}
+
+/** 报表的只读过滤（PHASE-20 §5.5）：章 / 时间窗，都省略 = 全书全书期。 */
+export interface CostQueryFilter {
+  chapterId?: string
+  from?: string
+  to?: string
+}
+
+export interface TurnMetricAggregateRow {
+  chapterId: string | null
+  agentKey: string
+  tokensIn: number
+  tokensOut: number
+  costCny: number
+  calls: number
+  pricedCalls: number
+}
+
+export interface TurnMetricLatencyRow {
+  chapterId: string | null
+  agentKey: string
+  latencyMs: number
 }

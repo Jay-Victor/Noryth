@@ -5,6 +5,10 @@ import type { Db } from '../db/project-db'
 import { newId } from '../db/repos/common'
 import type { ChatAdapter, ChatMessage, ChatResult, ChatToolCall } from '../model/adapter'
 import type { CapabilitiesLookup } from '../model/bindings'
+import { resolveBinding } from '../model/bindings'
+import { capabilitiesFor } from '../model/presets'
+import { promptTokensOf, recordTurnMetric, simpleContextJson, sumUsages } from '../model/usage'
+import { PROMPT_VERSION } from '../agents/prompts'
 import type { RegistrySnapshot } from '../tools/registry'
 import { RepoAuditSink } from '../tools/audit'
 import { TurnBudget } from '../tools/budget'
@@ -248,6 +252,7 @@ export async function runMemoryTurn(
   const project = repos.project.get()
   if (!project) throw new AppError('project_not_found', 'project row missing')
 
+  const binding = resolveBinding(repos, project, 'memory', deps.capabilitiesLookup)
   const system = buildMemoryPrompt(repos, { chapterId: chapter.id, mode: options.mode })
   const userText =
     options.text?.trim() ||
@@ -293,69 +298,104 @@ export async function runMemoryTurn(
   let toolSubmitted = false
   let finalText = ''
   let submitOutcome: SubmitProposalsResult | null = null
+  /** 全链路计量（PHASE-20 §5.3）：抽取与讨论都记到当前章。 */
+  const turns: ChatResult[] = []
+  const startedAt = Date.now()
+  const blockTokens = promptTokensOf(
+    chat.map((message) => (typeof message.content === 'string' ? message.content : ''))
+  )
 
-  for (let round = 0; round < (deps.maxRounds ?? 4); round += 1) {
-    let roundText = ''
-    const result: ChatResult = await deps.adapter.stream(
-      {
-        messages: chat,
-        stream: true,
-        ...(tools.length > 0 ? { tools, toolChoice: 'auto' as const } : {}),
-        temperature: options.mode === 'discuss' ? 0.5 : 0.2,
-        ...(deps.signal === undefined ? {} : { signal: deps.signal }),
-        meta: { agentKey: 'memory' }
-      },
-      {
-        onText: (delta, text) => {
-          roundText = text
-          deps.hooks?.onText?.(delta, text)
+  try {
+    for (let round = 0; round < (deps.maxRounds ?? 4); round += 1) {
+      let roundText = ''
+      const result: ChatResult = await deps.adapter.stream(
+        {
+          messages: chat,
+          stream: true,
+          ...(tools.length > 0 ? { tools, toolChoice: 'auto' as const } : {}),
+          temperature: options.mode === 'discuss' ? 0.5 : 0.2,
+          ...(deps.signal === undefined ? {} : { signal: deps.signal }),
+          meta: { agentKey: 'memory' }
         },
-        onReset: () => {
-          roundText = ''
+        {
+          onText: (delta, text) => {
+            roundText = text
+            deps.hooks?.onText?.(delta, text)
+          },
+          onReset: () => {
+            roundText = ''
+          }
         }
-      }
-    )
-
-    if (result.toolCalls.length === 0) {
-      finalText = roundText.length > 0 ? roundText : result.text
-      break
-    }
-
-    chat.push({
-      role: 'assistant',
-      content: result.text,
-      tool_calls: result.toolCalls.map((call) => ({
-        id: call.id,
-        type: 'function' as const,
-        function: { name: call.name, arguments: call.arguments }
-      }))
-    } as never)
-
-    for (const call of result.toolCalls) {
-      const parsed = tryParse(call.arguments.trim().length === 0 ? '{}' : call.arguments) ?? {}
-      const toolResult = await invokeTool(
-        { callId: call.id, tool: call.name, args: parsed },
-        turnContext,
-        { toolset, budget, audit, idempotency, gateSecret: deps.gateSecret ?? 'memory-run', turnRefs },
-        services
       )
-      toolCalls += 1
-      if (call.name === 'memory.proposal.submit' && toolResult.ok) {
-        toolSubmitted = true
-        const data = toolResult.data as
-          | { item_count?: unknown; dropped?: unknown; downgraded?: unknown; mismatches?: unknown }
-          | null
-        submitOutcome = {
-          inserted: [],
-          dropped: Array.isArray(data?.dropped) ? (data.dropped as SubmitProposalsResult['dropped']) : [],
-          downgraded: Array.isArray(data?.downgraded) ? (data.downgraded as SubmitProposalsResult['downgraded']) : [],
-          mismatches: typeof data?.mismatches === 'number' ? data.mismatches : 0
-        }
+      turns.push(result)
+
+      if (result.toolCalls.length === 0) {
+        finalText = roundText.length > 0 ? roundText : result.text
+        break
       }
-      deps.hooks?.onToolCall?.(call, toolResult)
+
       chat.push({
-        role: 'tool',
-        content: `<tool_result tool="${call.name}" call_id="${call.id}" ok="${String(toolResult.ok)}">\n${toolPayload(toolResult)}\n</tool_result>`
+        role: 'assistant',
+        content: result.text,
+        tool_calls: result.toolCalls.map((call) => ({
+          id: call.id,
+          type: 'function' as const,
+          function: { name: call.name, arguments: call.arguments }
+        }))
+      } as never)
+
+      for (const call of result.toolCalls) {
+        const parsed = tryParse(call.arguments.trim().length === 0 ? '{}' : call.arguments) ?? {}
+        const toolResult = await invokeTool(
+          { callId: call.id, tool: call.name, args: parsed },
+          turnContext,
+          { toolset, budget, audit, idempotency, gateSecret: deps.gateSecret ?? 'memory-run', turnRefs },
+          services
+        )
+        toolCalls += 1
+        if (call.name === 'memory.proposal.submit' && toolResult.ok) {
+          toolSubmitted = true
+          const data = toolResult.data as
+            | { item_count?: unknown; dropped?: unknown; downgraded?: unknown; mismatches?: unknown }
+            | null
+          submitOutcome = {
+            inserted: [],
+            dropped: Array.isArray(data?.dropped) ? (data.dropped as SubmitProposalsResult['dropped']) : [],
+            downgraded: Array.isArray(data?.downgraded) ? (data.downgraded as SubmitProposalsResult['downgraded']) : [],
+            mismatches: typeof data?.mismatches === 'number' ? data.mismatches : 0
+          }
+        }
+        deps.hooks?.onToolCall?.(call, toolResult)
+        chat.push({
+          role: 'tool',
+          content: `<tool_result tool="${call.name}" call_id="${call.id}" ok="${String(toolResult.ok)}">\n${toolPayload(toolResult)}\n</tool_result>`
+        })
+      }
+    }
+  } finally {
+    // 失败也记账：模型已经消耗的 token 不能凭空消失；turn_id 稳定，重试 upsert。
+    if (turns.length > 0) {
+      recordTurnMetric({
+        repos,
+        projectId: project.id,
+        jobId: options.jobId,
+        turnId,
+        agentKey: 'memory',
+        chapterId: chapter.id,
+        beatId: null,
+        provider: deps.adapter.provider,
+        model: deps.adapter.model,
+        bindingVersion: binding.version,
+        usage: sumUsages(turns.map((turn) => turn.usage)),
+        capabilities: binding.capabilities ?? capabilitiesFor(deps.adapter.provider, deps.adapter.model),
+        latencyMs: Date.now() - startedAt,
+        firstTokenMs: turns.find((turn) => turn.firstTokenMs !== null)?.firstTokenMs ?? null,
+        contextJson: simpleContextJson({
+          kind: 'memory',
+          promptVersion: PROMPT_VERSION,
+          toolsetVersion: deps.registry.version,
+          blockTokens
+        })
       })
     }
   }

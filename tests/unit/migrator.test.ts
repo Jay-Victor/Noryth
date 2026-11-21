@@ -24,7 +24,7 @@ describe('migrator', () => {
       const db = newDb(dir.path)
       try {
         const first = migrate(db, MIGRATIONS)
-        expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        expect(first.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
         expect(first.to).toBe(LATEST_SCHEMA_VERSION)
         expect(currentVersion(db)).toBe(LATEST_SCHEMA_VERSION)
         expect(db.pragma('user_version', { simple: true })).toBe(LATEST_SCHEMA_VERSION)
@@ -102,7 +102,7 @@ describe('migrator', () => {
       ).run()
 
       const result = migrate(db, MIGRATIONS)
-      expect(result.applied).toEqual([8, 9, 10, 11, 12])
+      expect(result.applied).toEqual([8, 9, 10, 11, 12, 13])
       const row = db.prepare('SELECT timeline, story_start, story_end FROM scene WHERE id = ?').get('scn_old') as {
         timeline: string
         story_start: string | null
@@ -146,7 +146,7 @@ describe('migrator', () => {
       ).run()
 
       const result = migrate(db, MIGRATIONS)
-      expect(result.applied).toEqual([9, 10, 11, 12])
+      expect(result.applied).toEqual([9, 10, 11, 12, 13])
 
       const node = db.prepare('SELECT meta_json FROM outline_node WHERE id = ?').get('out_old') as {
         meta_json: string
@@ -219,7 +219,7 @@ describe('migrator', () => {
       ).run()
 
       const result = migrate(db, MIGRATIONS)
-      expect(result.applied).toEqual([10, 11, 12])
+      expect(result.applied).toEqual([10, 11, 12, 13])
 
       const revision = db.prepare('SELECT branch_id FROM revision WHERE id = ?').get('rev_old') as {
         branch_id: string | null
@@ -319,7 +319,7 @@ describe('migrator', () => {
       insertToolCall.run('tc_plan', 'job_plan', 'turn_plan', 'c'.repeat(64))
 
       const result = migrate(db, MIGRATIONS)
-      expect(result.applied).toEqual([11, 12])
+      expect(result.applied).toEqual([11, 12, 13])
 
       const columns = (db.prepare('PRAGMA table_info(tool_call)').all() as Array<{ name: string }>).map(
         (column) => column.name
@@ -381,7 +381,7 @@ describe('migrator', () => {
       ).run()
 
       const result = migrate(db, MIGRATIONS)
-      expect(result.applied).toEqual([12])
+      expect(result.applied).toEqual([12, 13])
 
       const tables = db
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('voice_metric')")
@@ -411,6 +411,96 @@ describe('migrator', () => {
       db.prepare("DELETE FROM scene WHERE id = 'scn_old'").run()
       const remaining = db.prepare("SELECT COUNT(*) AS count FROM voice_metric").get() as { count: number }
       expect(remaining.count).toBe(0)
+
+      const report = verifyDatabase(db, { checkMirror: false })
+      expect(report.issues.filter((issue) => issue.severity === 'error')).toEqual([])
+      expect(report.ok).toBe(true)
+    } finally {
+      db.close()
+    }
+  })
+
+  it('0013 迁移旧项目：章预算列 + 费用归属列 + 两个索引，beat 指标回填 chapter_id', () => {
+    const dir = tempDir()
+    cleanups.push(dir.cleanup)
+    const db = newDb(dir.path)
+    try {
+      migrate(
+        db,
+        MIGRATIONS.filter((migration) => migration.version <= 12)
+      )
+      db.prepare(
+        `INSERT INTO project (id, title, pov, embedding_model, embedding_dim, default_preset, schema_version, created_at, updated_at)
+         VALUES ('prj_cost', '旧项目', 'third_limited', 'bge', 512, 'deepseek', 12, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare("UPDATE project SET seq_head = 1 WHERE id = 'prj_cost'").run()
+      db.prepare(
+        `INSERT INTO outline_node (id, project_id, parent_id, kind, ord, title, content, status, created_at, updated_at)
+         VALUES ('out_cost', 'prj_cost', NULL, 'chapter', 1, '旧章', '', 'locked', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare(
+        `INSERT INTO chapter (id, project_id, outline_node_id, ord, status)
+         VALUES ('ch_cost', 'prj_cost', 'out_cost', 1, 'drafting')`
+      ).run()
+      db.prepare(
+        `INSERT INTO scene (id, project_id, ord, location, participants_json, goal, exit_json, status, created_at, updated_at)
+         VALUES ('scn_cost', 'prj_cost', 1, '祠堂', '[]', '旧场景', '{}', 'closed', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare(
+        `INSERT INTO chapter_scene (chapter_id, scene_id, ord) VALUES ('ch_cost', 'scn_cost', 1)`
+      ).run()
+      db.prepare(
+        `INSERT INTO revision (id, chapter_id, parent_revision_id, kind, content_hash, created_by, note, created_at)
+         VALUES ('rev_cost', 'ch_cost', NULL, 'draft', '${'f'.repeat(64)}', 'doc_controller', NULL, '2026-01-01T00:00:00.000Z')`
+      ).run()
+      db.prepare(
+        `INSERT INTO beat (id, chapter_id, scene_id, ord, seq, speaker_type, speaker_id, intent, body, status,
+                           created_revision_id, word_count, created_at, updated_at)
+         VALUES ('bt_cost', 'ch_cost', 'scn_cost', 1, 1, 'narrator', 'narrator', '旧拍', '旧正文', 'confirmed',
+                 'rev_cost', 5, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`
+      ).run()
+      const insertMetric = db.prepare(
+        `INSERT INTO turn_metric (turn_id, project_id, job_id, beat_id, agent_key, provider, model, binding_version,
+                                  tokens_in, tokens_out, cost_cny, latency_ms, first_token_ms, context_json, created_at)
+         VALUES (?, 'prj_cost', 'job_old', ?, ?, 'deepseek', 'deepseek-flash', 1, 10, 5, 0.001, 10, 5, '{}', '2026-01-01T00:00:00.000Z')`
+      )
+      insertMetric.run('turn_beat', 'bt_cost', 'narrator')
+      insertMetric.run('turn_plan', null, 'planner')
+
+      const result = migrate(db, MIGRATIONS)
+      expect(result.applied).toEqual([13])
+
+      const columns = (db.prepare('PRAGMA table_info(chapter)').all() as Array<{ name: string }>).map(
+        (column) => column.name
+      )
+      expect(columns).toContain('budget_cny')
+      const metricColumns = (db.prepare('PRAGMA table_info(turn_metric)').all() as Array<{ name: string }>).map(
+        (column) => column.name
+      )
+      expect(metricColumns).toContain('chapter_id')
+
+      const rows = db
+        .prepare('SELECT turn_id, beat_id, chapter_id FROM turn_metric ORDER BY turn_id')
+        .all() as Array<{ turn_id: string; beat_id: string | null; chapter_id: string | null }>
+      expect(rows).toEqual([
+        { turn_id: 'turn_beat', beat_id: 'bt_cost', chapter_id: 'ch_cost' },
+        { turn_id: 'turn_plan', beat_id: null, chapter_id: null }
+      ])
+
+      const indexes = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name IN ('turn_metric_by_chapter','turn_metric_by_agent') ORDER BY name"
+        )
+        .all() as Array<{ name: string }>
+      expect(indexes.map((row) => row.name)).toEqual(['turn_metric_by_agent', 'turn_metric_by_chapter'])
+
+      // 旧项目预算为 NULL = 默认 ¥5.00；负数被 CHECK 拒绝。
+      expect(
+        (db.prepare("SELECT budget_cny FROM chapter WHERE id = 'ch_cost'").get() as { budget_cny: number | null })
+          .budget_cny
+      ).toBeNull()
+      db.prepare("UPDATE chapter SET budget_cny = 2.5 WHERE id = 'ch_cost'").run()
+      expect(() => db.prepare("UPDATE chapter SET budget_cny = -1 WHERE id = 'ch_cost'").run()).toThrow()
 
       const report = verifyDatabase(db, { checkMirror: false })
       expect(report.issues.filter((issue) => issue.severity === 'error')).toEqual([])

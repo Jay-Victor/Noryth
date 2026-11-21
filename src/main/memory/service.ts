@@ -1550,7 +1550,7 @@ export class MemoryService {
         ...(this.abort === null ? {} : { signal: this.abort.signal }),
         ...(onText === undefined ? {} : { hooks: { onText } })
       },
-      { chapterId: chapter.id, jobId, mode: 'extract', revisionId, messageId: newId('mmsg') }
+      { chapterId: chapter.id, jobId, mode: 'extract', revisionId, messageId: jobId }
     )
   }
 

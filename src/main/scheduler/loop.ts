@@ -1,4 +1,10 @@
 import { AppError } from '../../shared/domain/app-error'
+import {
+  budgetReasonOf,
+  DEFAULT_CHAPTER_BUDGET_CNY,
+  DEFAULT_CHAPTER_BUDGET_TOKENS as SHARED_DEFAULT_CHAPTER_BUDGET_TOKENS,
+  type ChapterBudget
+} from '../../shared/domain/budget'
 import type { ExitEvalNode } from '../../shared/dsl/exit'
 import type { Db } from '../db/project-db'
 import type { Repos } from '../db/repos'
@@ -16,7 +22,7 @@ import { sceneTransition } from './transitions'
  * 所有停止条件都必须能在不调模型的情况下判定，否则自动模式会烧钱。
  */
 
-export const DEFAULT_CHAPTER_BUDGET_TOKENS = 120_000
+export const DEFAULT_CHAPTER_BUDGET_TOKENS = SHARED_DEFAULT_CHAPTER_BUDGET_TOKENS
 
 export type PauseReason =
   | 'exit_satisfied'
@@ -55,22 +61,42 @@ export interface SceneProgress {
   exitNodes: ExitEvalNode[]
 }
 
-export interface BudgetState {
+export interface BudgetState extends ChapterBudget {
+  /** token 上限（`tokensLimit` 的兼容别名；旧 UI/测试仍读这两个字段）。 */
   limit: number
+  /** token 已用（`tokensUsed` 的兼容别名）。 */
   spent: number
   remaining: number
-  exceeded: boolean
 }
 
+/**
+ * 章预算：token 与人民币各一套上限，任一超限都算 `budget_exceeded`。
+ * 费用只累加有计价的行；`unpricedCalls > 0` 时费用只是下限。
+ */
 export function chapterBudget(repos: Repos, chapter: ChapterRecord): BudgetState {
-  const limit = chapter.budgetTokens ?? DEFAULT_CHAPTER_BUDGET_TOKENS
+  const tokensLimit = chapter.budgetTokens ?? DEFAULT_CHAPTER_BUDGET_TOKENS
+  const costLimit = chapter.budgetCny ?? DEFAULT_CHAPTER_BUDGET_CNY
   const usage = repos.turnMetric.sumByChapter(chapter.id)
-  const spent = usage.tokensIn + usage.tokensOut
+  const tokensUsed = usage.tokensIn + usage.tokensOut
+  const reason = budgetReasonOf({
+    tokensUsed,
+    tokensLimit,
+    costUsed: usage.costCny,
+    costLimit,
+    pricedCalls: usage.pricedCalls
+  })
   return {
-    limit,
-    spent,
-    remaining: Math.max(0, limit - spent),
-    exceeded: spent >= limit
+    tokensUsed,
+    tokensLimit,
+    costUsed: usage.costCny,
+    costLimit,
+    pricedCalls: usage.pricedCalls,
+    unpricedCalls: usage.unpricedCalls,
+    exceeded: reason !== null,
+    reason,
+    limit: tokensLimit,
+    spent: tokensUsed,
+    remaining: Math.max(0, tokensLimit - tokensUsed)
   }
 }
 
@@ -205,16 +231,17 @@ export function decideNext(repos: Repos, chapter: ChapterRecord, options: Decide
   const open = scenes.find((entry) => entry.scene.status !== 'closed')
   if (!open) return { kind: 'complete' }
 
-  // 预算先于发牌：自动模式超预算立即停，不静默续跑（DEV-PLAN §8.5 第 5 步）。
-  if (options.auto && options.budget.exceeded) return { kind: 'pause', reason: 'budget_exceeded' }
-
   const beats = repos.beat.listLiveByScene(open.scene.id)
   const exit = evaluateSceneExit(repos, chapter, open, beats)
-  // 每拍后检查收束：出口满足就关场景，不再为这一场发牌。
+  // 判定顺序固定 exit → max_beats → budget（PHASE-20 §5.1）：
+  // 出口满足时先关场景，哪怕预算刚好到线；预算在出口前到线才暂停。
   if (exit.satisfied) return { kind: 'close_scene', scene: open, reason: 'exit_satisfied' }
   if (confirmedCountOf(beats) >= open.scene.maxBeats) {
     return { kind: 'close_scene', scene: open, reason: 'max_beats' }
   }
+
+  // 预算先于发牌：自动模式超预算立即停，不静默续跑（DEV-PLAN §8.5 第 5 步）。
+  if (options.auto && options.budget.exceeded) return { kind: 'pause', reason: 'budget_exceeded' }
 
   const beat = nextActionableBeat(repos, chapter.id)
   if (beat) return { kind: 'beat', beat }
