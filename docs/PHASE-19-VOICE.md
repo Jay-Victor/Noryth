@@ -166,15 +166,15 @@ CREATE INDEX voice_metric_by_chapter
 
 ## 6 验收清单
 
-- [ ] T25 实现并可调用：合法 `scene_id` 返回逐角色与两两指标；空场景返回零值 + `pairs=[]` + `degraded='empty'`（`tests/unit/voice/metrics.test.ts`、`tests/contract`）。
-- [ ] 同一 fixture 两次计算逐字段相等；不同角色顺序输入不改变结果（`tests/unit/voice/metrics.test.ts`）。
-- [ ] 0012 迁移：旧库升级后 `voice_metric` 与索引存在；`db.verify()` 绿；`LATEST_SCHEMA_VERSION = 12`（`tests/unit/migrator.test.ts`）。
-- [ ] 语料校准脚本可跑；阈值常量含 `version / corpusHash / calibratedAt`；ADR-0007 记录方法、样本与局限。
-- [ ] `E2E-M2-VOICE-01`：构造一对低区分度角色 → 创作台场景头出现角色对与分数 → 审批台 VoicePanel 显示同一对 → 报告出现 `voice` 建议 → G6 仍可定稿 → 正文与 revision 不变。
-- [ ] `E2E-M2-METRICS-01`：基线脚本输出声音与伏笔回收率；`docs/M2-METRICS-BASELINE.md` 记录实际数字与口径。
-- [ ] T25 在审批白名单启用（20 个）；`gen:check` 0 diff；`check_tool_spec.py` PASS（PRD 42 / 清单 50 / M0 36）。
-- [ ] 指标不进入提示词：`src/main/agents/prompts/**` 与 `context/**` 无 `voice_metric` / `distinctness` 读取；不写 `beat.body`、不建 revision。
-- [ ] 门禁：`pnpm typecheck && pnpm lint && pnpm depcruise && pnpm test:unit && pnpm vitest run tests/integration && pnpm test:e2e && pnpm build && pnpm gen:check`。
+- [x] T25 实现并可调用：合法 `scene_id` 返回逐角色与两两指标；空场景返回零值 + `pairs=[]` + `degraded='empty'`（`tests/unit/voice/metrics.test.ts`、`tests/contract/tool-contracts.test.ts` 42×6）。
+- [x] 同一 fixture 两次计算逐字段相等；不同角色顺序输入不改变结果（`tests/unit/voice/metrics.test.ts`：两次 deep-equal、输入逆序同结果）。
+- [x] 0012 迁移：旧库升级后 `voice_metric` 与索引存在；`db.verify()` 绿；`LATEST_SCHEMA_VERSION = 12`（`tests/unit/migrator.test.ts`：唯一键 + 外键级联 + verify）。
+- [x] 语料校准脚本可跑；阈值常量含 `version / corpusHash / calibratedAt`；ADR-0007 记录方法、样本与局限（`zh-v1 = 0.252`；20 场 / 50 同人对 / 40 异人对；FPR 2.0% / TPR 97.5%）。
+- [x] `E2E-M2-VOICE-01`：构造一对低区分度角色 → 创作台场景头出现角色对与分数 → 审批台 VoicePanel 显示同一对 → 报告出现 `voice` 建议 → G6 仍可定稿 → G4 前后 draft 清单不变、`db.verify()` 绿。
+- [x] `E2E-M2-METRICS-01`：基线脚本输出声音与伏笔回收率；`docs/M2-METRICS-BASELINE.md` 记录实际数字与口径（3 场 / 3 对 / 3 场低于阈值；伏笔 2/1/1，回收率 0.5）。
+- [x] T25 在审批白名单启用（20 个）；`gen:check` 0 diff；`check_tool_spec.py` PASS（PRD 42 / 清单 50 / M0 36）。
+- [x] 指标不进入提示词：`tests/unit/voice/no-prompt-leak.test.ts` 扫描 `agents/prompts/**` 与 `context/**`，无 `voice_metric` / `distinctness`；E2E 断言 G4 前后 draft 清单不变、不新增拍。
+- [x] 门禁：`pnpm typecheck && pnpm lint && pnpm depcruise && pnpm test:unit && pnpm vitest run tests/integration && pnpm test:e2e && pnpm build && pnpm gen:check`（unit 827 / integration 48 / e2e 34 / chaos 8 / perf 2）。
 
 ## 7 风险与回退
 

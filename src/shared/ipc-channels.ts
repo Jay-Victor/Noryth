@@ -102,6 +102,8 @@ export const IPC = {
   writeContext: 'write.context',
   // 未打包构建的 E2E 脚手架（生产包不注册）
   writeDevSeed: 'write.devSeed',
+  // 声音指标（PHASE-19 M2-1）：只读；缺行/旧行按需重算
+  voiceScene: 'voice.scene',
   // 审批台（PHASE-08）
   reviewState: 'review.state',
   reviewRun: 'review.run',

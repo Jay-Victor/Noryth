@@ -76,6 +76,8 @@ export const CONTRACT_FIXTURES: Record<string, ContractFixture> = {
     emptyArgs: null
   },
   'consistency.check': { args: { revision_id: 'rev_draft' } },
+  // PHASE-19 M2-1：声音指标只读；scn_a 只有 1 个角色拍 → 零值 + pairs=[]（degraded empty）
+  'voice.metrics': { args: { scene_id: 'scn_a' }, emptyArgs: { scene_id: 'scn_final' } },
   'storyboard.validate': { args: { draft: { scenes: [draftScene] } }, emptyArgs: null },
   'exit_dsl.validate': { args: { expr: 'all(fact("黑漆匣子","位置","祠堂供桌下面"), beats(2))' }, emptyArgs: null },
   'report.get_latest': { args: { chapter_id: 'ch_final' }, emptyArgs: { chapter_id: 'ch_draft' } },

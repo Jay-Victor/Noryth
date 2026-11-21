@@ -178,6 +178,27 @@ export class ReviewRepo extends BaseRepo {
   }
 
   /**
+   * 追加运行时建议（PHASE-19 M2-2）：声音指标要等 `voice_metric` 算完才知道，
+   * 所以报告由 T35 落库后，运行时再补一条 `type='voice'` 的建议。
+   * 只追加建议、不改阻断；verdict 按条目反推（pass → pass_with_notes）。
+   */
+  appendSuggestions(
+    id: string,
+    suggestionsJson: string,
+    verdict: Verdict
+  ): ApprovalReportRecord | null {
+    const row = firstRow<ApprovalRow>(
+      this.runner,
+      this.runner.db
+        .updateTable('approval_report')
+        .set({ suggestions_json: suggestionsJson, verdict })
+        .where('id', '=', id)
+        .returningAll()
+    )
+    return row ? mapApproval(row) : null
+  }
+
+  /**
    * 补记复检范围：报告可能由 T35 提交（工具不知道复检维度），
    * 由运行时在回合结束后写入；只改 scope，不改条目。
    */

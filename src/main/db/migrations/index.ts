@@ -9,6 +9,7 @@ import storyTimeSql from './0008_story_time.sql?raw'
 import blueprintOpsSql from './0009_blueprint_ops.sql?raw'
 import branchSummarySql from './0010_branch_summary.sql?raw'
 import toolCallChapterSql from './0011_tool_call_chapter.sql?raw'
+import voiceSql from './0012_voice.sql?raw'
 import type { Migration } from '../migrator'
 
 /**
@@ -26,7 +27,8 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 8, name: 'story_time', sql: storyTimeSql },
   { version: 9, name: 'blueprint_ops', sql: blueprintOpsSql },
   { version: 10, name: 'branch_summary', sql: branchSummarySql },
-  { version: 11, name: 'tool_call_chapter', sql: toolCallChapterSql }
+  { version: 11, name: 'tool_call_chapter', sql: toolCallChapterSql },
+  { version: 12, name: 'voice', sql: voiceSql }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.version), 0)

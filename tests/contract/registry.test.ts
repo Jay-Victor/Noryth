@@ -18,13 +18,10 @@ describe('registry contracts', () => {
     expect(ALL_MANIFESTS).toHaveLength(50)
   })
 
-  it('2. M0 注册 36 个 + 已打开 T22/T23/T26/T29/T40；只剩 voice.metrics 未注册', () => {
-    expect(AGENT_TOOLS.filter((tool) => tool.enabled)).toHaveLength(41)
-    expect(registry.tools.size).toBe(49) // 41 Agent + 8 系统
-    for (const name of ['voice.metrics']) {
-      expect(registry.get(name), name).toBeUndefined()
-    }
-    for (const name of ['foreshadow.list_open', 'coverage.check', 'impact.analyze']) {
+  it('2. M0 注册 36 个 + 已打开 T22/T23/T25/T26/T29/T40；42 个 Agent 工具全部已注册', () => {
+    expect(AGENT_TOOLS.filter((tool) => tool.enabled)).toHaveLength(42)
+    expect(registry.tools.size).toBe(50) // 42 Agent + 8 系统
+    for (const name of ['voice.metrics', 'foreshadow.list_open', 'coverage.check', 'impact.analyze']) {
       expect(registry.get(name), name).toBeDefined()
     }
   })
@@ -36,11 +33,14 @@ describe('registry contracts', () => {
       expect(baseline).toBeGreaterThanOrEqual(EXPECTED[agent])
       expect(TOOL_COUNTS[agent]).toBe(baseline)
     }
-    for (const agent of ['orchestrator', 'reviewer'] as const) {
+    for (const agent of ['orchestrator'] as const) {
       expect(registry.baselineFor(agent), agent).toHaveLength(EXPECTED[agent] + 2)
       expect(registry.baselineFor(agent).map((tool) => tool.name)).toContain('timeline.query')
       expect(registry.baselineFor(agent).map((tool) => tool.name)).toContain('foreshadow.list_open')
     }
+    // 审批：T23 + T22 + T25（M2 声音指标）
+    expect(registry.baselineFor('reviewer')).toHaveLength(20)
+    expect(registry.baselineFor('reviewer').map((tool) => tool.name)).toContain('voice.metrics')
     // 规划：T26 覆盖检查 + T29 影响分析
     expect(registry.baselineFor('planner')).toHaveLength(EXPECTED.planner + 2)
     expect(registry.baselineFor('planner').map((tool) => tool.name)).toContain('coverage.check')
@@ -60,11 +60,12 @@ describe('registry contracts', () => {
     ])
   })
 
-  it('5. 审批列表恰好 19 个（17 + T23 + T22），且包含 G5 的 patch.propose', () => {
+  it('5. 审批列表恰好 20 个（17 + T23 + T22 + T25），且包含 G5 的 patch.propose', () => {
     const names = resolveToolset('reviewer', {}, registry).names()
-    expect(names).toHaveLength(19)
+    expect(names).toHaveLength(20)
     expect(names).toContain('patch.propose')
     expect(names).toContain('timeline.query')
+    expect(names).toContain('voice.metrics')
     expect(names).not.toContain('memory.apply')
   })
 

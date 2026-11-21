@@ -26,6 +26,7 @@ import type {
   ForeshadowState,
   ForeshadowUpdateInput
 } from './foreshadow'
+import type { VoiceSceneInput, VoiceSceneState } from './voice'
 import type {
   PlanAddOutlineInput,
   PlanCharacterAddInput,
@@ -407,6 +408,11 @@ export interface WorldApi {
   removeForeshadow(foreshadowId: string): Promise<IpcResult<ForeshadowMutationResult>>
 }
 
+/** 声音指标（PHASE-19 M2-1 / M2-2）：只读；必要时主进程重算并落 voice_metric。 */
+export interface VoiceApi {
+  scene(input: VoiceSceneInput): Promise<IpcResult<VoiceSceneState>>
+}
+
 export interface NorythBridge {
   project: ProjectApi
   dialog: DialogApi
@@ -419,6 +425,7 @@ export interface NorythBridge {
   review: ReviewApi
   memory: MemoryApi
   world: WorldApi
+  voice: VoiceApi
   app: AppApi
   events: EventApi
 }

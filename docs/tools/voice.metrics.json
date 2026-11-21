@@ -1,8 +1,8 @@
 {
   "name": "voice.metrics",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "family": "verify",
-  "summary": "统计句长分布、口头禅与问句率（M2）；只出指标，不自动判 fail",
+  "summary": "统计句长、口头禅、问句与第一人称，输出逐角色与两两区分度（M2）；只出指标，不自动判 fail",
   "actors": [
     "reviewer"
   ],
@@ -54,13 +54,168 @@
       },
       "pairwise_distinctness": {
         "type": "number"
+      },
+      "characters": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "characterId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string"
+            },
+            "beatCount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "sentenceCount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "avgSentenceLength": {
+              "type": "number",
+              "minimum": 0
+            },
+            "histogram": {
+              "minItems": 6,
+              "maxItems": 6,
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "catchphraseRate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "questionRate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "firstPersonRate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "catchphrases": {
+              "maxItems": 32,
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "characterId",
+            "name",
+            "beatCount",
+            "sentenceCount",
+            "avgSentenceLength",
+            "histogram",
+            "catchphraseRate",
+            "questionRate",
+            "firstPersonRate",
+            "catchphrases"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "pairs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "string",
+              "minLength": 1
+            },
+            "b": {
+              "type": "string",
+              "minLength": 1
+            },
+            "aName": {
+              "type": "string"
+            },
+            "bName": {
+              "type": "string"
+            },
+            "score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "sentenceLengthJsd": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "catchphraseDelta": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "questionDelta": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "firstPersonDelta": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "a",
+            "b",
+            "aName",
+            "bName",
+            "score",
+            "sentenceLengthJsd",
+            "catchphraseDelta",
+            "questionDelta",
+            "firstPersonDelta"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "threshold": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "distinctnessMin": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "version",
+          "distinctnessMin"
+        ],
+        "additionalProperties": false
       }
     },
     "required": [
       "sentence_length_jsd",
       "catchphrase_rate",
       "question_rate",
-      "pairwise_distinctness"
+      "pairwise_distinctness",
+      "characters",
+      "pairs",
+      "threshold"
     ],
     "additionalProperties": false
   },

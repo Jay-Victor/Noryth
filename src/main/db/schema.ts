@@ -571,6 +571,18 @@ export interface BlueprintChangeTable {
   applied_at: string | null
 }
 
+/** 声音指标缓存（0012，PHASE-19 §5.4）：派生数据，按 scene + revision 一行。 */
+export interface VoiceMetricTable {
+  id: string
+  project_id: string
+  chapter_id: string
+  scene_id: string
+  revision_id: string
+  metrics_json: string
+  threshold_version: string
+  created_at: string
+}
+
 export interface Database {
   project: ProjectTable
   outline_node: OutlineNodeTable
@@ -612,4 +624,5 @@ export interface Database {
   review_message: ReviewMessageTable
   foreshadow: ForeshadowTable
   blueprint_change: BlueprintChangeTable
+  voice_metric: VoiceMetricTable
 }

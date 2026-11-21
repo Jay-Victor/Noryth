@@ -5,8 +5,14 @@ import {
   CoverageCheckOutputSchema,
   ImpactCountsSchema
 } from '../../../shared/schema/blueprint'
+import {
+  VoiceCharacterMetricsSchema,
+  VoicePairMetricsSchema,
+  VoiceThresholdSchema
+} from '../../../shared/schema/voice'
 import { analyzeCoverage, filterCoverageByScope, gatherCoverageInput } from '../../plan/coverage'
 import { analyzeChange } from '../../plan/change'
+import { computeSceneVoice } from '../../voice/service'
 import { defineTool } from '../define'
 import { validateExitExpr } from '../support/dsl'
 import { validateStoryboard, StoryboardDraftSchema } from '../support/storyboard'
@@ -365,17 +371,13 @@ const reportGetLatest = defineTool({
   }
 })
 
-const notImplemented = (name: string): never => {
-  throw new AppError('tool_unavailable', `${name} 按里程碑开关未启用`)
-}
-
-/** T25（M2）：声音指标；M0 只保留契约。 */
+/** T25（PHASE-19 M2-1）：声音指标；逐角色 + 两两区分度，只出指标。 */
 const voiceMetrics = defineTool({
   toolId: 'T25',
   name: 'voice.metrics',
-  version: '1.0.0',
+  version: '1.1.0',
   family: 'verify',
-  summary: '统计句长分布、口头禅与问句率（M2）；只出指标，不自动判 fail',
+  summary: '统计句长、口头禅、问句与第一人称，输出逐角色与两两区分度（M2）；只出指标，不自动判 fail',
   actors: ['reviewer'],
   sideEffect: 'none',
   agentCallable: true,
@@ -386,13 +388,36 @@ const voiceMetrics = defineTool({
     sentence_length_jsd: z.number(),
     catchphrase_rate: z.number(),
     question_rate: z.number(),
-    pairwise_distinctness: z.number()
+    pairwise_distinctness: z.number(),
+    characters: z.array(VoiceCharacterMetricsSchema),
+    pairs: z.array(VoicePairMetricsSchema),
+    threshold: VoiceThresholdSchema
   }),
   limits: limitsFor('verify'),
   degrade: degradeFor('verify'),
   audit: AUDIT,
   milestone: 'M2',
-  handler: () => notImplemented('voice.metrics')
+  enabled: true,
+  handler: (args, ctx, services) => {
+    const scene = services.repos.scene.get(args.scene_id)
+    if (!scene || scene.projectId !== ctx.runtime.project_id) {
+      throw new AppError('invalid_args', '场景不存在', { sceneId: args.scene_id })
+    }
+    const computed = computeSceneVoice(services.repos, args.scene_id)
+    const metrics = computed.metrics
+    return {
+      data: {
+        sentence_length_jsd: metrics.aggregate.sentenceLengthJsd,
+        catchphrase_rate: metrics.aggregate.catchphraseRate,
+        question_rate: metrics.aggregate.questionRate,
+        pairwise_distinctness: metrics.aggregate.pairwiseDistinctness,
+        characters: metrics.characters,
+        pairs: metrics.pairs,
+        threshold: metrics.threshold
+      },
+      degraded: metrics.insufficientData ? ('empty' as const) : ('none' as const)
+    }
+  }
 })
 
 /** T26（PHASE-15 M1-11）：覆盖检查；只有 error 才阻断 G1，warn 只计数。 */

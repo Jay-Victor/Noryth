@@ -24,6 +24,7 @@ import {
   ProviderTestInputSchema
 } from '../../shared/schema/settings'
 import { PresetSchema } from "../../shared/schema/model"
+import { VoiceSceneInputSchema } from '../../shared/schema/voice'
 import { DiagnosticsExportInputSchema, ExportInputSchema } from '../../shared/schema/export'
 import { exportManuscript } from '../doc/export'
 import { isBusyError } from '../db/busy'
@@ -125,6 +126,7 @@ import type { SettingsService } from '../settings/service'
 import type { SliceService } from '../slice/service'
 import type { WriteService } from '../scheduler/service'
 import type { WorldService } from '../world/service'
+import type { VoiceService } from '../voice/service'
 
 const EnvelopeSchema = z.strictObject({ requestId: z.string().min(1), payload: z.unknown() })
 const EmptySchema = z.strictObject({})
@@ -148,6 +150,8 @@ export interface IpcDeps {
   memory: MemoryService
   /** 世界状态（PHASE-13）：as-of 投影与作者事实。 */
   world: WorldService
+  /** 声音指标（PHASE-19 M2-1）：只读 IPC + 场景级派生数据。 */
+  voice: VoiceService
   /** 更新检查（PHASE-18 M1-7）：与启动后台检查共用 runUpdateCheck。 */
   checkUpdates?: () => Promise<UpdateState>
 }
@@ -769,6 +773,11 @@ export function registerIpc(deps: IpcDeps): void {
   register(IPC.writeContext, {
     schema: WriteContextInputSchema,
     handler: (payload) => write.inspectContext(payload.beatId)
+  })
+  // 声音指标（PHASE-19 M2-1）：只读；只读项目不落库，但仍返回计算结果。
+  register(IPC.voiceScene, {
+    schema: VoiceSceneInputSchema,
+    handler: (payload) => deps.voice.scene(payload)
   })
   if (deps.devTools) {
     register(IPC.writeDevSeed, {

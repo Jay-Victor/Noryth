@@ -24,7 +24,7 @@
 | 16 | `docs/PHASE-16-BRANCH-LONGFORM.md` | done | M1-21 重新打开定稿（`doc/reopen.ts`：旧 final 保留、新 draft、`write_epoch+1`、再定稿自动执行 `memory.rebuild`）+ 分支树（`doc/branches.ts`：开分支/对比/切回主线，head 随 commit/patch/fork 移动，final 不挂分支）、M1-22 异构复检（`review/hetero.ts` + `review.hetero` 设置；报告记录 `provider`，缺失 `degraded=hetero_unavailable`）、M1-13 章末摘要（`doc/summary.ts`：finalize 同事务、首末拍 + 关键事实 ≤5、≤300 tokens；L0 `summary.prev`）；新增 `0010_branch_summary.sql`（`LATEST_SCHEMA_VERSION = 10`）；`E2E-M1-BRANCH-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 310 modules / unit 769 / integration 46 / chaos 8 / e2e 29 / build / gen:check / 规格脚本） | 分支不做合并（M2）；异构复检默认 `off`，评分校准 M2-8；摘要只做抽取式（模型摘要 M2）；`summary.prev` 只进 L0 装配，不塞进 system 提示词 |
 | 17 | `docs/PHASE-17-DOCX-EXPORT.md` | done | M1-6 DOCX（`doc/export-docx.ts`：标题页 / 目录 / 章标题分页 / 场景分隔 / 首行缩进 2 字符；zip 时间戳 + core 时间 + 书签 id 归一化 → 同清单字节可复现）、M1-14 选项（`format` / `scope` / `includeNotes` / `toc` / `font` / `fontSize` / `lineSpacing` / `author`）、三档格式统一从 revision 清单渲染（未定稿标「草稿」）、`ExportDialog.tsx`、`E2E-M1-DOCX-01`；依赖 `docx` + `fflate`（纯 JS）；未改 schema（`LATEST_SCHEMA_VERSION = 10`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 314 modules / unit 775 / integration 46 / chaos 8 / e2e 30 / build / gen:check / 规格脚本 / perf 2）+ NSIS 159MB + 安装冒烟 PASS + 本机 Word 打开检查；CI 全绿（`d3ac330`：verify + e2e 两片） | 目录页码由 Word/WPS 首次打开时更新（预生成条目保证不空白）；不做 PDF/EPUB、封面、Word 原生批注（M2/不做）；导出批注来自最近一份报告，不做逐条批注定位 |
 | 18 | `docs/PHASE-18-DELIVERY-M1.md` | done | M1-7 更新通道/回退/演练（`update.ts` 三通道 + semver 预发布 + 同 minor 才降级 + `scripts/update-drill.mjs` + 设置页「更新」卡）、M1-15 QA（`E2E-M1-SMOKE` 3 章提交门 / `E2E-M1-A` 30 章 3 卷 nightly / `project.verify` 只读校验 / 内存与孤儿断言）、M1-23 工具审计面板（迁移 0011 `tool_call.chapter_id` + 两条回填 + `memory.toolCalls` + `ToolCallList.tsx` + `E2E-M1-TOOLCALL`）、M1-25 图标/品牌（`scripts/gen-icons.mjs` + `resources/icon.ico` / `resources/icon.png` + `icons/*` + exe/窗口/随包断言）、版本 0.2.0、`docs/M1-ACCEPTANCE.md` | PRD M1 五条全绿（`E2E-M1-A` 20.8s / 30 final / 私有 512MB；`E2E-M1-TIME-01`、`E2E-M1-REBUILD-01`、`E2E-M1-ASOF-01`、`E2E-M1-DOCX-01` 复跑绿）；本地门禁全绿（typecheck / lint / depcruise 319 modules / unit 794 / integration 46 / chaos 8 / e2e 32 / perf 2 / build / gen:check / 规格脚本）；NSIS 167,298,203 B + 安装冒烟 PASS（Win11，schema 11）；更新演练 PASS（manifest / 四态判定 / 真实下载）；CI run `44045408802`（verify 2m34 + e2e 两片 2m05 / 2m46 均绿，package 按规则跳过）；标签 `phase-18-done` → `1f2b668` | Win10 22H2 与真实第二家 Key：作者决定不测（2026-11-17，外部依赖）；GitHub Release 未上传（首个 release tag 时做）；更新演练「安装→重启→迁移」为人工步骤；30 章长跑只在 nightly/发布前跑 |
-| 19 | `docs/PHASE-19-VOICE.md` | todo | T25 声音指标 + 中文阈值校准 + 伏笔回收率基线；漂移告警；迁移 0012 `voice_metric` | — | 阶段文档已建（2026-11-17），未开工 |
+| 19 | `docs/PHASE-19-VOICE.md` | done | M2-1：T25 `voice.metrics` 实现（逐角色 + 两两分项 + `threshold`，1.1.0，审批白名单 19→20）；`zh-v1` 中文夹具语料校准（0.252；FPR 2.0% / TPR 97.5%）+ `scripts/calibrate-voice.mjs`；迁移 0012 `voice_metric`（scene + revision 一行）+ `voice.scene` 只读 IPC；M2-2：创作台场景头徽标 + 审批台 `VoicePanel` + 报告运行时 `voice` 建议（只建议，不阻断 G6）；`scripts/m2-baseline.mjs` + `docs/M2-METRICS-BASELINE.md` + ADR-0007；`E2E-M2-VOICE-01`、`E2E-M2-METRICS-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 328 modules / unit 827 / integration 48 / chaos 8 / e2e 34 / perf 2 / build / gen:check / 规格脚本） | 语料是合成夹具（阈值是起点，真实项目需复跑基线）；项目基线用假模型文本（最低一对 0 分，不代表真实分数）；旁白不参与两两区分度；声音建议只在 G4 全量报告追加（复检报告不重复） |
 | 20 | `docs/PHASE-20-COST-BUDGET.md` | todo | M2-3 预算化自动模式 + 费用预测；M2-5 全链路计量 + 成本/耗时报表；迁移 0013 | — | 阶段文档已建（2026-11-17），未开工 |
 | 21 | `docs/PHASE-21-ROUTING-HETERO.md` | todo | M2-4 多供应商路由/故障切换；M2-8 异构默认值 + 评分校准；ADR-0008/0009 | — | 阶段文档已建（2026-11-17），未开工 |
 | 22 | `docs/PHASE-22-ARCHIVE-CONTEXT.md` | todo | M2-7 非事实类记忆归档；M2-9 上下文成本优化；迁移 0014 | — | 阶段文档已建（2026-11-17），未开工 |
@@ -310,15 +310,42 @@
 | 阶段标签 | `phase-18-done` → `1f2b668` | 已推送 origin；该提交 CI run `44049244747` 全绿 |
 | CI（收口后文档提交） | run `44055566898`（`f58834b`） | verify 绿；e2e (1) `E2E-M1-BRANCH-01` 失败（36.5s；本地连跑 3 次 18s 全绿，同代码的 `ef846cc`/`1f2b668`/`fce9c49` 三次 CI 全绿）→ 判定 runner 偶发；e2e (2) 在 `slice.spec` 后静默早退（已知形态） |
 
+## 验证记录（阶段 19，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 328 modules / 1608 deps，0 违规（新增 `voice/metrics.ts`、`voice/service.ts`、`review/voice.ts`） |
+| Lint | `pnpm lint` | 通过（新增 `SceneVoiceBadge` / `VoicePanel` / 校准与基线脚本） |
+| 单元 + 契约 | `pnpm test:unit` | 827 passed（新增 voice metrics 11 / service 7 / threshold 4 / no-prompt-leak 1 / voice-states 3；契约夹具 42×6=254） |
+| 集成 | `pnpm vitest run tests/integration` | 48 passed（新增 `voice.spec.ts` 2：报告追加 voice 建议 + 重复不叠加 + 正文/revision 不变；高区分度不追加） |
+| 混沌 | `pnpm test:chaos` | 8 passed / CHAOS-01..09 |
+| E2E | `pnpm test:e2e` | 34 passed（新增 `E2E-M2-VOICE-01`、`E2E-M2-METRICS-01`；`E2E-M0-A` schema 断言 11 → 12；`a11y` bridge 命名空间加 `voice`） |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→…→0012：`voice_metric` 表 + `voice_metric_by_chapter` 索引；`UNIQUE(scene_id, revision_id)` 拒绝第二行；外键拒绝缺失场景；删场景级联；迁后 `verifyDatabase` 无 error |
+| 指标纯函数 | `tests/unit/voice/metrics.test.ts` | 11 条：分句（连续终止符/引号/纯标点丢弃）、直方图 6 桶、√JSD（同分布 0 / 不相交 1 / 空分布 0）、问句率、第一人称率、口头禅（角色卡 + 拍内 ≥3 次 n-gram）、两两公式、人数不足 `insufficientData`、两次 deep-equal、输入逆序同结果、三角色两两排序 |
+| 指标服务 | `tests/unit/voice/service.test.ts` | 7 条：计算不落库；persist 只留一行且二次命中缓存；revision 变化 `stale=true` 并按新稿重算（同场景两行）；阈值版本变化覆盖同一行；`persist=false` 不写；空场景 `found=false` 不伪造 0 分；缺场景 `invalid_args` 且 sync 不抛 |
+| 阈值一致性 | `tests/unit/voice/threshold.test.ts` | 4 条：常量 = `calibration-result.json`；语料 sha256 = `corpusHash`；FPR ≤5% / TPR ≥80% / 阈值在 [0.12,0.30]；等于阈值不告警 |
+| 状态矩阵 | `tests/unit/voice-states.test.ts` | 3 条：missing / insufficient / low / ok 四态；文案唯一；UI 不出现 0.18 |
+| 提示词隔离 | `tests/unit/voice/no-prompt-leak.test.ts` | `agents/prompts/**` 与 `context/**` 无 `voice_metric` / `distinctness` / `voice.metrics` |
+| 语料校准 | `node scripts/calibrate-voice.mjs` | `zh-v1 = 0.252`；20 场 / 50 实例 / 50 同人对 / 40 异人对；同人误报 2.0%（1/50）、异人检出 97.5%（39/40）；结果文件与常量一致 |
+| 质量基线 | `node scripts/m2-baseline.mjs <项目>`（`E2E-M2-METRICS-01` 内跑） | voice：3 场 / 3 对 / 3 场低于阈值 / 最低一对 0.00（假模型同构文本）；foreshadow：2 埋设 / 1 回收 / 1 未回收 / 回收率 0.5 / 超期 1 |
+| 告警 E2E | `tests/e2e/voice.spec.ts` | `E2E-M2-VOICE-01`：2 角色各 2 拍 → 场景头徽标显示角色对与 `data-low=1`、展开见 `zh-v1` → G4 报告 1 条运行时 voice 建议（无阻断）→ 审批台逐角色表 + 两两矩阵 → G5/复检/G6 定稿 → G4 前后 draft 清单不变、`db.verify` 绿 |
+| 性能 | `pnpm test:perf` | 2 passed（PERF-01 / PERF-M1-01 达标；指标层是纯函数，未进关账热路径以外的循环） |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T25 升 1.1.0 并启用；allowlist reviewer 20） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+
 ## 当前可运行命令
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（794：unit+contract） / `pnpm vitest run tests/integration`（46）
+- `pnpm test:unit`（827：unit+contract） / `pnpm vitest run tests/integration`（48）
 - `pnpm test:perf`（PERF-01 + PERF-M1-01 基线；nightly，不进提交门）
-- `pnpm test:chaos`（8 条 / CHAOS-01..09） / `pnpm test:e2e`（32）
+- `pnpm test:chaos`（8 条 / CHAOS-01..09） / `pnpm test:e2e`（34）
 - `pnpm build && pnpm test:e2e:m1a`（E2E-M1-A 30 章长跑；nightly/发布前）
 - `pnpm verify:embed`（bge 冷启动/单条/维度门槛；打包前手工跑）
+- `node scripts/calibrate-voice.mjs`（声音阈值校准；固定夹具，不进提交门）
+- `node scripts/m2-baseline.mjs <项目目录>`（只读质量基线：声音区分度 + 伏笔回收率）
 - `node scripts/install-smoke.mjs`（安装冒烟：装 → 建项 → 卸载）
 - `node scripts/update-drill.mjs`（更新演练：manifest 完整性 + 四态判定 + 下载）
 - `node scripts/gen-icons.mjs` / `node scripts/gen-icons.mjs --check`
@@ -667,8 +694,8 @@
 
 ## 当前阻塞
 
-- 阶段 18 已 `done`（2026-11-17）：PRD M1 五条全绿，本地门禁全绿；NSIS 167,298,203 B + 安装冒烟 PASS（Win11，schema 11）+ 更新演练 PASS；CI run `44045408802` / `44049244747` 全绿；标签 `phase-18-done` → `1f2b668`。`LATEST_SCHEMA_VERSION = 11`（0011 `tool_call.chapter_id`）。
-- M2 未开工（2026-11-17）：阶段 19–24 文档已建，状态均为 `todo`；下一步从 `docs/PHASE-19-VOICE.md` 开始，未写代码、未加迁移。
+- 阶段 19 已 `done`（2026-11-21）：T25 声音指标（逐角色 + 两两分项 + `threshold`）+ `zh-v1` 校准（0.252，FPR 2.0% / TPR 97.5%）+ 迁移 0012 `voice_metric` + `voice.scene` IPC + 创作台徽标 / 审批台面板 / 报告 `voice` 建议（只建议）+ 质量基线脚本；本地门禁全绿（unit 827 / integration 48 / e2e 34 / chaos 8 / perf 2）。`LATEST_SCHEMA_VERSION = 12`。
+- M2 进行中（2026-11-21）：阶段 19 已 `done`；阶段 20–24 仍为 `todo`，下一步从 `docs/PHASE-20-COST-BUDGET.md` 开始（预算化自动模式 + 成本报表，迁移 0013）。
 - **作者决定不测的外部依赖（2026-11-17，不阻断 M1 收口）**：
   - Windows 10 22H2 安装冒烟：本机只有 Win11，未执行；在 Win10 VM 上跑 `node scripts/install-smoke.mjs`（PHASE-18 §7）。
   - 真实第二家供应商补测：无 DashScope/Moonshot Key；ADR-0003 记录，M1-26。
@@ -694,7 +721,7 @@
 
 ## 下一阶段交接
 
-- 阶段 18 已 `done`（2026-11-17）；PRD M1 五条全绿（`docs/M1-ACCEPTANCE.md`）。
+- 阶段 19 已 `done`（2026-11-21）；M2-1/M2-2 交付（声音指标 / 阈值校准 / 漂移告警 / 质量基线）。阶段 18 的 M1 收口证据见 `docs/M1-ACCEPTANCE.md`。
 - 作者决定不测的两项外部依赖（2026-11-17）：
   1. Win10 22H2 VM 安装冒烟（`node scripts/install-smoke.mjs`；不阻断 M1）；
   2. 真实第二家供应商 Key（ADR-0003 / M1-26；不阻断 M1）。
@@ -714,9 +741,15 @@
   5. `E2E-M1-BRANCH-01`（重开定稿 / 分支对比与切换 / 再定稿自动重建记忆，阶段 16）✅
   6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）✅
   7. `E2E-M1-SMOKE`（3 章闭环，提交门）/ `E2E-M1-A`（30 章，nightly）/ `E2E-M1-TOOLCALL` ✅
-- M2 开工：阶段文档已建（2026-11-17，`docs/PHASE-19-VOICE.md` 至 `docs/PHASE-24-DELIVERY-M2.md`）；下一阶段从 `PHASE-19-VOICE.md` 开工。M2 验收口径见 `docs/DEV-PLAN.md` §16.5 与 `docs/PRD.md` §10；计划中的迁移 0012/0013/0014、测试 ID 与契约变更（T25 输出、`routing` 设置、`review.hetero` 默认值）以阶段文档为准，执行前先按 §18.4 更新 PRD 变更记录。
+- 阶段 20 开工（M2-3 / M2-5，`docs/PHASE-20-COST-BUDGET.md`）：迁移 0013 计划为 `chapter.budget_cny` + `turn_metric.chapter_id`；先按 §18.4 写 PRD 变更记录，再改契约与代码。M2 验收口径见 `docs/DEV-PLAN.md` §16.5 与 `docs/PRD.md` §10。
+- 阶段 19 直接复用（M2 会用到）：
+  - **声音指标**：`computeVoiceMetrics` 是纯函数（无 import/无模型），新增指标先改 `src/main/voice/metrics.ts` 与契约测试；写入只走 `voice/service.ts`（`resolveSceneVoice` / `syncChapterVoice`）。
+  - **阈值**：只读 `VOICE_THRESHOLD`（`src/shared/domain/voice.ts`）；换语料必须升 `version` 并重跑 `scripts/calibrate-voice.mjs`，不要手改 `calibration-result.json`。
+  - **派生表**：`voice_metric` 以 `(scene_id, revision_id)` 唯一；读取时版本/稿不一致就重算覆盖，不追加历史。
+  - **告警**：报告 `voice` 建议由 `review/voice.ts` 在 G4 后追加（`iss_voice_*`），只进建议；不要把 `voice` 加进 `BLOCKING_ISSUE_TYPES`。
+  - **基线**：`scripts/m2-baseline.mjs` 只读，输出 JSON；`docs/M2-METRICS-BASELINE.md` 由作者抄数字，不自动改文档。
 - 发布注意：首个 release tag（`v0.2.0-m1.1`）时上传 `release/Noryth-0.2.0-setup.exe` + `latest.yml` + blockmap 到 GitHub Releases，并配置 `NORYTH_UPDATE_FEED`（或 electron-builder publish），否则更新状态为 `disabled`；安装包 159.6MB（上限 250MB）；保留上一版安装包供回滚（`release/` 不入库）。GitHub Release 上传尚未执行（见 `docs/M1-ACCEPTANCE.md` §6 第 8 条）。
-- 文档：`AGENTS.md` 已随阶段 18 收口更新（阶段 18 状态、0.2.0/schema 11、新命令与 CI nightly 长跑）；M2 阶段文档已建并同步 `AGENTS.md` / `PROGRESS.md` / `docs/DEV-PLAN.md`（2026-11-17）。
+- 文档：`AGENTS.md` 随阶段 19 更新（阶段 19 状态、schema 12、校准/基线命令与声音铁律）；`docs/PHASE-19-VOICE.md` 验收清单已勾选，ADR-0007 与 `docs/M2-METRICS-BASELINE.md` 入库。
 
 ## 更新规则
 

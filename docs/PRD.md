@@ -528,7 +528,7 @@ M0–M2 **不开放**第三方工具安装、Agent 自建工具、MCP 外接。�
 | 编号 | 工具 | 作用与关键参数 → 返回 | 允许调用 | 类 | 约束 / 降级 |
 |---|---|---|---|---|---|
 | T24 | `consistency.check` | `(revision_id)` → 确定性 issue 列表：引用不存在、时间轴单调、单值槽冲突、生死 / 身份冲突、出口状态、泄漏候选 | 审批 | 校验 | 只报可判定项；语义问题标 `candidate`，不冒充结论 |
-| T25 | `voice.metrics` | `(scene_id)` → 句长分布 √JSD、口头禅与问句率、两两区分度（M2） | 审批 | 校验 | 阈值 0.18 需中文语料重标（§11）；只出指标，不自动判 fail |
+| T25 | `voice.metrics` | `(scene_id)` → 旧四字段（句长 √JSD、口头禅率、问句率、两两区分度）+ `characters[]`（逐角色）+ `pairs[]`（角色对与分项差值）+ `threshold{version, distinctnessMin}`（M2） | 审批 | 校验 | 阈值由中文夹具语料校准（ADR-0007，`zh-v1`）；空场景或在场角色不足 2 人 → 零值 + `pairs=[]` + `degraded='empty'`；只出指标，不自动判 fail |
 | T26 | `coverage.check` | `(scope)` → `gaps[{code, severity, node_id, message}]`：关键事件无落点、角色无出场章、主线断档、章纲 POV 冲突（M1） | 规划 | 校验 | 只有 `severity=error` 才阻断 G1，`warn` 只计数；项目内开关可关；`meta_json` 空只给建议 |
 | T27 | `storyboard.validate` | `(draft)` → 发言人不在场、意图与卡冲突、出口不可判定、拍数超限 | 编排 | 校验 | 提交前自动跑；硬冲突拒绝提交，软冲突返回告警 |
 | T28 | `exit_dsl.validate` | `(expr)` → `{valid, machine_decidable, reasons}` | 编排 | 校验 | 只接受 DSL（fact / rel / beats / all / any / not）；自然语言出口直接拒绝 |
@@ -1074,7 +1074,7 @@ G6 定稿
 | 质量 | 越界泄漏 | 进入提示词的未授权事实条数 / 装配次数 | 硬门 = 0；另做人工抽检，不混模型说漏嘴率 |
 | 质量 | 工具越权成功调用 | 未授权工具成功执行的次数 | 硬门 = 0；与 §4.9.7 同口径 |
 | 质量 | 记忆错误率 | 作者删除/修改的固化条目 / 提案条目 | 按次 |
-| 质量 | 声音区分度 | 句长分布 √JSD + 口头禅/第一人称/问句率差异，合成 0–1 | 每场关账后对在场角色两两算；参考阈值 0.18，需用中文语料重标 |
+| 质量 | 声音区分度 | 句长分布 √JSD + 口头禅/第一人称/问句率差异，合成 0–1 | 每场关账后对在场角色两两算；阈值 `zh-v1`（`shared/domain/voice.ts`，夹具语料校准，ADR-0007），低于阈值只告警 |
 | 质量 | 伏笔回收率 | 已回收伏笔 / 已埋伏笔 | 按卷；超期只报节奏问题，不报逻辑错误 |
 | 效率 | 每千字作者净操作时间 | 点击/输入/切页耗时，不含阅读 | 客户端埋点 |
 | 效率 | 每拍确认耗时 | 从拍卡出现到作者确认的时长 | 默认逐拍的核心体验指标；按拍统计 |
@@ -1428,6 +1428,7 @@ G6 定稿
 
 ## 变更记录
 
+- **v0.11**：阶段 19 交付（M2-1 声音度量 + M2-2 漂移告警）：`voice.metrics`（T25）从契约外壳变为实现，输出是旧四字段（`sentence_length_jsd` / `catchphrase_rate` / `question_rate` / `pairwise_distinctness`）的**超集**：新增 `characters[]`（逐角色句长直方图、口头禅、问句与第一人称率）、`pairs[]`（角色对 id、区分度与分项差值）与 `threshold{version, distinctnessMin}`；空场景 / 在场角色不足 2 人返回零值 + `pairs=[]` + `degraded='empty'`，不把 0 当成「很区分」。阈值不再写死 0.18：`zh-v1` 由中文夹具语料校准（ADR-0007，`tests/fixtures/voice/zh-corpus.json`），常量在 `src/shared/domain/voice.ts`，UI 与工具读同一份。T25 仍只允许 `reviewer` 调用（审批白名单 19 → 20）；新增只读 IPC `voice.scene` 与派生表 `voice_metric`（迁移 0012，按 scene + revision 存一份，重算覆盖），指标不写正文、不建 revision、不进 L0–L3。报告里由运行时追加 `type='voice'`、`severity='suggestion'` 的条目（`voice` 不在 `BLOCKING_ISSUE_TYPES`，天然不阻断 G6）。
 - **v0.10**：阶段 18 交付（M1 收口，包版本 0.2.0）：**无 Agent 工具、闸门与状态机契约变更**；数据层新增 `tool_call.chapter_id`（审计归属，迁移 0011）与只读/分发 IPC（`memory.toolCalls`、`update.check`、仅 dev 的 `project.verify`），细节见 `docs/DEV-PLAN.md` v0.9。分发按 ADR-0006：不买 Authenticode、无遥测、通道 `dev/beta/stable`、只允许同 minor 回退。PRD M1 五条证据见 `docs/M1-ACCEPTANCE.md`；Win10 22H2 安装冒烟与真实第二家供应商由作者决定不测（外部依赖）。标签 `phase-18-done`。
 - **v0.9**：阶段 17 契约收口（DOCX 导出）：`export.run` 增 `format='docx'` 与排版选项 `scope`（本章 / 全书）、`toc`、`font`（宋体 / 思源宋体）、`fontSize`（10.5 / 12 / 14）、`lineSpacing`（1.15 / 1.5 / 2），新增只进导出文件的 `author`（标题页，不落库）；返回值补 `format` 与 `drafts`（未定稿章数）。三档格式统一从 revision 清单渲染（定稿章 final、未定稿章 draft 标「草稿」），文件属性写 revision / content_hash；导出只读（不建 revision），路径固定在 `exports/`，同名追加序号不覆盖。批注仍只是章末「修订建议」小节，不写 Word 原生批注。
 - **v0.8**：阶段 16 契约收口（分支、重开、异构复检、章末摘要）：章状态机 `finalized → revising`（重新打开，旧 final 永久保留）；实体表新增 `revision_branch` 与 `chapter_summary`，`revision.branch_id`（NULL = 主线）；`approval_report.provider` 记录异构复检的实际供应商；设置新增 `review.hetero = off | prefer`（默认 off）；审批台新增「重新打开」与分支树（对比 / 切换，不做合并）。摘要为抽取式（首拍 + 末拍 + 本章客观公开事实 ≤5 条，≤300 tokens），作为 L0 `summary.prev` 参与装配；不写正文、不参与 `content_hash`。

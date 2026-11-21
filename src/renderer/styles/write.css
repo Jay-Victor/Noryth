@@ -1165,3 +1165,79 @@
   overflow-wrap: anywhere;
   color: var(--fg);
 }
+
+/* 声音徽标（PHASE-19 M2-2）：场景头里的只读提示，不阻断确认。 */
+.write-voice {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.write-voice__badge {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.write-voice__badge:hover {
+  border-color: var(--border-strong);
+  color: var(--fg-soft);
+}
+
+.write-voice__badge.is-low {
+  color: var(--warn);
+  border-color: var(--warn);
+  background: var(--warn-weak);
+}
+
+.write-voice__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: 360px;
+  max-width: min(360px, 80vw);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  box-shadow: var(--shadow-pop);
+  color: var(--fg-soft);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.write-voice__threshold {
+  margin: 0 0 6px;
+  color: var(--muted);
+}
+
+.write-voice__pairs {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.write-voice__pairs li {
+  display: grid;
+  grid-template-columns: minmax(0, auto) 44px minmax(0, 1fr);
+  gap: 6px;
+  align-items: baseline;
+}
+
+.write-voice__names {
+  color: var(--fg);
+}
+
+.write-voice__parts {
+  color: var(--muted);
+}

@@ -165,6 +165,9 @@ const bridge: NorythBridge = {
     reopenForeshadow: (foreshadowId) => invoke(IPC.worldForeshadowReopen, { foreshadowId }),
     removeForeshadow: (foreshadowId) => invoke(IPC.worldForeshadowRemove, { foreshadowId })
   },
+  voice: {
+    scene: (input) => invoke(IPC.voiceScene, input)
+  },
   memory: {
     state: (chapterId) => invoke(IPC.memoryState, chapterId === undefined ? {} : { chapterId }),
     extract: (chapterId) => invoke(IPC.memoryExtract, { chapterId }),

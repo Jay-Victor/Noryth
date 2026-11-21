@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { WriteBeatState, WriteState } from '../../../shared/schema/write'
 import { useWrite } from '../../stores/write'
 import { BeatCard } from './BeatCard'
+import { SceneVoiceBadge } from './SceneVoiceBadge'
 
 /**
  * 正文视图（UI-DESIGN §5.4）：
@@ -71,6 +72,7 @@ export function ProseView({
               <span className="write-scene-exit" data-satisfied={scene.exitSatisfied}>
                 出口 {scene.exitSatisfied ? '已满足' : '未满足'}
               </span>
+              <SceneVoiceBadge sceneId={scene.id} />
             </header>
 
             {visible.map((beat) => (

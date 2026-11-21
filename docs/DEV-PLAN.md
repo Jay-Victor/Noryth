@@ -313,6 +313,7 @@ contextBridge.exposeInMainWorld('noryth', {
 | world | `fact.close`（M1-18） | factId、reason? | `{projection, factId, detail}`；只写 `valid_to_seq`，不删除 | 作者权限（非闸门） |
 | world | `foreshadow.list`（M1-10） | chapterId? | `{items[], chapters[], openCount, closedCount}`；距离按基准章算 | — |
 | world | `foreshadow.create/update/close/reopen/remove`（M1-10） | text、plantedChapterId、plannedPayoffChapterId? / payoffChapterId | `{state, item}`；只做标注，不产生阻断 | — |
+| voice | `scene`（M2-1） | sceneId、revisionId?（省略 = 当前稿 / 定稿） | `{sceneId, chapterId, revisionId, found, stale, threshold{version, distinctnessMin}, insufficientData, aggregate{}, characters[], pairs[], belowThreshold}`；只读；缺行或阈值版本变化时按需重算并落 `voice_metric` | — |
 | review | `run` | chapterId、revisionId | `{jobId}` | G4 |
 | review | `authorizePatches` | reportId | `{jobId}` | G5 |
 | review | `decidePatch` | patchId、accept/reject | `{revisionId?}` | G5 |
@@ -1245,6 +1246,32 @@ ALTER TABLE approval_report ADD COLUMN provider TEXT;
 - **重开走主线**：重新打开生成的新 draft `branch_id = NULL`，`final_revision_id` 保留旧 final；`write_epoch + 1`。
 - **摘要与 final 同事务**：抽取式（首拍 + 末拍 + 本章新出现的客观公开事实 ≤5 条，≤300 tokens），按 `revision_id` 保存；不写正文、不参与 `content_hash`；旧 final 的摘要永久保留。
 - **异构复检只留痕**：报告写 `provider` + `model`；`degraded='hetero_unavailable'` 表示「开了 prefer 但没有第二家」，不阻断报告。
+
+### 5.20 声音指标（迁移 0012）
+
+```sql
+CREATE TABLE voice_metric (
+  id                TEXT PRIMARY KEY,
+  project_id        TEXT NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  chapter_id        TEXT NOT NULL REFERENCES chapter(id) ON DELETE CASCADE,
+  scene_id          TEXT NOT NULL REFERENCES scene(id) ON DELETE CASCADE,
+  revision_id       TEXT NOT NULL REFERENCES revision(id) ON DELETE CASCADE,
+  metrics_json      TEXT NOT NULL,
+  threshold_version TEXT NOT NULL,
+  created_at        TEXT NOT NULL,
+  UNIQUE (scene_id, revision_id)
+);
+CREATE INDEX voice_metric_by_chapter ON voice_metric(project_id, chapter_id, created_at);
+```
+
+规则（PHASE-19 / M2-1、M2-2）：
+
+- **派生数据**：`voice_metric` 只缓存指标，不是正文或记忆；删场景/章时级联清理，不影响 revision。
+- **以 revision 为键**：草稿读 `chapter.current_revision_id`、定稿读 `chapter.final_revision_id`；同一 `(scene_id, revision_id)` 只保留一行，重算覆盖。读取时 `revision_id` 与当前稿不一致 → `stale=true` 并按需重算。
+- **计算时机**：场景第一次 `closed`、审批 job 开始、`voice.scene` 读到缺行或阈值版本变化；纯函数 O(拍数)，无模型、无网络。
+- **阈值版本**：`metrics_json` 带 `threshold`，表里另存 `threshold_version`；换语料必须升版本并重算历史行（UI 不写死 0.18）。
+- **不进入提示词**：`agents/prompts/**` 与 `context/**` 不读 `voice_metric` / `distinctness`；指标只进 UI 与报告建议。
+- **只告警**：`voice` 不在 `BLOCKING_ISSUE_TYPES`；报告条目由运行时追加为 `severity='suggestion'`，G6 不受影响。
 
 ---
 
@@ -2688,7 +2715,7 @@ type UiState = {
 
 **M2 依赖链**：19 → 20 → 21 → 22 → 23 → 24。0012 在 19（`voice_metric`）、0013 在 20（`chapter.budget_cny` + `turn_metric.chapter_id`）、0014 在 22（归档列 + `cached_tokens` + 审计动作）；23 默认不加迁移，若实测必须加索引则只用 0015 且只加 `CREATE INDEX`；24 不动 schema。任一环阻塞先砍该阶段 P2/P3，不砍 PRD M2 的四条退出标准。
 
-**现状（2026-11-17）**：阶段 11–18 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19–24 的阶段文档已建（2026-11-17），M2 尚未开工；验收口径见 `docs/PRD.md` §10 与 §16.5。
+**现状（2026-11-21）**：阶段 11–19 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（`LATEST_SCHEMA_VERSION = 12`，ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20–24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
 
 ### 12.5 M0 砍单清单（写死在范围里）
 
@@ -3228,6 +3255,7 @@ M2 验收报告：`docs/M2-ACCEPTANCE.md`（阶段 24 交付）；外部依赖�
 
 ## 变更记录
 
+- **v0.11（阶段 19 实施）**：迁移 `0012_voice.sql`（`voice_metric`：scene + revision + `metrics_json` + `threshold_version`，`UNIQUE(scene_id, revision_id)` 与 `voice_metric_by_chapter` 索引，`LATEST_SCHEMA_VERSION = 12`）；§5.20 记录派生数据与计算时机；§4.3 IPC 增加只读 `voice.scene`。**同步 PRD v0.11**：T25 输出扩展为旧四字段 + `characters[]` + `pairs[]` + `threshold`（`reviewer` 白名单 19 → 20），T25 manifest 升 1.1.0 并启用；阈值 `zh-v1` 由 `tests/fixtures/voice/zh-corpus.json` 校准（ADR-0007），常量在 `src/shared/domain/voice.ts`。**未改闸门与状态机**：`voice` 仍是建议类，G6 不受影响；指标不进 L0–L3、不写 `beat.body`、不建 revision。`E2E-M2-VOICE-01` / `E2E-M2-METRICS-01` 与 `tests/unit/voice/*` 覆盖。
 - **v0.10（M2 阶段文档，2026-11-17）**：新增 `PHASE-19-VOICE.md` 至 `PHASE-24-DELIVERY-M2.md`，把 PRD §10 M2 的范围拆成 6 个阶段（声音/质量基线 → 预算与成本 → 路由与异构 → 归档与上下文成本 → 10 万字性能 → QA/内测/验收）。§12.4 增加阶段 19–24，§12.6 增加 M2 任务与阶段的映射，§16.5 增加 PRD M2 四条 → 测试 ID 对照，§14.5 增加 M2 验收报告引用；§12.5 把项目模板、自动补旁白建议改标为「M2 之后（未列入 M2-1..M2-10）」，避免与 M2 范围冲突。迁移编号预留：0012（19，`voice_metric`）、0013（20，`chapter.budget_cny` + `turn_metric.chapter_id`）、0014（22，`memory_entry.archived_at/archive_reason` + `turn_metric.cached_tokens` + `memory_audit` 动作），0015 仅当阶段 23 实测需要索引时使用且只加 `CREATE INDEX`。ADR 编号预留：0007（声音阈值）、0008（路由与故障切换）、0009（异构默认值决策）。新增 IPC（`voice.scene`、`report.cost`、`memory.archive.*`）与迁移 0012–0014 见各阶段文档；执行时同步 §4.3 IPC 表与 §5.5 DDL。**本版只建计划，不改 PRD 契约**：T25 输出扩展、`routing` 设置、`review.hetero` 默认值三处属于阶段执行时的契约变更，先按 §18.4 写 PRD 变更记录与 `docs/tools/*.json` 生成物，再改代码；M2-8 的默认开启由 D4 数据决定，数据不足保持 `off`。
 - **v0.9（阶段 18 实施）**：迁移 `0011_tool_call_chapter.sql`（`tool_call.chapter_id` + 两条回填：`turn_metric.beat_id → beat.chapter_id`、`job.payload_json.chapterId`；新增 `tool_by_project` / `tool_by_chapter` 索引，`LATEST_SCHEMA_VERSION = 11`）；§4.3 IPC 增加 `memory.toolCalls`（只读分页 50，不返回 args）、`update.check`（手动检查，下载仍由 electron-updater 后台做）与仅 dev 注册的 `project.verify`；§5.6 记录工具审计的归属列；§14.3 明确 0.2.0 与通道 `dev/beta/stable`（`latest.yml` / `beta.yml` / `dev.yml`）、只允许同 minor 回退（D5）。**未改 PRD 契约**：42 个工具 manifest 与 `input_schema` 不变，闸门语义不变；新增的只是审计归属与分发/QA 通道。`E2E-M1-SMOKE`（提交门）/ `E2E-M1-A`（nightly）/ `E2E-M1-TOOLCALL` / `scripts/update-drill.mjs` 覆盖；`docs/M1-ACCEPTANCE.md` 记录 M1 五条证据与两项外部依赖。
 - **v0.8（阶段 16 实施）**：迁移 `0010_branch_summary.sql`（`revision_branch`、`revision.branch_id`、`chapter_summary`、`approval_report.provider`，`LATEST_SCHEMA_VERSION = 10`）；§5.19 记录分支/摘要规则；§5.11 verify 增加 `branch_head_invalid` / `current_revision_not_in_branch` / `summary_revision_invalid`；§4.3 IPC 增加 `review.reopen` / `review.branch.create` / `review.branch.switch`；§7.3 增加 L0 `summary.prev` 与裁剪顺序；§9.6 / §9.9 记录重开、分支与异构复检；§10.6 记录重开再定稿自动入队 `memory.rebuild`。**同步 PRD v0.8**：章状态机 `finalized → revising`，实体表新增两表；设置新增 `review.hetero`（默认 off）。`E2E-M1-BRANCH-01` 覆盖。

@@ -36,6 +36,8 @@ import { resolveHeteroReview, type HeteroResolution } from './hetero'
 import { checkAuthorGate, consumeAuthorGate, issueAuthorGate } from './gates'
 import { chapterPatches, decidePatches } from './patch'
 import { latestReport, parseReportRecord } from './report'
+import { appendVoiceSuggestions } from './voice'
+import { syncChapterVoice } from '../voice/service'
 import {
   g5State,
   issueCountsByBeat,
@@ -151,6 +153,11 @@ export class ReviewService {
     const branchOverview = listBranches(host.repos, chapter)
     const counts = issueCountsByBeat(report?.blocking ?? [], report?.suggestions ?? [])
     const draft = this.draftBeats(host.repos, chapter, counts)
+    const scenes = host.repos.scene.listByChapter(chapter.id).map((entry) => ({
+      sceneId: entry.scene.id,
+      ord: entry.chapterOrd,
+      location: entry.scene.location
+    }))
     const g5 = g5State(host.repos, chapter, rounds)
     const g6 = this.finalizePreviewOf(host.repos, chapter, rounds)
 
@@ -173,6 +180,7 @@ export class ReviewService {
       takeover: rounds.takeover,
       chapters,
       draft,
+      scenes,
       report,
       reports: rounds.reports.map((item) => {
         const parsed = parseReportRecord(item)
@@ -244,6 +252,12 @@ export class ReviewService {
     const job = this.createJob(host, chapter, 'review.run', JSON.stringify({ mode: 'report' }))
     const hetero = this.heteroFor(host, chapter)
     try {
+      // PHASE-19 §5.3：审批 job 开始先算一遍本章各场声音指标（best-effort），
+      // T25 在回合里就能读到缓存；失败只记日志，不影响报告。
+      syncChapterVoice(host.repos, chapter.id, {
+        persist: !host.readOnly,
+        log: (message, details) => this.log(message, details ?? {})
+      })
       const outcome = await this.executeTurn(host, chapter, {
         mode: 'report',
         jobId: job.id,
@@ -251,8 +265,22 @@ export class ReviewService {
         binding: hetero,
         heteroDegraded: hetero.degraded
       })
-      const record = latestReport(host.repos, chapter.id)
+      let record = latestReport(host.repos, chapter.id)
       if (!record) throw new AppError('internal_error', '报告没有落库')
+      try {
+        // 声音偏低只追加建议（不阻断）；失败不拖垮报告。
+        appendVoiceSuggestions(host.repos, {
+          chapterId: chapter.id,
+          reportId: record.id,
+          persist: !host.readOnly
+        })
+        record = latestReport(host.repos, chapter.id) ?? record
+      } catch (error) {
+        this.log('review_voice_failed', {
+          chapterId: chapter.id,
+          error: error instanceof Error ? error.message : String(error)
+        })
+      }
       if (chapter.status === 'draft_complete') {
         host.repos.chapter.setStatus(chapter.id, chapterTransition('draft_complete', 'REVIEW'))
       }

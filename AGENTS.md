@@ -13,7 +13,8 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 - 阶段 09 已 `done`（2026-11-15）：`memory/extract|apply|retrieve`、`MemoryExecutor`（单事务 + 向量 + 审计 + G7）、记忆台四分区与软失效；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01`。CI run `43681891589` 全绿；标签 `phase-09-done` → `4fca40c`。
 - 阶段 10 已 `done`（2026-11-15）：I1–I4 设置中心（safeStorage Key、逐 Agent 绑定 + 批次审计 + 回滚、测试连接、外观）、J1–J6（fixture 假服务器、`E2E-M0-A` 14 步、`E2E-M0-PROVIDER`、`CHAOS-01..08`、NSIS + 安装冒烟 + 更新检查、PERF-01、安全/无障碍/200% 缩放）、导出 Markdown/TXT；新增 `0007_settings.sql`（`LATEST_SCHEMA_VERSION = 7`）；M0 验收报告 `docs/M0-ACCEPTANCE.md`。
 - M1 阶段文档已建（2026-11-15）：`docs/PHASE-11-SCALE.md` 至 `docs/PHASE-18-DELIVERY-M1.md`；阶段 11–18 均已 `done`（M1 收口，标签 `phase-18-done`）；阶段顺序与任务 ID 见 `docs/DEV-PLAN.md` §12.4 / §12.6。
-- M2 阶段文档已建（2026-11-17）：`docs/PHASE-19-VOICE.md` 至 `docs/PHASE-24-DELIVERY-M2.md`；阶段 19–24 均为 `todo`，M2 未开工；阶段顺序与任务 ID 见 `docs/DEV-PLAN.md` §12.4 / §12.6，验收口径见 §16.5。
+- 阶段 19 已 `done`（2026-11-21）：M2-1 声音指标（T25 逐角色 + 两两分项 + `threshold`，1.1.0，审批白名单 19→20）、`zh-v1` 夹具语料校准（0.252；FPR 2.0% / TPR 97.5%，ADR-0007）、迁移 0012 `voice_metric`、`voice.scene` 只读 IPC；M2-2 创作台场景头徽标 + 审批台 `VoicePanel` + 报告运行时 `voice` 建议（只建议，不阻断 G6）；`scripts/calibrate-voice.mjs` / `scripts/m2-baseline.mjs` / `docs/M2-METRICS-BASELINE.md`；`E2E-M2-VOICE-01`、`E2E-M2-METRICS-01`。本地门禁全绿（unit 827 / integration 48 / e2e 34 / chaos 8 / perf 2）；`LATEST_SCHEMA_VERSION = 12`。
+- M2 阶段文档已建（2026-11-17）：`docs/PHASE-19-VOICE.md` 至 `docs/PHASE-24-DELIVERY-M2.md`；阶段 19 已 `done`，20–24 为 `todo`；阶段顺序与任务 ID 见 `docs/DEV-PLAN.md` §12.4 / §12.6，验收口径见 §16.5。
 - 阶段 11 已 `done`（2026-11-15）：M1-12 多项目切换（`project.busy` 探针 + `cancelRunning` + 切换确认框 + 事件按 projectId 丢弃）、M1-9 章节摘要 + `VirtualList` + `PERF-M1-01`、M1-16 文件树抽屉（Ctrl B，320 overlay + 焦点陷阱）、M1-24 `openLastProject` + 诊断包 zip；`E2E-M1-SWITCH-01`、`E2E-M1-TREE-01`。未改 schema（`LATEST_SCHEMA_VERSION = 7`）；0008 从阶段 12 开始。CI run `43700004809` 全绿；标签 `phase-11-done` → `c2ef570`。
 - 阶段 12 已 `done`（2026-11-15）：M1-1 场景库（链接/解链/排序/fork/删除）、M1-2 时间三轴、T23 `timeline.query`、verify `scene_cross_chapter_beats`；新增 `0008_story_time.sql`（`LATEST_SCHEMA_VERSION = 8`）。标签 `phase-12-done` → `374578b`。
 - 阶段 13 已 `done`（2026-11-15）：M1-3 as-of 投影 + 世界时间线、M1-18 作者事实编辑器（`applyAuthorFact`）、M1-17 上下文检查器（`turn_metric.context_json`）、M1-19 审批/检索 as-of 边界（review 用 `covered_until_seq`）；`world.projection` / `world.fact.add` / `world.fact.close` / `write.context`；`E2E-M1-ASOF-01`、`E2E-M1-CONTEXT-01`。未改 schema（`LATEST_SCHEMA_VERSION = 8`）；CI run `43714545719` 全绿，标签 `phase-13-done` → `3f82a16`。
@@ -26,7 +27,7 @@ Noryth 是一个 Electron 桌面端多 Agent 小说创作工作台：作者定�
 - `docs/` 已入库，是项目规格的一部分；不要删除、移动或重写。
 - 进度与交接写 `PROGRESS.md`；阶段范围与验收以 `docs/PHASE-0X-*.md` 为准。
 - 如果 `docs/` 缺失，先向用户确认，不要凭记忆补规格。
-- 常用命令：`pnpm dev`、`pnpm build`、`pnpm typecheck`、`pnpm lint`、`pnpm depcruise`、`pnpm test:unit`、`pnpm test:e2e`、`pnpm test:e2e:m1a`、`pnpm test:chaos`、`pnpm test:perf`、`pnpm verify:embed`、`node scripts/gen-icons.mjs`、`node scripts/update-drill.mjs`、`pnpm gen:check`、`pnpm pack`、`pnpm dist`、`node scripts/install-smoke.mjs`。
+- 常用命令：`pnpm dev`、`pnpm build`、`pnpm typecheck`、`pnpm lint`、`pnpm depcruise`、`pnpm test:unit`、`pnpm test:e2e`、`pnpm test:e2e:m1a`、`pnpm test:chaos`、`pnpm test:perf`、`pnpm verify:embed`、`node scripts/gen-icons.mjs`、`node scripts/update-drill.mjs`、`node scripts/calibrate-voice.mjs`、`node scripts/m2-baseline.mjs <项目目录>`、`pnpm gen:check`、`pnpm pack`、`pnpm dist`、`node scripts/install-smoke.mjs`。
 - 原生依赖：`scripts/prepare-native.mjs` 把 sqlite-vec 的 `vec0.dll` 复制到 `resources/native/`；`pnpm install` 后若该文件缺失，先跑 `node scripts/prepare-native.mjs`。
 
 ## Git 策略
@@ -68,7 +69,7 @@ M2：19 声音/质量基线 → 20 预算/成本 → 21 路由/异构 → 22 归
 - 阶段 08 已 `done`（2026-11-15）：审批报告、patch、G4–G6、定稿与记忆抽取入队；`LATEST_SCHEMA_VERSION = 5`；CI run `43676789043` 全绿，标签 `phase-08-done` → `4639eb9`。
 - 阶段 09 已 `done`（2026-11-15）：H1–H5、`MemoryExecutor`、检索管线（vec+FTS+RRF）、记忆台与 G7；新增 `0006_memory.sql`（`LATEST_SCHEMA_VERSION = 6`）；`E2E-MEMORY-01`。CI run `43681891589` 全绿，标签 `phase-09-done` → `4fca40c`；下一阶段从 `PHASE-10-DELIVERY.md` 开工。
 - 阶段 05 已通过；阶段 06 已通过；阶段 07 已通过；阶段 08 已通过；阶段 09 已通过；阶段 10 已通过（M0）；阶段 11 已通过（多项目/30 章/文件树抽屉/诊断包）；阶段 12 已通过（场景/时间三轴）；阶段 13 已通过（as-of/作者事实/上下文检查器/审批水位）；阶段 14 已通过（重建/关系图/bge 随包）；阶段 15 已通过（覆盖检查/影响分析/伏笔/跨章标脏）；阶段 16 已通过（重开定稿/分支/异构复检/章末摘要）；阶段 17 已通过（DOCX 导出/导出选项）；阶段 18 已通过（分发/审计/图标/30 章长跑）。
-- 阶段 19–24 为 M2 计划，状态均为 `todo`；M2 未开工，不把计划文档当已交付。
+- 阶段 19 已通过（声音度量/漂移告警/质量基线）；阶段 20–24 为 M2 计划，状态为 `todo`；不把计划文档当已交付。
 
 ## 不能违反的规则
 
@@ -79,6 +80,7 @@ M2：19 声音/质量基线 → 20 预算/成本 → 21 路由/异构 → 22 归
 - **正文与轨迹分离**：只有 `body` 进上下文与稿件；`trace` / `grounding` 只进 UI 与归档。
 - **默认逐拍**：自动模式必须显式开启，并只在出口条件、预算、角色拒演、分镜耗尽处停。
 - **记忆只从定稿抽取**：台词不能写成客观事实；不物理删除，只软失效。
+- **声音只告警**：`voice_metric` 是派生数据，不进 L0–L3 与系统提示词、不写正文、不建 revision；`voice` 不在 `BLOCKING_ISSUE_TYPES`，G6 不受影响。
 - **不做**：导入旧稿/大纲、多人协作、云同步、macOS/Linux 正式支持、插件/MCP、自动发布。
 
 ## 工程约定（代码初始化后）

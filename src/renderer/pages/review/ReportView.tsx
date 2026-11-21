@@ -8,6 +8,7 @@ import {
 } from '../../../shared/schema/report'
 import type { ReviewReportState, ReviewState } from '../../../shared/schema/review'
 import { useReview } from '../../stores/review'
+import { VoicePanel } from './VoicePanel'
 
 /**
  * 报告视图（UI-DESIGN §6.4）：
@@ -192,6 +193,8 @@ export function ReportView({ state }: { state: ReviewState }): React.JSX.Element
       </div>
 
       <DimensionGrid report={report} />
+
+      <VoicePanel scenes={state.scenes} />
 
       <section className="review-section">
         <h4>阻断项 · {report.blocking.length}</h4>

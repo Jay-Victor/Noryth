@@ -31,6 +31,7 @@ import { ReviewRepo, GateRepo, ReviewMessageRepo } from './review'
 import { RevisionRepo } from './revision'
 import { SceneRepo } from './scene'
 import { ToolCallRepo } from './tool-call'
+import { VoiceMetricRepo } from './voice'
 import { CharacterBeliefRepo, RelationshipRepo, WorldFactRepo } from './world'
 import { SchedulerEventRepo, StoryboardDraftRepo, WriteMessageRepo } from './write'
 
@@ -82,7 +83,8 @@ export function createRepos(db: Db, options: RepoOptions = {}) {
     writeMessage: new WriteMessageRepo(runner, now),
     schedulerEvent: new SchedulerEventRepo(runner, now),
     foreshadow: new ForeshadowRepo(runner, now),
-    blueprintChange: new BlueprintChangeRepo(runner, now)
+    blueprintChange: new BlueprintChangeRepo(runner, now),
+    voice: new VoiceMetricRepo(runner, now)
   }
 }
 
@@ -109,5 +111,6 @@ export * from './review'
 export * from './revision'
 export * from './scene'
 export * from './tool-call'
+export * from './voice'
 export * from './world'
 export * from './write'

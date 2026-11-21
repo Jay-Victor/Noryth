@@ -166,6 +166,14 @@ export const ReviewGateSchema = z.strictObject({
 })
 export type ReviewGateState = z.infer<typeof ReviewGateSchema>
 
+export const ReviewSceneRefSchema = z.strictObject({
+  sceneId: z.string(),
+  /** chapter_scene.ord */
+  ord: z.number().int().nonnegative(),
+  location: z.string()
+})
+export type ReviewSceneRef = z.infer<typeof ReviewSceneRefSchema>
+
 export const ReviewStateSchema = z.strictObject({
   projectId: z.string(),
   projectTitle: z.string(),
@@ -187,6 +195,8 @@ export const ReviewStateSchema = z.strictObject({
   takeover: z.boolean(),
   chapters: z.array(ReviewChapterSummarySchema),
   draft: z.array(ReviewBeatSchema),
+  /** 本章场景引用（PHASE-19 M2-2）：声音面板按 sceneId 读 `voice.scene`。 */
+  scenes: z.array(ReviewSceneRefSchema),
   report: ReviewReportStateSchema.nullable(),
   reports: z.array(ReviewReportSummarySchema),
   patches: z.array(ReviewPatchStateSchema),

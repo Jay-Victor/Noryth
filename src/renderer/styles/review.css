@@ -704,3 +704,79 @@
   color: var(--fg);
   font-size: 13px;
 }
+
+/* 声音面板（PHASE-19 M2-2）：逐角色表 + 两两矩阵；只提示、不阻断。 */
+.review-voice__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+  margin: 6px 0;
+}
+
+.review-voice__score {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.review-voice__score.is-low {
+  color: var(--warn);
+}
+
+.review-voice__scene {
+  margin-bottom: 10px;
+}
+
+.review-voice__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-ui);
+  font-size: 11px;
+}
+
+.review-voice__table th,
+.review-voice__table td {
+  text-align: left;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.review-voice__table th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.review-voice__matrix-wrap {
+  overflow-x: auto;
+}
+
+.review-voice__matrix {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.review-voice__matrix caption {
+  text-align: left;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  padding-bottom: 4px;
+}
+
+.review-voice__matrix th,
+.review-voice__matrix td {
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+  text-align: center;
+}
+
+.review-voice__matrix td.is-low {
+  color: var(--warn);
+  background: var(--warn-weak);
+}
+
+.review-voice__table-wrap {
+  overflow-x: auto;
+}

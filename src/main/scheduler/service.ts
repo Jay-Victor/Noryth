@@ -50,6 +50,7 @@ import {
 } from './scene-library'
 import { queryTimeline } from '../tools/support/timeline'
 import { runBeatTurn, type BeatRunOutcome } from './beat'
+import { syncSceneVoice } from '../voice/service'
 import { runOrchestratorTurn } from './orchestrator'
 import { WriteModelFactory } from './model'
 import { resolveBinding } from '../model/bindings'
@@ -848,6 +849,11 @@ export class WriteService {
           if (!scene) return false
           const closed = closeScene(host.db, host.repos, { chapter: fresh, scene, reason })
           if (closed.chapterComplete) markChapterComplete(host.db, host.repos, fresh)
+          // PHASE-19 §5.3：场景第一次 closed 时就地算声音指标（best-effort）。
+          syncSceneVoice(host.repos, sceneId, {
+            persist: !host.readOnly,
+            log: (message, details) => this.log(message, details ?? {})
+          })
           return closed.chapterComplete
         }
       )

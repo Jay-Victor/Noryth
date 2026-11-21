@@ -1,0 +1,33 @@
+{
+  "version": "zh-v1",
+  "corpus": "tests/fixtures/voice/zh-corpus.json",
+  "corpusHash": "c469b5931eb3ff46c54db71ef6ec5c0cadfc39cebf6d0c804d51db0228774712",
+  "calibratedAt": "2026-11-21",
+  "scenes": 20,
+  "characterInstances": 50,
+  "samePairs": 50,
+  "differentPairs": 40,
+  "threshold": 0.252,
+  "rawThreshold": 0.252,
+  "plateau": [
+    0.252,
+    0.252
+  ],
+  "sameCharacterFalseAlarm": 0.02,
+  "differentCharacterDetection": 0.975,
+  "sameScores": {
+    "min": 0,
+    "max": 0.2562,
+    "median": 0.07
+  },
+  "differentScores": {
+    "min": 0.15,
+    "max": 0.8583,
+    "median": 0.6025
+  },
+  "passed": true,
+  "notes": [
+    "语料是合成夹具而不是出版小说：阈值是起点，换语料必须升版本并重算历史 voice_metric。",
+    "同人误报 1/50；异人漏检 1/40。"
+  ]
+}

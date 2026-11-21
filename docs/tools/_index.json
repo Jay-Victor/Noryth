@@ -5,7 +5,7 @@
   "tool_count": 42,
   "system_count": 8,
   "m0_tool_count": 36,
-  "toolset_version": "cb1d90e9a65cdeed10330c1da3f0068227d7343ee5fbb03d4ba69222f16d5762",
+  "toolset_version": "f5c57f2ad199e255eac80726d47f054fd7ffc66cb23b1514c41b3c894c96e9f4",
   "allowlist": {
     "planner": [
       "author.request_choice",
@@ -76,6 +76,7 @@
       "scene.get",
       "storyboard.get_chapter",
       "timeline.query",
+      "voice.metrics",
       "world.get_objective"
     ],
     "memory": [

@@ -28,9 +28,9 @@ describe('tool registry', () => {
     expect(registry.unavailable).toEqual([])
   })
 
-  it('M0 注册 36 个，已打开 T22/T23/T26/T29/T40；六个 Agent 的 M0 基线与 PRD §4.11 一致', () => {
+  it('M0 注册 36 个，已打开 T22/T23/T25/T26/T29/T40；六个 Agent 的 M0 基线与 PRD §4.11 一致', () => {
     const enabled = AGENT_TOOLS.filter((tool) => tool.enabled)
-    expect(enabled).toHaveLength(41)
+    expect(enabled).toHaveLength(42)
     for (const agent of AGENT_KEYS) {
       // PRD §4.11 的 M0 基线不受 M1 开关影响；当前 allowlist = 基线 + 已打开的 M1 工具。
       expect(M0_TOOL_COUNTS[agent], agent).toBe(EXPECTED_COUNTS[agent])
@@ -41,9 +41,10 @@ describe('tool registry', () => {
       expect(TOOL_ALLOWLIST[agent]).toContain('timeline.query')
       expect(TOOL_ALLOWLIST[agent]).toContain('foreshadow.list_open')
     }
-    for (const agent of ['orchestrator', 'reviewer'] as const) {
-      expect(TOOL_COUNTS[agent], agent).toBe(EXPECTED_COUNTS[agent] + 2)
-    }
+    expect(TOOL_COUNTS.orchestrator).toBe(EXPECTED_COUNTS.orchestrator + 2)
+    // 审批：T23 + T22 + T25（M2 声音指标）
+    expect(TOOL_COUNTS.reviewer).toBe(EXPECTED_COUNTS.reviewer + 3)
+    expect(TOOL_ALLOWLIST.reviewer).toContain('voice.metrics')
     // 规划：T26 coverage.check + T29 impact.analyze
     expect(TOOL_COUNTS.planner).toBe(EXPECTED_COUNTS.planner + 2)
     expect(TOOL_ALLOWLIST.planner).toContain('coverage.check')
@@ -53,7 +54,7 @@ describe('tool registry', () => {
     expect(TOOL_ALLOWLIST.memory).toContain('memory.rebuild')
   })
 
-  it('旁白快照恰好 5 个，审批 19 个（17 + T23 + T22）', () => {
+  it('旁白快照恰好 5 个，审批 20 个（17 + T23 + T22 + T25）', () => {
     expect(registry.baselineFor('narrator').map((tool) => tool.name)).toEqual([
       'canon.search_public',
       'character.get_public_profile',
@@ -61,7 +62,7 @@ describe('tool registry', () => {
       'storyboard.get_beat',
       'world.get_reader_known'
     ])
-    expect(registry.baselineFor('reviewer')).toHaveLength(19)
+    expect(registry.baselineFor('reviewer')).toHaveLength(20)
   })
 
   it('commit 工具永不下发给 Agent', () => {
@@ -81,15 +82,10 @@ describe('tool registry', () => {
     }
   })
 
-  it('只剩 voice.metrics 保留契约但不注册、不下发', () => {
-    const deferred = ALL_MANIFESTS.filter((tool) => !tool.system && !tool.enabled).map((tool) => tool.name).sort()
-    expect(deferred).toEqual(['voice.metrics'])
-    for (const name of deferred) {
-      expect(registry.get(name)).toBeUndefined()
-      for (const agent of AGENT_KEYS) {
-        expect(registry.baselineFor(agent).some((tool) => tool.name === name)).toBe(false)
-      }
-    }
+  it('42 个 Agent 工具全部注册（M2 起没有未启用项）', () => {
+    const deferred = ALL_MANIFESTS.filter((tool) => !tool.system && !tool.enabled).map((tool) => tool.name)
+    expect(deferred).toEqual([])
+    expect(AGENT_TOOLS.filter((tool) => tool.enabled)).toHaveLength(42)
   })
 
   it('生成的 allowlist 与注册表零漂移', () => {

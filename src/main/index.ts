@@ -4,6 +4,7 @@ import { LATEST_SCHEMA_VERSION } from './db/migrations'
 import { resolveVecExtension } from './db/vec-extension'
 import { registerIpc, unregisterIpc } from './ipc/router'
 import { WorldService } from './world/service'
+import { VoiceService } from './voice/service'
 import { createLogger, logFilePath, type Logger } from './observability/logger'
 import { ProjectRegistry } from './project/registry'
 import { ProjectService } from './project/service'
@@ -271,6 +272,11 @@ async function bootstrap(): Promise<void> {
     log: (message, details) => logger?.info({ event: message, ...details }, message)
   })
 
+  const voiceService = new VoiceService({
+    host: () => projectServiceInstance.currentHandle(),
+    log: (message, details) => logger?.info({ event: message, ...details }, message)
+  })
+
   registerIpc({
     project: projectServiceInstance,
     plan: planService,
@@ -278,6 +284,7 @@ async function bootstrap(): Promise<void> {
     review: reviewService,
     memory: memoryService,
     world: worldService,
+    voice: voiceService,
     settings,
     settingsCenter,
     logger,
