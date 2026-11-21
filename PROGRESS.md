@@ -24,7 +24,7 @@
 | 16 | `docs/PHASE-16-BRANCH-LONGFORM.md` | done | M1-21 重新打开定稿（`doc/reopen.ts`：旧 final 保留、新 draft、`write_epoch+1`、再定稿自动执行 `memory.rebuild`）+ 分支树（`doc/branches.ts`：开分支/对比/切回主线，head 随 commit/patch/fork 移动，final 不挂分支）、M1-22 异构复检（`review/hetero.ts` + `review.hetero` 设置；报告记录 `provider`，缺失 `degraded=hetero_unavailable`）、M1-13 章末摘要（`doc/summary.ts`：finalize 同事务、首末拍 + 关键事实 ≤5、≤300 tokens；L0 `summary.prev`）；新增 `0010_branch_summary.sql`（`LATEST_SCHEMA_VERSION = 10`）；`E2E-M1-BRANCH-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 310 modules / unit 769 / integration 46 / chaos 8 / e2e 29 / build / gen:check / 规格脚本） | 分支不做合并（M2）；异构复检默认 `off`，评分校准 M2-8；摘要只做抽取式（模型摘要 M2）；`summary.prev` 只进 L0 装配，不塞进 system 提示词 |
 | 17 | `docs/PHASE-17-DOCX-EXPORT.md` | done | M1-6 DOCX（`doc/export-docx.ts`：标题页 / 目录 / 章标题分页 / 场景分隔 / 首行缩进 2 字符；zip 时间戳 + core 时间 + 书签 id 归一化 → 同清单字节可复现）、M1-14 选项（`format` / `scope` / `includeNotes` / `toc` / `font` / `fontSize` / `lineSpacing` / `author`）、三档格式统一从 revision 清单渲染（未定稿标「草稿」）、`ExportDialog.tsx`、`E2E-M1-DOCX-01`；依赖 `docx` + `fflate`（纯 JS）；未改 schema（`LATEST_SCHEMA_VERSION = 10`） | 全部通过：本地门禁全绿（typecheck / lint / depcruise 314 modules / unit 775 / integration 46 / chaos 8 / e2e 30 / build / gen:check / 规格脚本 / perf 2）+ NSIS 159MB + 安装冒烟 PASS + 本机 Word 打开检查；CI 全绿（`d3ac330`：verify + e2e 两片） | 目录页码由 Word/WPS 首次打开时更新（预生成条目保证不空白）；不做 PDF/EPUB、封面、Word 原生批注（M2/不做）；导出批注来自最近一份报告，不做逐条批注定位 |
 | 18 | `docs/PHASE-18-DELIVERY-M1.md` | done | M1-7 更新通道/回退/演练（`update.ts` 三通道 + semver 预发布 + 同 minor 才降级 + `scripts/update-drill.mjs` + 设置页「更新」卡）、M1-15 QA（`E2E-M1-SMOKE` 3 章提交门 / `E2E-M1-A` 30 章 3 卷 nightly / `project.verify` 只读校验 / 内存与孤儿断言）、M1-23 工具审计面板（迁移 0011 `tool_call.chapter_id` + 两条回填 + `memory.toolCalls` + `ToolCallList.tsx` + `E2E-M1-TOOLCALL`）、M1-25 图标/品牌（`scripts/gen-icons.mjs` + `resources/icon.ico` / `resources/icon.png` + `icons/*` + exe/窗口/随包断言）、版本 0.2.0、`docs/M1-ACCEPTANCE.md` | PRD M1 五条全绿（`E2E-M1-A` 20.8s / 30 final / 私有 512MB；`E2E-M1-TIME-01`、`E2E-M1-REBUILD-01`、`E2E-M1-ASOF-01`、`E2E-M1-DOCX-01` 复跑绿）；本地门禁全绿（typecheck / lint / depcruise 319 modules / unit 794 / integration 46 / chaos 8 / e2e 32 / perf 2 / build / gen:check / 规格脚本）；NSIS 167,298,203 B + 安装冒烟 PASS（Win11，schema 11）；更新演练 PASS（manifest / 四态判定 / 真实下载）；CI run `44045408802`（verify 2m34 + e2e 两片 2m05 / 2m46 均绿，package 按规则跳过）；标签 `phase-18-done` → `1f2b668` | Win10 22H2 与真实第二家 Key：作者决定不测（2026-11-17，外部依赖）；GitHub Release 未上传（首个 release tag 时做）；更新演练「安装→重启→迁移」为人工步骤；30 章长跑只在 nightly/发布前跑 |
-| 19 | `docs/PHASE-19-VOICE.md` | done | M2-1：T25 `voice.metrics` 实现（逐角色 + 两两分项 + `threshold`，1.1.0，审批白名单 19→20）；`zh-v1` 中文夹具语料校准（0.252；FPR 2.0% / TPR 97.5%）+ `scripts/calibrate-voice.mjs`；迁移 0012 `voice_metric`（scene + revision 一行）+ `voice.scene` 只读 IPC；M2-2：创作台场景头徽标 + 审批台 `VoicePanel` + 报告运行时 `voice` 建议（只建议，不阻断 G6）；`scripts/m2-baseline.mjs` + `docs/M2-METRICS-BASELINE.md` + ADR-0007；`E2E-M2-VOICE-01`、`E2E-M2-METRICS-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 328 modules / unit 827 / integration 48 / chaos 8 / e2e 34 / perf 2 / build / gen:check / 规格脚本） | 语料是合成夹具（阈值是起点，真实项目需复跑基线）；项目基线用假模型文本（最低一对 0 分，不代表真实分数）；旁白不参与两两区分度；声音建议只在 G4 全量报告追加（复检报告不重复） |
+| 19 | `docs/PHASE-19-VOICE.md` | done | M2-1：T25 `voice.metrics` 实现（逐角色 + 两两分项 + `threshold`，1.1.0，审批白名单 19→20）；`zh-v1` 中文夹具语料校准（0.252；FPR 2.0% / TPR 97.5%）+ `scripts/calibrate-voice.mjs`；迁移 0012 `voice_metric`（scene + revision 一行）+ `voice.scene` 只读 IPC；M2-2：创作台场景头徽标 + 审批台 `VoicePanel` + 报告运行时 `voice` 建议（只建议，不阻断 G6）；`scripts/m2-baseline.mjs` + `docs/M2-METRICS-BASELINE.md` + ADR-0007；`E2E-M2-VOICE-01`、`E2E-M2-METRICS-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 328 modules / unit 827 / integration 48 / chaos 8 / e2e 34 / perf 2 / build / gen:check / 规格脚本）；CI run `44914033792` 全绿（verify + e2e 两片）；标签 `phase-19-done` → `eed3ef1` | 语料是合成夹具（阈值是起点，真实项目需复跑基线）；项目基线用假模型文本（最低一对 0 分，不代表真实分数）；旁白不参与两两区分度；声音建议只在 G4 全量报告追加（复检报告不重复） |
 | 20 | `docs/PHASE-20-COST-BUDGET.md` | todo | M2-3 预算化自动模式 + 费用预测；M2-5 全链路计量 + 成本/耗时报表；迁移 0013 | — | 阶段文档已建（2026-11-17），未开工 |
 | 21 | `docs/PHASE-21-ROUTING-HETERO.md` | todo | M2-4 多供应商路由/故障切换；M2-8 异构默认值 + 评分校准；ADR-0008/0009 | — | 阶段文档已建（2026-11-17），未开工 |
 | 22 | `docs/PHASE-22-ARCHIVE-CONTEXT.md` | todo | M2-7 非事实类记忆归档；M2-9 上下文成本优化；迁移 0014 | — | 阶段文档已建（2026-11-17），未开工 |
@@ -56,9 +56,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 提交 | `5e21fce`（I1–I4）、`80d7f56`（导出+J1+设置 E2E）、`e40fb2f`（M0-A+PROVIDER+补丁回归）、`bf1df72`（J3–J6+M0 验收）、`965f0ba`/`5ae3f38`（CI 可观测性与 perf 移出提交门） | 已推送 origin/dev |
 | CI | GitHub Actions run `43689085620`（`5ae3f38`） | verify 2m08（lint/typecheck/depcruise/unit 604/chaos 7/spec/gen/build）+ e2e 2m23，均绿；package 按规则跳过（非 tag） |
@@ -90,9 +90,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | CI（首次） | GitHub Actions run `43699407599`（`a98e813`） | verify 全绿；**e2e 失败且当次无日志**（workflow 只输出 exit code 1）。已给 e2e 加 `set -o pipefail \| tee e2e.log` + 失败时日志尾部 `::error::` annotation + 上传 `e2e.log`/`test-results/` |
 | CI（复跑） | GitHub Actions run `43700004809`（`c2ef570`） | verify + e2e 均绿；package 按规则跳过（非 `v*` tag） |
@@ -122,9 +122,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T23 输出 schema 扩展、DraftScene 允许空拍 → T27/T34 清单变化） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | CI | GitHub Actions run `43707502797`（`374578b`） | verify 2m14（lint/typecheck/depcruise/unit 646/chaos 7/spec/gen/build）+ e2e 2m31，均绿；package 按规则跳过（非 `v*` tag） |
 | CI（文档提交） | GitHub Actions run `43707982690`（`e86a69e`） | verify + e2e 均绿 |
@@ -155,9 +155,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 提交 | `4c2ad26`（feat）、`b492928` / `86c18ae`（docs） | 已推送 origin/dev |
 | CI | GitHub Actions run `43713984247`（`86c18ae`） | verify 2m11 + e2e 3m00 均绿；package 按规则跳过（非 `v*` tag） |
@@ -191,9 +191,9 @@
 | 构建 | `pnpm build` | 通过（`out/main/memory-embed-worker.js` 在 asar 内） |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T40 升 1.1.0、enabled、summary 变化） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 提交 | `3d09c3d`（feat）、`8654d8d`（docs）、`1b57902`（fix 代次键/滑杆）、`ec0a278`（fix 重放消费令牌） | 已推送 origin/dev |
 | CI（首次） | GitHub Actions run `43719779933`（`8654d8d`） | verify 全绿；e2e 在第 16 条 `settings.spec` 失败（1.0s，早退；本地 5/5 通过）→ 判定为 runner 偶发 |
@@ -226,9 +226,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T22/T26/T29 启用与输出扩展、T31 升 1.1.0） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 提交 | `ad52579`（feat）、`be72ee7`（docs） | 已推送 origin/dev |
 | CI（首次） | GitHub Actions run `43728834631`（`be72ee7`） | verify 2m09 全绿；e2e 3m17 失败：前 3 条（`a11y.spec`、`app.spec` 外壳 / 向导）失败，随后 13 条（含 `E2E-M1-BLUEPRINT-01`、`E2E-M1-FORESHADOW-01`）全绿 → 判定为 runner 冷启动偶发（与阶段 11/12/14 同形态） |
@@ -259,9 +259,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 提交 | `e024b6f`（feat）、`136d094`（docs）、`fc03d0e`（CI 复跑空提交） | 已推送 origin/dev |
 | CI（首次） | GitHub Actions run `44022119818`（`136d094`） | verify 2m52 全绿；e2e 在第 19 条 `settings.spec` 失败（1.0s，早退；本地 29/29 通过）→ 与阶段 14 同形态，判定 runner 偶发 |
@@ -295,9 +295,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 提交 | `45c4781`（feat）、`d880449`（docs） | 已推送 origin/dev |
 | CI（功能与文档提交） | GitHub Actions run `44027558509`（`d880449`） | verify 1m44 + e2e 3m14 均绿；package 按规则跳过（非 `v*` tag） |
@@ -335,9 +335,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 文档 | `docs/M1-ACCEPTANCE.md`、`docs/DEV-PLAN.md` v0.9、`docs/UI-DESIGN.md` §11、`docs/adr/0006-release-channel.md` | M1 五条证据；迁移/IPC/通道变更记录；审计面板与图标勾选；D2/D3/D5 分发决策 |
 | 提交 | `857e92a`（feat）、`ef846cc`（docs） | 已推送 origin/dev |
@@ -370,9 +370,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T25 升 1.1.0 并启用；allowlist reviewer 20） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 
 ## 当前可运行命令
@@ -458,9 +458,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | CI | GitHub Actions run `43591949465`（`4a2ff11`） | verify + e2e 均绿 |
 | 阶段标签 | `phase-03-done` → `e23eca7` | 已推送 origin |
@@ -489,9 +489,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | CI | GitHub Actions run `43595192603`（`cc46c10`） | verify + e2e 均绿 |
 | 提交 | `cc46c10` | 已推送 origin/dev |
@@ -515,9 +515,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 提交 | `f343668` | 已推送 origin/dev |
 | CI | GitHub Actions run `43597992157`（`8ab717b`） | verify + e2e 均绿 |
@@ -544,9 +544,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:tools` / `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T31 新增 `parent_ref`/`ref`；T42 交互超时改 5 分钟） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 提交 | `bbea9df` | 已推送 origin/dev |
 | CI | GitHub Actions run `43603698391`（`bbea9df`） | verify 1m40 / e2e 1m11，均绿 |
@@ -573,9 +573,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T34 升 1.1.0、T27 分镜 schema 增 `ord/notes/max_beats`） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 提交 | `5897d51`（feat）、`11575c8`（fix） | 已推送 origin/dev |
 | CI | GitHub Actions run `43609438344`（`11575c8`） | verify 1m20 / e2e 1m45，均绿；package 按规则跳过 |
@@ -600,9 +600,9 @@
 | 构建 | `pnpm build` | 通过 |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T35/T36 升 1.1.0） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 提交 | `48cd5c6`（feat）、`4639eb9`（docs/agents） | 已推送 origin/dev |
 | CI | GitHub Actions run `43676789043`（`4639eb9`） | verify 1m19 / e2e 1m52，均绿；package 按规则跳过 |
@@ -628,9 +628,9 @@
 | 构建 | `pnpm build` | 通过（新增 `out/main/memory-embed-worker.js` 入口） |
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（T37/T39 升 1.1.0） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
-| 提交 | `eed3ef1`（feat + 文档）、`6306550`（docs：提交/CI/标签记录） | 已推送 origin/dev |
+| 提交 | `eed3ef1`（feat + 文档）、`6306550` / `9553cc9`（docs：提交/CI/标签记录） | 已推送 origin/dev |
 | CI | GitHub Actions run `44914033792`（`eed3ef1`） | verify 1m49（lint / typecheck / depcruise / unit 827 / chaos 8 / spec / gen / build）+ e2e (1) 2m03 / e2e (2) 1m59 均绿；package 按规则跳过（非 `v*` tag） |
-| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`） | verify + e2e 两片均绿；package 跳过 |
+| CI（文档提交） | GitHub Actions run `44914510581`（`6306550`）、`44915039757`（`9553cc9`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-19-done` → `eed3ef1` | 已推送 origin |
 | 提交 | `4fca40c`（feat）、`f87b7dd`（docs） | 已推送 origin/dev |
 | CI | GitHub Actions run `43681891589`（`4fca40c`） | verify 与 e2e 均绿；package 按规则跳过 |

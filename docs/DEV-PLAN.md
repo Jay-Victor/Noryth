@@ -899,7 +899,7 @@ title: 祠堂夜谈
 
 ### 5.10 迁移与 schema 版本
 
-- 迁移文件 `src/main/db/migrations/0001_init.sql` … `0011_tool_call_chapter.sql`（清单以 `src/main/db/migrations/index.ts` 为准），只前进不回滚；`LATEST_SCHEMA_VERSION = 11`。
+- 迁移文件 `src/main/db/migrations/0001_init.sql` … `0012_voice.sql`（清单以 `src/main/db/migrations/index.ts` 为准），只前进不回滚；`LATEST_SCHEMA_VERSION = 12`。
 - 每个文件首行 `-- name: ...`；迁移器计算 sha256 存入 `_migration.checksum`，已应用文件被改动 → 启动失败并报 `migration_checksum_mismatch`。
 - `schema_version` = 最大迁移号，写入 `project.schema_version`。
 - 打开更高版本项目：只读打开 + 提示「需要更新应用」；打开更低版本：先备份，再迁移，失败不写库。
