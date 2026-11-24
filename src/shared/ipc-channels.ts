@@ -34,6 +34,7 @@ export const IPC = {
   settingsBindingsSet: 'settings.bindings.set',
   settingsBindingsRollback: 'settings.bindings.rollback',
   settingsBindingsAudit: 'settings.bindings.audit',
+  routingStatus: 'routing.status',
   diagnosticsExport: 'diagnostics.export',
   exportRun: 'export.run',
   // 开发切片（PHASE-05）：只在未打包构建注册
@@ -121,6 +122,7 @@ export const IPC = {
   reviewReopen: 'review.reopen',
   reviewBranchCreate: 'review.branch.create',
   reviewBranchSwitch: 'review.branch.switch',
+  reviewCalibration: 'review.calibration',
   reviewDevSeed: 'review.devSeed',
   // 记忆台（PHASE-09）
   memoryState: 'memory.state',
@@ -168,7 +170,8 @@ export const IPC_EVENTS = {
   planChoice: 'event:plan.choice',
   writeEvent: 'event:write',
   reviewEvent: 'event:review',
-  memoryEvent: 'event:memory'
+  memoryEvent: 'event:memory',
+  routingEvent: 'event:routing'
 } as const
 
 export type IpcEventChannel = (typeof IPC_EVENTS)[keyof typeof IPC_EVENTS]

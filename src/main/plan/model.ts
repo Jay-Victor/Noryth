@@ -5,6 +5,8 @@ import type { Repos } from '../db/repos'
 import type { ChatAdapter } from '../model/adapter'
 import type { CapabilitiesLookup, ResolvedBinding } from '../model/bindings'
 import { resolveBinding } from '../model/bindings'
+import type { RoutingPort } from '../model/router'
+import type { RoutingTrace } from '../../shared/schema/routing'
 import { createOpenAiCompatAdapter } from '../model/openai-compat'
 import { AGENT_KEY_FALLBACKS, envApiKeyLookup, type ApiKeyLookup } from '../model/keys'
 import { baseUrlFor, capabilitiesFor, findPreset } from '../model/presets'
@@ -36,6 +38,8 @@ export interface PlannerModel {
   binding: ResolvedBinding
   adapter: ChatAdapter
   status: PlanModelStatus
+  /** 路由切换留痕（PHASE-21）；不切换时为 null。 */
+  routingTrace?: RoutingTrace | null
 }
 
 export interface PlannerModelOptions {
@@ -44,6 +48,8 @@ export interface PlannerModelOptions {
   env?: NodeJS.ProcessEnv
   /** 设置页注入的 Key 解析（safeStorage 优先，环境变量兜底）。 */
   apiKeyFor?: ApiKeyLookup
+  /** 多供应商路由（PHASE-21）：回合开始前决定主家/备用。 */
+  routing?: RoutingPort
 }
 
 export function plannerModel(
@@ -54,9 +60,15 @@ export function plannerModel(
   const project = repos.project.get()
   if (!project) throw new Error('project row missing')
   const lookup = capabilitiesLookupFromSettings(settings)
-  const binding = resolveBinding(repos, project, 'planner', lookup)
+  const primary = resolveBinding(repos, project, 'planner', lookup)
   const env = options.env ?? process.env
   const fakeEnabled = options.allowFake && env.NORYTH_PLAN_FAKE === '1'
+  // 假适配器固定 provider=deepseek，路由只在真实适配器上生效，避免归因分叉。
+  const decision =
+    fakeEnabled || options.routing === undefined
+      ? { binding: primary, trace: null }
+      : options.routing.route({ projectId: project.id, agentKey: 'planner', primary })
+  const binding = decision.binding
 
   const preset = findPreset(binding.provider)
   const providerSnapshot = settings.providers[binding.provider]
@@ -70,6 +82,7 @@ export function plannerModel(
     return {
       binding,
       adapter: new FakePlannerAdapter(),
+      routingTrace: null,
       status: {
         provider: 'deepseek',
         model: 'planner-fake',
@@ -88,6 +101,7 @@ export function plannerModel(
       ...(apiKey === null ? {} : { apiKey }),
       ...(capabilities === undefined ? {} : { capabilities })
     }),
+    routingTrace: decision.trace,
     status: {
       provider: binding.provider,
       model: binding.model,

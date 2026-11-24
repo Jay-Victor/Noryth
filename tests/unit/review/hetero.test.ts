@@ -149,6 +149,61 @@ describe('resolveHeteroReview', () => {
     const untested = SettingsSchema.parse({ review: { hetero: 'prefer' } })
     expect(secondProviderOf(untested, 'deepseek', () => true)).toBeNull()
   })
+
+  it('路由优先级：异构第二家不健康时，备用家不能等于生成家', () => {
+    const w = open(settingsWith())
+    const project = w.world.repos.project.get()!
+    const chapter = w.world.repos.chapter.get(w.world.chapterId)!
+    const base = {
+      repos: w.world.repos,
+      project,
+      chapter,
+      settings: settingsWith(),
+      providerReady: () => true
+    }
+
+    // 第二家 openai 不健康；备用家 tongyi 不是生成家 deepseek → 用 tongyi。
+    const routed = resolveHeteroReview({
+      ...base,
+      fallback: { preset: 'tongyi', model: 'qwen-plus' },
+      usable: (provider) => provider !== 'openai'
+    })
+    expect(routed.provider).toBe('tongyi')
+    expect(routed.switched).toBe(true)
+    expect(routed.routing?.reason).toBe('hetero_second_unhealthy')
+    expect(routed.generationProvider).toBe('deepseek')
+    expect(routed.degraded).toBeNull()
+
+    // 备用家就是生成家 → 不切换，宁可 hetero_unavailable。
+    const refused = resolveHeteroReview({
+      ...base,
+      fallback: { preset: 'deepseek', model: 'deepseek-flash' },
+      usable: (provider) => provider !== 'openai'
+    })
+    expect(refused.provider).toBe('deepseek')
+    expect(refused.switched).toBe(false)
+    expect(refused.degraded).toBe('hetero_unavailable')
+    expect(refused.routing).toBeNull()
+  })
+
+  it('异构关闭时仍可按路由备用家切换 reviewer', () => {
+    const w = open(SettingsSchema.parse({}))
+    const project = w.world.repos.project.get()!
+    const chapter = w.world.repos.chapter.get(w.world.chapterId)!
+    const resolution = resolveHeteroReview({
+      repos: w.world.repos,
+      project,
+      chapter,
+      settings: SettingsSchema.parse({ routing: { enabled: true } }),
+      providerReady: () => true,
+      fallback: { preset: 'tongyi', model: 'qwen-plus' },
+      usable: (provider) => provider !== 'deepseek'
+    })
+    expect(resolution.provider).toBe('tongyi')
+    expect(resolution.switched).toBe(true)
+    expect(resolution.routing?.reason).toBe('primary_unhealthy')
+    expect(resolution.degraded).toBeNull()
+  })
 })
 
 describe('ReviewService 异构复检', () => {

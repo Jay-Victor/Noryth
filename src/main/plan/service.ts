@@ -41,6 +41,7 @@ import type { ChoiceOption, ChoiceResolver } from '../tools/types'
 import { ModelError } from '../model/adapter'
 import type { RegistrySnapshot } from '../tools/registry'
 import type { ApiKeyLookup } from '../model/keys'
+import { createRoutingRuntime, type RoutingPort } from '../model/router'
 import { addPlanCharacter, addPlanFact, removeOutlineNode, removePlanCharacter, removePlanFact, saveCharacterCard, saveOutlineNode, addOutlineNode, savePlanFact } from './draft'
 import { confirmG1, g1Preview, retrySetup } from './g1'
 import { plannerModel, plannerModelStatus, type PlannerModel } from './model'
@@ -78,6 +79,8 @@ export interface PlanServiceDeps {
   model?: (host: PlanHost, settings: Settings) => PlannerModel
   /** 设置页注入的 Key 解析；省略时只用环境变量（测试/旧行为）。 */
   apiKeyFor?: ApiKeyLookup
+  /** 多供应商路由（PHASE-21）：与创作台/审批台共用内存健康状态。 */
+  routing?: RoutingPort
   log?: (message: string, details?: Record<string, unknown>) => void
 }
 
@@ -161,8 +164,19 @@ export class PlanService {
   private choiceSeq = 0
   /** 最近一次 getState/send 的会话；系统卡片跟随当前会话。 */
   private activeSessionId: string | null = null
+  private readonly routing: RoutingPort
 
-  constructor(private readonly deps: PlanServiceDeps) {}
+  constructor(private readonly deps: PlanServiceDeps) {
+    const fakeEnabled = deps.allowFakeModel && process.env.NORYTH_PLAN_FAKE === '1'
+    this.routing =
+      deps.routing ??
+      createRoutingRuntime({
+        getSettings: deps.settings,
+        providerReady: (provider) =>
+          fakeEnabled || (deps.apiKeyFor ? deps.apiKeyFor(provider) !== null : false),
+        log: deps.log
+      })
+  }
 
   getState(input: { sessionId?: string } = {}): PlanState {
     const host = this.requireHost()
@@ -707,21 +721,26 @@ export class PlanService {
 
     let latest = ''
     let lastWrite = 0
+    let usedProvider: string | null = null
     try {
       const model =
         this.deps.model?.(host, this.deps.settings()) ??
         plannerModel(host.repos, this.deps.settings(), {
           allowFake: this.deps.allowFakeModel,
-          ...(this.deps.apiKeyFor === undefined ? {} : { apiKeyFor: this.deps.apiKeyFor })
+          ...(this.deps.apiKeyFor === undefined ? {} : { apiKeyFor: this.deps.apiKeyFor }),
+          routing: this.routing
         })
       if (!model.status.ready) {
         throw new AppError('model_auth', '规划 Agent 还没有可用的 API Key，请到设置里填写')
       }
+      usedProvider = model.binding.provider
       const outcome = await runPlanMessage(
         {
           repos: host.repos,
           registry: this.deps.registry,
           adapter: model.adapter,
+          binding: model.binding,
+          routingTrace: model.routingTrace,
           gateSecret: this.gateSecret(),
           allowTools: model.binding.capabilities?.tools !== false,
           choices: this.makeChoices(projectId, sessionId, assistantMessageId),
@@ -756,6 +775,7 @@ export class PlanService {
         body: latest,
         metaJson: JSON.stringify(outcome.meta)
       })
+      if (usedProvider !== null) this.routing.recordSuccess(projectId, usedProvider)
       this.emit({
         projectId,
         sessionId,
@@ -767,6 +787,7 @@ export class PlanService {
         proposalIds: outcome.proposalIds
       })
     } catch (error) {
+      if (usedProvider !== null) this.routing.recordFailure(projectId, usedProvider, error)
       if (isAborted(error)) {
         host.repos.planMessage.setStatus(assistantMessageId, 'stopped', {
           body: latest,

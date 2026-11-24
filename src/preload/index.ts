@@ -7,6 +7,7 @@ import type { SliceBeatEvent } from '../shared/schema/slice'
 import type { ReviewEvent } from '../shared/schema/review'
 import type { MemoryEvent } from '../shared/schema/memory'
 import type { WriteEvent } from '../shared/schema/write'
+import type { RoutingEvent } from '../shared/schema/routing'
 import type { NorythBridge } from '../shared/schema/bridge'
 import type { ExportRequest } from '../shared/schema/export'
 
@@ -64,6 +65,9 @@ const bridge: NorythBridge = {
     setBindings: (input) => invoke(IPC.settingsBindingsSet, input),
     rollbackBindings: (projectId) => invoke(IPC.settingsBindingsRollback, { projectId }),
     bindingAudit: (projectId) => invoke(IPC.settingsBindingsAudit, { projectId })
+  },
+  routing: {
+    status: () => invoke(IPC.routingStatus, {})
   },
   diagnostics: {
     export: (input) => invoke(IPC.diagnosticsExport, input ?? {})
@@ -150,6 +154,7 @@ const bridge: NorythBridge = {
     issueFinalizeToken: (chapterId) => invoke(IPC.reviewG6Issue, { chapterId }),
     finalize: (input) => invoke(IPC.reviewFinalize, input),
     reopen: (input) => invoke(IPC.reviewReopen, input),
+    calibration: () => invoke(IPC.reviewCalibration, {}),
     createBranch: (input) => invoke(IPC.reviewBranchCreate, input),
     switchBranch: (input) => invoke(IPC.reviewBranchSwitch, input),
     devSeed: (input) => invoke(IPC.reviewDevSeed, input ?? {})
@@ -256,6 +261,15 @@ const bridge: NorythBridge = {
       ipcRenderer.on(IPC_EVENTS.memoryEvent, handler)
       return () => {
         ipcRenderer.removeListener(IPC_EVENTS.memoryEvent, handler)
+      }
+    },
+    onRoutingEvent: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: RoutingEvent): void => {
+        listener(payload)
+      }
+      ipcRenderer.on(IPC_EVENTS.routingEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_EVENTS.routingEvent, handler)
       }
     }
   }

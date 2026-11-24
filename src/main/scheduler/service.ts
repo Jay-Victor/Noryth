@@ -55,6 +55,7 @@ import { syncSceneVoice } from '../voice/service'
 import { runOrchestratorTurn } from './orchestrator'
 import { WriteModelFactory } from './model'
 import { resolveBinding } from '../model/bindings'
+import { createRoutingRuntime, type RoutingPort } from '../model/router'
 import { beatTransition, chapterTransition, sceneTransition } from './transitions'
 import type { ApiKeyLookup } from '../model/keys'
 
@@ -89,6 +90,8 @@ export interface WriteServiceDeps {
   env?: NodeJS.ProcessEnv
   /** 设置页注入的 Key 解析（safeStorage 优先）；省略时只用环境变量。 */
   apiKeyFor?: ApiKeyLookup
+  /** 多供应商路由（PHASE-21）：与审批/状态栏共用同一个内存健康状态。 */
+  routing?: RoutingPort
 }
 
 interface ChapterSession {
@@ -108,6 +111,7 @@ export class WriteService {
   private eventSeq = 0
   private attemptSeq = 0
   private readonly models: WriteModelFactory
+  private readonly routing: RoutingPort
 
   constructor(private readonly deps: WriteServiceDeps) {
     this.models = new WriteModelFactory({
@@ -117,6 +121,14 @@ export class WriteService {
       ...(deps.fakeChunkDelayMs === undefined ? {} : { fakeChunkDelayMs: deps.fakeChunkDelayMs }),
       ...(deps.apiKeyFor === undefined ? {} : { apiKeyFor: deps.apiKeyFor })
     })
+    this.routing =
+      deps.routing ??
+      createRoutingRuntime({
+        getSettings: deps.settings,
+        providerReady: (provider) => this.models.providerReady(provider),
+        capabilitiesLookup: this.models.capabilitiesLookup(),
+        ...(deps.log === undefined ? {} : { log: deps.log })
+      })
   }
 
   // ── 读状态 ────────────────────────────────────────────────────────────────
@@ -1007,33 +1019,43 @@ export class WriteService {
       body: ''
     })
 
-    const binding = resolveBinding(host.repos, project, 'orchestrator', this.models.capabilitiesLookup())
-    const adapter = this.models.adapter(binding)
-    const outcome = await runOrchestratorTurn(
-      {
-        repos: host.repos,
-        registry: this.deps.registry,
-        adapter,
-        gateSecret: this.deps.gateSecret,
-        ...(this.deps.embedder === undefined ? {} : { embedder: this.deps.embedder }),
-        allowTools: this.modelCapabilities(binding).tools !== false,
-        hooks: {
-          onText: (_delta, full) => {
-            this.emit({
-              projectId: project.id,
-              chapterId: chapter.id,
-              jobId: `write_${chapter.id}`,
-              turnId: `oturn_${assistant.id}`,
-              beatId: '',
-              seq: this.nextEventSeq(),
-              phase: 'delta',
-              full
-            })
+    const primary = resolveBinding(host.repos, project, 'orchestrator', this.models.capabilitiesLookup())
+    const decision = this.routing.route({ projectId: project.id, agentKey: 'orchestrator', primary })
+    const adapter = this.models.adapter(decision.binding)
+    let outcome: Awaited<ReturnType<typeof runOrchestratorTurn>>
+    try {
+      outcome = await runOrchestratorTurn(
+        {
+          repos: host.repos,
+          registry: this.deps.registry,
+          adapter,
+          binding: decision.binding,
+          routingTrace: decision.trace,
+          gateSecret: this.deps.gateSecret,
+          ...(this.deps.embedder === undefined ? {} : { embedder: this.deps.embedder }),
+          allowTools: this.modelCapabilities(decision.binding).tools !== false,
+          hooks: {
+            onText: (_delta, full) => {
+              this.emit({
+                projectId: project.id,
+                chapterId: chapter.id,
+                jobId: `write_${chapter.id}`,
+                turnId: `oturn_${assistant.id}`,
+                beatId: '',
+                seq: this.nextEventSeq(),
+                phase: 'delta',
+                full
+              })
+            }
           }
-        }
-      },
-      { chapterId: chapter.id, messageId: assistant.id, text: input.text }
-    )
+        },
+        { chapterId: chapter.id, messageId: assistant.id, text: input.text }
+      )
+      this.routing.recordSuccess(project.id, decision.binding.provider)
+    } catch (error) {
+      this.routing.recordFailure(project.id, decision.binding.provider, error)
+      throw error
+    }
 
     host.repos.writeMessage.insert({
       projectId: project.id,
@@ -1155,6 +1177,7 @@ export class WriteService {
         ...(this.deps.embedder === undefined ? {} : { embedder: this.deps.embedder }),
         mode,
         capabilitiesLookup: this.models.capabilitiesLookup(),
+        routing: this.routing,
         attempt: `${Date.now()}-${(this.attemptSeq += 1)}`,
         ...(this.abort === null ? {} : { signal: this.abort.signal }),
         onJob: (info) => {

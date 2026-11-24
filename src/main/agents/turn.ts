@@ -4,6 +4,7 @@ import type { Envelope, EnvelopeTraceItem, FallbackResponse, FinalAnswer } from 
 import { EnvelopeSchema, FinalAnswerSchema } from '../../shared/schema/envelope'
 import type { Capabilities } from '../../shared/schema/model'
 import { CapabilitiesSchema } from '../../shared/schema/model'
+import type { RoutingTrace } from '../../shared/schema/routing'
 import type { Repos } from '../db/repos'
 import type { JobRecord } from '../db/repos/job'
 import type { ContextBundle } from '../context/budget'
@@ -56,6 +57,13 @@ export interface TurnDeps {
   registry: RegistrySnapshot
   /** 必须按 job 冻结的 bindings 构造；runTurn 不信外部传入的 provider/model。 */
   adapter: ChatAdapter
+  /**
+   * PHASE-21：本次回合实际使用的绑定（路由切换后）。省略 = 用 job 快照。
+   * job.payload_json.bindings 保留初始快照，实际 provider/model 以 turn_metric 为准。
+   */
+  effectiveBinding?: ResolvedBinding
+  /** 路由切换留痕；写进 context_json.routing（不切换时不写）。 */
+  routingTrace?: RoutingTrace | null
   gateSecret: string
   /** 记忆检索的嵌入器（阶段 09）；缺省时检索降级为关键词。 */
   embedder?: Embedder
@@ -303,7 +311,11 @@ function failJob(repos: Repos, jobId: string, error: unknown): void {
 }
 
 function toAppError(error: ModelError): AppError {
-  return new AppError(error.code, error.message, { ...error.details, status: error.status })
+  return new AppError(error.code, error.message, {
+    ...error.details,
+    status: error.status,
+    aborted: error.aborted
+  })
 }
 
 export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnResult> {
@@ -318,7 +330,7 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
   try {
     payload = input.payload ?? parseTurnJobPayload(job)
     actor = payload.actor as AgentInstanceKey
-    binding = bindingFor(payload.bindings, actor)
+    binding = deps.effectiveBinding ?? bindingFor(payload.bindings, actor)
   } catch (error) {
     failJob(repos, job.id, error)
     throw error
@@ -512,7 +524,8 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
         prompt_version: payload.prompt_version,
         turn_id: turnId,
         actor,
-        as_of: collected.asOf
+        as_of: collected.asOf,
+        ...(deps.routingTrace == null ? {} : { routing: deps.routingTrace })
       }),
       degraded: validation.envelope.meta.degraded ? runtime.degradedSources : [],
       createdAt: new Date(now()).toISOString()

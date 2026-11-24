@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { formatBudgetCost, formatBudgetTokens } from '../../shared/domain/budget'
 import type { WriteBudgetState } from '../../shared/schema/write'
+import type { RoutingStatus } from '../../shared/schema/routing'
+import { PRESET_LABELS } from '../../shared/schema/settings'
 import { CostReportDialog } from './CostReportDialog'
 import { getBridge } from '../lib/bridge'
 import { useApp } from '../stores/app'
@@ -13,6 +15,17 @@ interface BudgetPeek {
   budget: WriteBudgetState
 }
 
+const ROUTING_REASON_TEXT: Record<string, string> = {
+  primary_unhealthy: '主家故障',
+  circuit_open: '主家熔断',
+  hetero_second_unhealthy: '异构第二家不可用',
+  routing_exhausted: '主备都不可用'
+}
+
+function presetLabel(preset: string): string {
+  return (PRESET_LABELS as Record<string, string>)[preset] ?? preset
+}
+
 export function StatusBar(): React.JSX.Element {
   const appInfo = useApp((state) => state.appInfo)
   const current = useApp((state) => state.current)
@@ -22,6 +35,33 @@ export function StatusBar(): React.JSX.Element {
   const projectId = current?.project.id ?? null
   // 非创作台页面也要显示章预算（UI-DESIGN §2.5）：轻量读一次 write.state，失败静默。
   const [peek, setPeek] = useState<BudgetPeek | null>(null)
+  const [routing, setRouting] = useState<RoutingStatus | null>(null)
+
+  useEffect(() => {
+    const bridge = getBridge()
+    if (bridge === null || projectId === null) {
+      setRouting(null)
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const result = await bridge.routing.status()
+      if (!cancelled && result.ok) setRouting(result.data)
+    })()
+    // 切换事件到达时立刻更新徽标；不弹模态、不打断写作。
+    const off = bridge.events.onRoutingEvent((event) => {
+      if (event.projectId !== projectId) return
+      setRouting((current) => ({
+        enabled: current?.enabled ?? true,
+        last: { agentKey: event.agentKey, trace: event.trace },
+        health: current?.health ?? []
+      }))
+    })
+    return () => {
+      cancelled = true
+      off()
+    }
+  }, [projectId])
 
   useEffect(() => {
     if (projectId === null) {
@@ -83,6 +123,21 @@ export function StatusBar(): React.JSX.Element {
           {center}
         </span>
         <span className="statusbar__right">
+          {routing?.enabled && routing.last !== null ? (
+            <span
+              className="statusbar__routing"
+              data-testid="status-routing"
+              data-reason={routing.last.trace.reason}
+              title={`${presetLabel(routing.last.trace.from)} → ${presetLabel(routing.last.trace.to)} · ${
+                ROUTING_REASON_TEXT[routing.last.trace.reason] ?? routing.last.trace.reason
+              }${routing.last.trace.error === null ? '' : ` · ${routing.last.trace.error}`} · ${routing.last.trace.at.replace('T', ' ').slice(0, 19)}`}
+            >
+              {routing.last.trace.reason === 'routing_exhausted'
+                ? '备用不可用'
+                : `备用 ${presetLabel(routing.last.trace.to)}`}
+              （{ROUTING_REASON_TEXT[routing.last.trace.reason] ?? routing.last.trace.reason}）
+            </span>
+          ) : null}
           {budget !== null ? (
             <button
               type="button"

@@ -9,6 +9,7 @@ import type { Repos } from '../db/repos'
 import { newId } from '../db/repos/common'
 import type { ChatAdapter, ChatMessage, ChatResult, ChatToolCall } from '../model/adapter'
 import { resolveBinding, type CapabilitiesLookup } from '../model/bindings'
+import type { RoutingTrace } from '../../shared/schema/routing'
 import { capabilitiesFor } from '../model/presets'
 import { promptTokensOf, recordTurnMetric, simpleContextJson, sumUsages } from '../model/usage'
 import { PROMPT_VERSION } from '../agents/prompts'
@@ -49,6 +50,8 @@ export interface ReviewTurnDeps {
   binding?: { provider: string; model: string }
   /** 异构缺失等运行级降级：写进报告 degraded（不阻断）。 */
   heteroDegraded?: string | null
+  /** 路由切换留痕（PHASE-21）：写进 context_json.routing；异构直选第二家时为 null。 */
+  routingTrace?: RoutingTrace | null
   gateSecret: string
   capabilitiesLookup?: CapabilitiesLookup
   signal?: AbortSignal
@@ -453,7 +456,8 @@ export async function runReviewTurn(
           kind: 'review',
           promptVersion: PROMPT_VERSION,
           toolsetVersion: deps.registry.version,
-          blockTokens
+          blockTokens,
+          ...(deps.routingTrace == null ? {} : { routing: deps.routingTrace })
         })
       })
     }

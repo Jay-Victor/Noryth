@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { CapabilitiesSchema, PresetSchema, ProviderModelSchema } from './model'
+import { RoutingSettingsSchema } from './routing'
 
 /**
  * 设置中心契约（PHASE-10 I1–I4 / UI-DESIGN §8 / PRD §5.6）。
@@ -106,7 +107,9 @@ export const SettingsViewSchema = z.strictObject({
   /** 启动自动打开上次项目（PHASE-11 M1-24）。 */
   openLastProject: z.boolean(),
   /** 审批（PHASE-16 M1-22）：异构复检默认关闭。 */
-  review: ReviewSettingsSchema
+  review: ReviewSettingsSchema,
+  /** 多供应商路由（PHASE-21 M2-4）：默认关闭；备用家是显式配置。 */
+  routing: RoutingSettingsSchema
 })
 export type SettingsView = z.infer<typeof SettingsViewSchema>
 

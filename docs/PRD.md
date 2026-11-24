@@ -708,6 +708,7 @@ M0–M2 **不开放**第三方工具安装、Agent 自建工具、MCP 外接。�
 - **参数**：temperature / max tokens / 超时；可按 Agent 覆盖，但默认只暴露少量关键项，避免配置过载。
 - **生效边界**：改绑定只影响下一拍；正在生成的任务用启动时的绑定，不中途换模型；已生成内容不自动重跑。
 - **成本预览（P1）**：按当前绑定估算本章/本场费用区间；切换模型时提示价格差异。
+- **故障切换（M2-4）**：作者可显式启用备用供应商（总开关、触发条件、冷却、逐 Agent 备用家）；主家限流 / 5xx / 超时后，下一回合改用备用，同一拍中途不换模型；认证、内容过滤、协议错误不切换。切换可见（状态栏徽标）且逐拍留痕，不静默降级，不按价格自动选家。
 - **审计**：每次绑定变更记录 agent_key、旧/新 provider/model、时间；可回滚到上一套绑定。
 
 **不能做什么**：
@@ -1428,6 +1429,7 @@ G6 定稿
 
 ## 变更记录
 
+- **v0.13**：阶段 21 交付（M2-4 多供应商路由 + M2-8 异构默认值校准）：设置新增 `routing`（总开关、触发条件 `rate_limit|server|timeout`、冷却、逐 Agent 备用家，默认关闭；旧设置文件缺字段可读）。故障切换只发生在回合开始前，失败拍不落盘、按下暂停处理；`turn_metric.context_json.routing={from,to,reason,error,at}` 逐拍留痕，`job.payload_json.bindings` 保留初始快照，实际 provider/model 以 `turn_metric` 为准；不改 `model_binding_audit`、不改 `gate_record`。新增错误码 `routing_exhausted`（主备都不可用，不无限重试）。审批优先级：先异构、后健康检查，备用家不得把审批换回生成同家（宁可 `hetero_unavailable`）。新增只读 IPC `routing.status` 与 `review.calibration`；校准只读报告/patch/G6，阻断接受率是代理指标。D4 判定：费用差无法用真实数据估算、异构组无样本 → **保持 `review.hetero=off`**（ADR-0009），不伪造默认开启。无数据库迁移（`LATEST_SCHEMA_VERSION = 13`）。
 - **v0.12**：阶段 20 交付（M2-3 预算化自动 + M2-5 成本报表）：章预算同时支持 token 与人民币（`chapter.budget_cny`，NULL = ¥5.00；与 `budget_tokens` 任一超限都暂停自动模式），判定顺序固定 `exit → max_beats → budget`（出口优先于预算）；预检输出 0.7–1.3 区间与样本量，无计价只给 token。新增 `turn_metric.chapter_id`（迁移 0013）：写拍/审批/记忆/讨论归因到章，规划为 NULL（报表项目级单列）。新增只读 IPC `report.cost`（按章/按 Agent、字数取 revision 清单、每万字、P50/P95、每拍确认耗时）与 `write.budget.set`（章预算编辑；负数拒绝）。**不改工具 manifest、不改闸门语义**；费用只从 `turn_metric.cost_cny` 汇总，未计价的行显示「下限」而不是 0。DeepSeek 预设补本地折算价，其他供应商保持未定价（ADR-0003）。基线见 `docs/M2-COST-BASELINE.md`。
 - **v0.11**：阶段 19 交付（M2-1 声音度量 + M2-2 漂移告警）：`voice.metrics`（T25）从契约外壳变为实现，输出是旧四字段（`sentence_length_jsd` / `catchphrase_rate` / `question_rate` / `pairwise_distinctness`）的**超集**：新增 `characters[]`（逐角色句长直方图、口头禅、问句与第一人称率）、`pairs[]`（角色对 id、区分度与分项差值）与 `threshold{version, distinctnessMin}`；空场景 / 在场角色不足 2 人返回零值 + `pairs=[]` + `degraded='empty'`，不把 0 当成「很区分」。阈值不再写死 0.18：`zh-v1` 由中文夹具语料校准（ADR-0007，`tests/fixtures/voice/zh-corpus.json`），常量在 `src/shared/domain/voice.ts`，UI 与工具读同一份。T25 仍只允许 `reviewer` 调用（审批白名单 19 → 20）；新增只读 IPC `voice.scene` 与派生表 `voice_metric`（迁移 0012，按 scene + revision 存一份，重算覆盖），指标不写正文、不建 revision、不进 L0–L3。报告里由运行时追加 `type='voice'`、`severity='suggestion'` 的条目（`voice` 不在 `BLOCKING_ISSUE_TYPES`，天然不阻断 G6）。
 - **v0.10**：阶段 18 交付（M1 收口，包版本 0.2.0）：**无 Agent 工具、闸门与状态机契约变更**；数据层新增 `tool_call.chapter_id`（审计归属，迁移 0011）与只读/分发 IPC（`memory.toolCalls`、`update.check`、仅 dev 的 `project.verify`），细节见 `docs/DEV-PLAN.md` v0.9。分发按 ADR-0006：不买 Authenticode、无遥测、通道 `dev/beta/stable`、只允许同 minor 回退。PRD M1 五条证据见 `docs/M1-ACCEPTANCE.md`；Win10 22H2 安装冒烟与真实第二家供应商由作者决定不测（外部依赖）。标签 `phase-18-done`。

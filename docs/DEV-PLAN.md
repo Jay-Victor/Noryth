@@ -321,6 +321,7 @@ contextBridge.exposeInMainWorld('noryth', {
 | review | `decidePatch` | patchId、accept/reject | `{revisionId?}` | G5 |
 | review | `finalize` | chapterId、revisionId、ackUnreviewed | `{finalRevisionId, memoryJobId}` | G6 |
 | review | `reopen`（M1-21） | chapterId、reason? | `{state, detail}`；旧 final 保留 + 新 draft + `write_epoch+1` | — |
+| review | `calibration`（M2-8） | — | `CalibrationReport{reports, blocking, suggestions, byDimension[], cost, cohorts, finalizedChapters, decision, limitations, generatedAt}`；只读报告/patch/G6 | — |
 | review | `branch.create`（M1-21） | chapterId、name（1–40） | `{state, detail}`；从当前 revision 复制 | — |
 | review | `branch.switch`（M1-21） | chapterId、branchId?（null = 主线） | `{state, detail}`；只改 current revision | — |
 | memory | `propose` | chapterId、revisionId | `{jobId}` | — |
@@ -332,6 +333,7 @@ contextBridge.exposeInMainWorld('noryth', {
 | memory | `toolCalls`（M1-23） | chapterId?、actorId?、status?、page? | `{items[], total, page, pageSize, chapters[], actors[]}`；50 条/页，条目不含 args | — |
 | settings | `setProvider` / `testProvider` | provider、key、baseUrl | `{status, models[], latencyMs}` | — |
 | settings | `bindAgent` | agentKey、provider、model、params | `{bindingVersion}` | — |
+| routing | `status`（M2-4） | — | `{enabled, last{agentKey,trace}｜null, health[{preset,failures,coolingUntil,openUntil,lastError}]}`；只读内存快照 | — |
 | export | `run` | 范围（本章 / 全书）、格式（md / txt / docx）、批注、DOCX 排版（目录 / 字体 / 字号 / 行距）、作者（仅标题页） | `{format, path, bytes, sha256, chapters, beats, words, revisionIds, drafts}`；从 revision 清单渲染，只读 | — |
 | app | `update.check`（M1-7） | — | `UpdateState{channel, configured, status, version, checkedAt, error}`；下载仍由 electron-updater 后台做，失败不阻塞 | — |
 
@@ -1822,6 +1824,9 @@ JSON 回退协议：
 | 审计 | `model_binding_audit` 记录旧/新、时间、操作者；设置页可回滚上一套 |
 | 默认路由 | 角色/旁白强模型；规划/编排强推理；审批尽量与生成不同供应商；记忆用便宜模型 + schema 校验 |
 | 异构复检 | M1 手动（默认关闭 + 留痕）；M2 评估默认开启 + 评分校准（D4）；M0 至少允许审批单独绑另一家（PRD M0 退出标准要求「一个 Agent 绑第二家仍能完成一章」） |
+| 故障切换（M2-4） | 作者显式配置 `routing.agents` 备用家 + `routing.fallbackOn`；只在回合开始前按内存健康状态切换（主家最近失败 / 熔断），同一拍不中途换模型；`auth` / `content_filter` / `protocol` / `context_overflow` 永不切换 |
+| 熔断（M2-4） | 同家 5 分钟内 3 次可重试失败 → 打开 `cooldownMs`；冷却后半开一次，成功清零、失败重开；状态只在内存，重启清空 |
+| 路由留痕 | `turn_metric.context_json.routing = {from,to,reason,error,at}`；`job.payload_json.bindings` 保留初始快照，实际 provider 以 `turn_metric` 为准；不改 `model_binding_audit` |
 
 ### 7.8 流式、取消与事件
 
@@ -2177,6 +2182,13 @@ export function finalize(chapterId: string, revisionId: string, ack: Ack) {
 - `prefer` 时在 job 开始时解析一次：本章正文的生成 provider（`turn_metric` 最近一条带 beat 的调用；没有就退回旁白绑定）与 reviewer 绑定相同，且存在已启用 / 已验证 / 有 Key 的第二家 → 改用第二家；job 内不变。
 - 报告写 `model` + `provider`；找不到第二家 → `degraded='hetero_unavailable'`，不阻断报告，不伪造「已异构」。
 - 讨论与 patch 模式仍用配置的 reviewer 绑定：异构只针对「审」这件事，避免 patch 写入路径随开关漂移。
+
+**异构与路由的优先级（M2-4 / PHASE-21 §5.3）**：
+
+- 先异构、后健康检查：`prefer` 时按 M1 规则选第二家；第二家不健康才看 `routing.agents.reviewer` 的备用家。
+- 备用家等于生成家时不切换，宁可 `degraded=hetero_unavailable`，也不伪造「已异构」。
+- 讨论与 patch 仍用 reviewer 绑定；路由切换只改报告 `provider/model` 与 `turn_metric.context_json.routing`，不改判定与闸门。
+- 校准（M2-8）：`review.calibration` / `scripts/m2-calibration.mjs` 只读报告、patch 决策与 G6；阻断接受率是代理指标，D4 数据不足时保持 `review.hetero=off`（ADR-0009）。
 
 ### 9.10 导出（阶段 17，M1-6 / M1-14）
 
@@ -2739,7 +2751,7 @@ type UiState = {
 
 **M2 依赖链**：19 → 20 → 21 → 22 → 23 → 24。0012 在 19（`voice_metric`）、0013 在 20（`chapter.budget_cny` + `turn_metric.chapter_id`）、0014 在 22（归档列 + `cached_tokens` + 审计动作）；23 默认不加迁移，若实测必须加索引则只用 0015 且只加 `CREATE INDEX`；24 不动 schema。任一环阻塞先砍该阶段 P2/P3，不砍 PRD M2 的四条退出标准。
 
-**现状（2026-11-21）**：阶段 11–20 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20 交付双预算自动模式与成本报表（`LATEST_SCHEMA_VERSION = 13`，基线 `docs/M2-COST-BASELINE.md`）；阶段 21–24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
+**现状（2026-11-21）**：阶段 11–21 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20 交付双预算自动模式与成本报表（`LATEST_SCHEMA_VERSION = 13`，基线 `docs/M2-COST-BASELINE.md`）；阶段 21 交付显式故障切换与异构默认值校准（ADR-0008 / ADR-0009 / `docs/M2-HETERO-CALIBRATION.md`，无迁移）；阶段 22–24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
 
 ### 12.5 M0 砍单清单（写死在范围里）
 
@@ -3168,6 +3180,8 @@ jobs:
 
 M2 验收报告：`docs/M2-ACCEPTANCE.md`（阶段 24 交付）；外部依赖（真实第二家 Key、Win10 22H2、外部内测）单列未执行项，不写成通过。
 
+M2-4（故障切换）与 M2-8（异构默认值）是 PRD M2 四条退出标准之外的工程质量项，验收见 `docs/PHASE-21-ROUTING-HETERO.md` §6；不把「默认开启异构」写成 M2 退出标准。
+
 ---
 
 ## 17 待定技术决策（ADR）
@@ -3177,7 +3191,7 @@ M2 验收报告：`docs/M2-ACCEPTANCE.md`（阶段 24 交付）；外部依赖�
 | D1 | sqlite-vec vs BLOB 余弦 | 开工 spike 后 | 打包后可加载 且 20k 条 P95 < 80ms → A；否则 B | A: sqlite-vec；B: BLOB |
 | D2 | 是否购买 Authenticode 证书 | M1 开始前 | 内测安装成功率 < 80% 或 SmartScreen 拦截率高 → 买 | 签名 / 不签名 + 校验值 |
 | D3 | 是否收集匿名遥测 | M1 开始前 | 默认不做；只做用户主动导出诊断包 | 无遥测 / opt-in |
-| D4 | 审批异构复检是否默认开启 | M2（阶段 21） | 成本增加 < 20% 且阻断漏报下降 → 默认开 | 默认开 / 手动 |
+| D4 | 审批异构复检是否默认开启 | M2（阶段 21） | 成本增加 < 20% 且阻断漏报下降 → 默认开 | **已决定（2026-11-21）：保持 off**；费用差无法估算、异构组无样本（ADR-0009） |
 | D5 | 自动更新是否允许跨 minor 降级 | M1 | 只允许同 minor 降级，防 schema 回退 | — |
 | D6 | 编辑器最终选型 | 开工 spike 后 | CM6 在 200 字 IME 测试无丢字 → 采用；否则 textarea 降级 | CM6 / textarea |
 | D7 | 嵌入模型 bge-small vs 更小 | W2 结束 | 冷启动 < 1.5s 且检索空结果率 < 25% → bge-small | bge-small / mini |
@@ -3204,6 +3218,7 @@ M2 验收报告：`docs/M2-ACCEPTANCE.md`（阶段 24 交付）；外部依赖�
 | `model_auth` | API Key 无效或过期 | 去设置 |
 | `model_untested` | 该模型还没有通过连接测试 | 去测试连接 |
 | `rate_limit` | 供应商限流，请稍后再试 | 重试 / 暂停 |
+| `routing_exhausted` | 主备供应商都不可用，已暂停；稍后重试或检查设置 | 等冷却 / 检查备用家 / 关闭故障切换 |
 | `content_filter` | 供应商拒绝了本次生成 | 改分镜 / 换模型 |
 | `memory_empty` | 没有检索到可用记忆，本拍依据不足 | 补记忆 / 调 top_k |
 | `context_trimmed` | 上下文已裁剪（历史拍/检索条数） | 查看明细 |

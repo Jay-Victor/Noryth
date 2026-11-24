@@ -140,16 +140,16 @@ type CalibrationReport = {
 
 ## 6 验收清单
 
-- [ ] `routing` 设置可保存、可回滚到关闭；旧设置文件缺字段时默认关闭，不报错（`tests/unit/settings/*`）。
-- [ ] `E2E-M2-ROUTING-01`：主家 429 → 当前拍暂停 → 下一拍备用 → 状态栏徽标 → 报告/度量 provider 正确 → 已确认拍逐字不变。
-- [ ] `auth` / `content_filter` / `protocol` 不切换；两家都失败 → `routing_exhausted` 且不无限重试（`tests/integration/routing.spec.ts`）。
-- [ ] 熔断：3 次失败打开、冷却半开、成功复位；时钟注入，无 sleep（`tests/unit/model/routing.test.ts`）。
-- [ ] 同一拍内不换模型；同一 job 的下一拍可因熔断切到备用并逐拍留痕；作者改绑定只影响下一 job（`tests/integration/routing.spec.ts`）。
-- [ ] 异构优先级：prefer 时 fallback 不把审批换回生成同家；`hetero_unavailable` 与 `routing_exhausted` 原因可读（`tests/unit/review/hetero.test.ts` 扩展）。
-- [ ] `E2E-M2-CALIBRATION-01`：校准脚本输出 reports/blocking/suggestions/byDimension/cost；`docs/M2-HETERO-CALIBRATION.md` 记录数据与局限。
-- [ ] D4 决策：满足规则才改 `review.hetero` 默认；不满足保持 `off`；ADR-0009 记录结论与外部依赖。
-- [ ] 不新增迁移；`LATEST_SCHEMA_VERSION` 仍为 13（若后续阶段有迁移，与本阶段无关）。
-- [ ] 门禁：typecheck / lint / depcruise / unit / integration / e2e / build / gen:check。
+- [x] `routing` 设置可保存、可回滚到关闭；旧设置文件缺字段时默认关闭，不报错（`tests/unit/settings/store.test.ts`）。
+- [x] `E2E-M2-ROUTING-01`：主家 429 → 当前拍暂停 → 下一拍备用 → 状态栏徽标 → 报告/度量 provider 正确 → 已确认拍逐字不变。
+- [x] `auth` / `content_filter` / `protocol` 不切换；两家都失败 → `routing_exhausted` 且不无限重试（`tests/integration/routing.spec.ts`）。
+- [x] 熔断：3 次失败打开、冷却半开、成功复位；时钟注入，无 sleep（`tests/unit/model/routing.test.ts`）。
+- [x] 同一拍内不换模型；同一 job 的下一拍可因熔断切到备用并逐拍留痕；作者改绑定只影响下一 job（`tests/integration/routing.spec.ts`）。
+- [x] 异构优先级：prefer 时 fallback 不把审批换回生成同家；`hetero_unavailable` 与 `routing_exhausted` 原因可读（`tests/unit/review/hetero.test.ts` 扩展）。
+- [x] `E2E-M2-CALIBRATION-01`：校准脚本输出 reports/blocking/suggestions/byDimension/cost；`docs/M2-HETERO-CALIBRATION.md` 记录数据与局限。
+- [x] D4 决策：满足规则才改 `review.hetero` 默认；不满足保持 `off`；ADR-0009 记录结论与外部依赖。
+- [x] 不新增迁移；`LATEST_SCHEMA_VERSION` 仍为 13（若后续阶段有迁移，与本阶段无关）。
+- [x] 门禁：typecheck / lint / depcruise / unit / integration / e2e / build / gen:check。
 
 ## 7 风险与回退
 

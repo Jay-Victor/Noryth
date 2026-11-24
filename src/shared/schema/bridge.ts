@@ -28,6 +28,8 @@ import type {
 } from './foreshadow'
 import type { VoiceSceneInput, VoiceSceneState } from './voice'
 import type { CostReport, CostReportInput, WriteBudgetInput } from './cost'
+import type { CalibrationReport } from './calibration'
+import type { RoutingEvent, RoutingStatus } from './routing'
 import type {
   PlanAddOutlineInput,
   PlanCharacterAddInput,
@@ -234,6 +236,7 @@ export interface EventApi {
   onWriteEvent(listener: (event: WriteEvent) => void): () => void
   onReviewEvent(listener: (event: ReviewEvent) => void): () => void
   onMemoryEvent(listener: (event: MemoryEvent) => void): () => void
+  onRoutingEvent(listener: (event: RoutingEvent) => void): () => void
 }
 
 /** 创作台 G2 预览（PHASE-07 F1）。 */
@@ -344,6 +347,8 @@ export interface ReviewApi {
   }): Promise<IpcResult<ReviewActionResult>>
   /** 重新打开定稿（M1-21）：旧 final 保留，新建 draft；write_epoch+1。 */
   reopen(input: { chapterId: string; reason?: string }): Promise<IpcResult<ReviewActionResult>>
+  /** 异构校准（M2-8）：只读报告/patch/gate，输出代理指标与 D4 建议。 */
+  calibration(): Promise<IpcResult<CalibrationReport>>
   /** 分支树（M1-21）：开新分支 / 切换；切到 final 走 reopen。 */
   createBranch(input: { chapterId: string; name: string }): Promise<IpcResult<ReviewActionResult>>
   switchBranch(input: { chapterId: string; branchId: string | null }): Promise<IpcResult<ReviewActionResult>>
@@ -421,6 +426,11 @@ export interface ReportApi {
   cost(input?: CostReportInput): Promise<IpcResult<CostReport>>
 }
 
+/** 供应商路由（PHASE-21 M2-4）：状态栏只读快照 + 切换事件。 */
+export interface RoutingApi {
+  status(): Promise<IpcResult<RoutingStatus>>
+}
+
 export interface NorythBridge {
   project: ProjectApi
   dialog: DialogApi
@@ -435,6 +445,7 @@ export interface NorythBridge {
   world: WorldApi
   voice: VoiceApi
   report: ReportApi
+  routing: RoutingApi
   app: AppApi
   events: EventApi
 }

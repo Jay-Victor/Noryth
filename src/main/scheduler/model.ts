@@ -105,4 +105,13 @@ export class WriteModelFactory {
       return snapshot?.capabilities ?? capabilitiesFor(provider, model)
     }
   }
+
+  /** 该 provider 是否真的能发请求：假模型模式视为可用，否则要求有 Key（PHASE-21）。 */
+  providerReady(provider: string): boolean {
+    if (this.fakeEnabled()) return true
+    const env = this.options.env ?? process.env
+    return this.options.apiKeyFor
+      ? this.options.apiKeyFor(provider) !== null
+      : apiKeyFor(provider, env) !== null
+  }
 }

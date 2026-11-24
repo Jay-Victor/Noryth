@@ -161,6 +161,19 @@ export class ReviewRepo extends BaseRepo {
     return rows.map(mapApproval)
   }
 
+  /** 校准（PHASE-21 M2-8）：全书报告只读遍历；不按章 N+1。 */
+  listByProject(projectId: string): ApprovalReportRecord[] {
+    const rows = allRows<ApprovalRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('approval_report')
+        .selectAll()
+        .where('project_id', '=', projectId)
+        .orderBy('created_at')
+    )
+    return rows.map(mapApproval)
+  }
+
   /**
    * 补记降级原因（如 pass 但确定性检查没跑）。
    * 只改 degraded，不改 verdict/条目；报告本身不可变。
@@ -283,6 +296,17 @@ export class GateRepo extends BaseRepo {
         .where('entity_id', '=', entityId)
         .orderBy('created_at')
     )
+    return rows.map(mapGate)
+  }
+
+  /** 校准（PHASE-21 M2-8）：按项目统计 G6 定稿覆盖，只读。 */
+  listByProject(projectId: string, gateId?: GateId): GateRecordRecord[] {
+    let query = this.runner.db
+      .selectFrom('gate_record')
+      .selectAll()
+      .where('project_id', '=', projectId)
+    if (gateId !== undefined) query = query.where('gate_id', '=', gateId)
+    const rows = allRows<GateRow>(this.runner, query.orderBy('created_at'))
     return rows.map(mapGate)
   }
 

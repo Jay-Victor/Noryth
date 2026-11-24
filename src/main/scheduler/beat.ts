@@ -2,6 +2,7 @@ import { AppError, isAppError } from '../../shared/domain/app-error'
 import type { ChatAdapter } from '../model/adapter'
 import type { CapabilitiesLookup, ResolvedBinding } from '../model/bindings'
 import { bindingFor } from '../model/bindings'
+import type { RoutingPort } from '../model/router'
 import type { Db } from '../db/project-db'
 import type { Repos } from '../db/repos'
 import type { BeatRecord } from '../db/repos/beat'
@@ -43,6 +44,8 @@ export interface BeatRunDeps {
   mode: 'interactive' | 'auto' | 'batch'
   /** 设置里的探测结果；缺省用预设表（与 job 创建时一致）。 */
   capabilitiesLookup?: CapabilitiesLookup
+  /** 多供应商路由（PHASE-21）：回合开始前决定主家/备用；省略 = 只走主家。 */
+  routing?: RoutingPort
   hooks?: TurnHooks
   signal?: AbortSignal
   /** 重试序号：强杀后的重试必须换 attempt，否则命中旧 job。 */
@@ -87,6 +90,7 @@ export async function runBeatTurn(deps: BeatRunDeps, input: { beat: BeatRecord; 
   const actor = beat.speakerType === 'character' ? (`character:${beat.speakerId}` as const) : 'narrator'
   let jobId = ''
   let turnId = ''
+  let effectiveProvider: string | null = null
   try {
     const { job, payload } = createTurnJob(
       host.repos,
@@ -106,13 +110,21 @@ export async function runBeatTurn(deps: BeatRunDeps, input: { beat: BeatRecord; 
     turnId = turnIdFor(job.id, beat.id)
     deps.onJob?.({ jobId: job.id, turnId })
     const binding = bindingFor(payload.bindings, actor)
-    const adapter = deps.adapterFor(binding)
+    // PHASE-21：切换只发生在回合开始前；job 快照仍是初始绑定，实际调用以 turn_metric 为准。
+    const decision = deps.routing?.route({ projectId: project.id, agentKey: actor, primary: binding }) ?? {
+      binding,
+      trace: null
+    }
+    effectiveProvider = decision.binding.provider
+    const adapter = deps.adapterFor(decision.binding)
 
     const result = await runTurn(
       {
         repos: host.repos,
         registry,
         adapter,
+        effectiveBinding: decision.binding,
+        routingTrace: decision.trace,
         gateSecret: deps.gateSecret,
         ...(deps.embedder === undefined ? {} : { embedder: deps.embedder }),
         ...(deps.hooks === undefined ? {} : { hooks: deps.hooks }),
@@ -128,6 +140,7 @@ export async function runBeatTurn(deps: BeatRunDeps, input: { beat: BeatRecord; 
       },
       { job }
     )
+    if (effectiveProvider !== null) deps.routing?.recordSuccess(project.id, effectiveProvider)
 
     if (result.status === 'rejected' || !result.commit) {
       rejectBeat(host.repos, beat.id, mark)
@@ -172,6 +185,7 @@ export async function runBeatTurn(deps: BeatRunDeps, input: { beat: BeatRecord; 
       autoConfirmed
     }
   } catch (error) {
+    if (effectiveProvider !== null) deps.routing?.recordFailure(project.id, effectiveProvider, error)
     if (mark) rollbackGenerate(host.repos, mark)
     if (isAppError(error) && error.code === 'character_refusal') {
       const probe = deps.refusalProbe?.() ?? null

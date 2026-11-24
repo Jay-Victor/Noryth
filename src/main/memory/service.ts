@@ -31,6 +31,7 @@ import type { ProjectRecord } from '../db/repos/project'
 import { newId } from '../db/repos/common'
 import { sha256Hex } from '../crypto'
 import { resolveBinding } from '../model/bindings'
+import { createRoutingRuntime, type RoutingPort } from '../model/router'
 import type { RegistrySnapshot } from '../tools/registry'
 import { chapterTransition } from '../scheduler/transitions'
 import { markChapterComplete } from '../scheduler/loop'
@@ -80,6 +81,8 @@ export interface MemoryServiceDeps {
   env?: NodeJS.ProcessEnv
   /** 设置页注入的 Key 解析（safeStorage 优先）；省略时只用环境变量。 */
   apiKeyFor?: ApiKeyLookup
+  /** 多供应商路由（PHASE-21）：与创作台/审批台共用内存健康状态。 */
+  routing?: RoutingPort
 }
 
 type JobStatusView = MemoryJobSummary['status']
@@ -147,6 +150,7 @@ export class MemoryService {
   private running = false
   private abort: AbortController | null = null
   private readonly models: MemoryModelFactory
+  private readonly routing: RoutingPort
 
   constructor(private readonly deps: MemoryServiceDeps) {
     this.models = new MemoryModelFactory({
@@ -156,6 +160,14 @@ export class MemoryService {
       ...(deps.fakeChunkDelayMs === undefined ? {} : { fakeChunkDelayMs: deps.fakeChunkDelayMs }),
       ...(deps.apiKeyFor === undefined ? {} : { apiKeyFor: deps.apiKeyFor })
     })
+    this.routing =
+      deps.routing ??
+      createRoutingRuntime({
+        getSettings: deps.settings,
+        providerReady: (provider) => this.models.providerReady(provider),
+        capabilitiesLookup: this.models.capabilitiesLookup(),
+        ...(deps.log === undefined ? {} : { log: deps.log })
+      })
   }
 
   isBusy(): boolean {
@@ -542,15 +554,17 @@ export class MemoryService {
     this.running = true
     this.abort = new AbortController()
     const jobId = job?.id ?? newId('job')
+    const primary = resolveBinding(host.repos, project, 'memory', this.models.capabilitiesLookup())
+    const decision = this.routing.route({ projectId: project.id, agentKey: 'memory', primary })
     try {
       const outcome = await runMemoryTurn(
         {
           db: host.db,
           repos: host.repos,
           registry: this.deps.registry,
-          adapter: this.models.adapter(
-            resolveBinding(host.repos, project, 'memory', this.models.capabilitiesLookup())
-          ),
+          adapter: this.models.adapter(decision.binding),
+          binding: decision.binding,
+          routingTrace: decision.trace,
           capabilitiesLookup: this.models.capabilitiesLookup(),
           embedder: this.deps.embedder,
           gateSecret: this.deps.gateSecret,
@@ -558,6 +572,7 @@ export class MemoryService {
         },
         { chapterId: chapter.id, jobId, mode: 'discuss', text: input.text, messageId: newId('mmsg') }
       )
+      this.routing.recordSuccess(project.id, decision.binding.provider)
       host.repos.memoryMessage.insert({
         projectId: project.id,
         chapterId: chapter.id,
@@ -569,6 +584,9 @@ export class MemoryService {
       this.running = false
       this.abort = null
       return { state: this.state(chapter.id), reply: outcome.reply, toolCalls: outcome.toolCalls }
+    } catch (error) {
+      this.routing.recordFailure(project.id, decision.binding.provider, error)
+      throw error
     } finally {
       this.running = false
       this.abort = null
@@ -1533,25 +1551,34 @@ export class MemoryService {
     revisionId: string,
     onText?: (delta: string, full: string) => void
   ): Promise<MemoryTurnOutcome> {
-    return runMemoryTurn(
-      {
-        db: host.db,
-        repos: host.repos,
-        registry: this.deps.registry,
-        adapter: this.models.adapter(
-          resolveBinding(host.repos, project, 'memory', this.models.capabilitiesLookup())
-        ),
-        capabilitiesLookup: this.models.capabilitiesLookup(),
-        embedder: this.deps.embedder,
-        gateSecret: this.deps.gateSecret,
-        rebuildPort: {
-          rebuildFromTokenHash: (input) => this.rebuildFromTokenHash(input)
+    const primary = resolveBinding(host.repos, project, 'memory', this.models.capabilitiesLookup())
+    const decision = this.routing.route({ projectId: project.id, agentKey: 'memory', primary })
+    try {
+      const outcome = await runMemoryTurn(
+        {
+          db: host.db,
+          repos: host.repos,
+          registry: this.deps.registry,
+          adapter: this.models.adapter(decision.binding),
+          binding: decision.binding,
+          routingTrace: decision.trace,
+          capabilitiesLookup: this.models.capabilitiesLookup(),
+          embedder: this.deps.embedder,
+          gateSecret: this.deps.gateSecret,
+          rebuildPort: {
+            rebuildFromTokenHash: (input) => this.rebuildFromTokenHash(input)
+          },
+          ...(this.abort === null ? {} : { signal: this.abort.signal }),
+          ...(onText === undefined ? {} : { hooks: { onText } })
         },
-        ...(this.abort === null ? {} : { signal: this.abort.signal }),
-        ...(onText === undefined ? {} : { hooks: { onText } })
-      },
-      { chapterId: chapter.id, jobId, mode: 'extract', revisionId, messageId: jobId }
-    )
+        { chapterId: chapter.id, jobId, mode: 'extract', revisionId, messageId: jobId }
+      )
+      this.routing.recordSuccess(project.id, decision.binding.provider)
+      return outcome
+    } catch (error) {
+      this.routing.recordFailure(project.id, decision.binding.provider, error)
+      throw error
+    }
   }
 
   /** 重建预览：会失效多少旧条目、关闭多少事实/边；阻断项先于令牌签发。 */

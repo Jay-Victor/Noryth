@@ -16,6 +16,8 @@ import { SettingsService } from './settings/service'
 import { SecretStore } from './settings/secrets'
 import { safeStorageCipher } from './settings/safe-storage'
 import { AGENT_KEY_FALLBACKS } from './model/keys'
+import { createRoutingRuntime } from './model/router'
+import { capabilitiesFor } from './model/presets'
 import { DevSliceService } from './slice/service'
 import { WriteService } from './scheduler/service'
 import { MemoryService } from './memory/service'
@@ -177,6 +179,25 @@ async function bootstrap(): Promise<void> {
   const reviewKey = settingsCenter.apiKeyLookup(AGENT_KEY_FALLBACKS.reviewer)
   const memoryKey = settingsCenter.apiKeyLookup(AGENT_KEY_FALLBACKS.memory)
 
+  // 路由健康状态在内存（PHASE-21 §5.2）：创作台、审批台与状态栏共用同一个实例。
+  // 假模型模式下「有 Key」视为可用，与各 ModelFactory 的判定一致。
+  const fakeModelsEnabled =
+    !app.isPackaged &&
+    ['NORYTH_WRITE_FAKE', 'NORYTH_REVIEW_FAKE', 'NORYTH_PLAN_FAKE', 'NORYTH_MEMORY_FAKE'].some(
+      (name) => process.env[name] === '1'
+    )
+  const anyKey = settingsCenter.apiKeyLookup()
+  const routing = createRoutingRuntime({
+    getSettings: () => settings.read(),
+    providerReady: (provider) => fakeModelsEnabled || anyKey(provider) !== null,
+    capabilitiesLookup: (provider, model) =>
+      settings.read().providers[provider]?.capabilities ?? capabilitiesFor(provider, model),
+    log: (message, details) => logger?.info({ event: message, ...details }, message),
+    onEvent: (event) => {
+      if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.routingEvent, event)
+    }
+  })
+
   const toolRegistry = buildRegistry(ALL_MANIFESTS, { at: new Date().toISOString() })
 
   const planService = new PlanService({
@@ -185,6 +206,7 @@ async function bootstrap(): Promise<void> {
     settings: () => settings.read(),
     allowFakeModel: !app.isPackaged,
     apiKeyFor: plannerKey,
+    routing,
     emit: (event) => {
       if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.planMessage, event)
     },
@@ -224,6 +246,7 @@ async function bootstrap(): Promise<void> {
     settings: () => settings.read(),
     allowFakeModel: !app.isPackaged,
     apiKeyFor: writeKey,
+    routing,
     gateSecret: sha256Hex(`write-gate-${Date.now()}-${Math.random()}`),
     embedder,
     send: (event) => {
@@ -239,6 +262,7 @@ async function bootstrap(): Promise<void> {
     settings: () => settings.read(),
     allowFakeModel: !app.isPackaged,
     apiKeyFor: reviewKey,
+    routing,
     gateSecret: sha256Hex(`review-gate-${Date.now()}-${Math.random()}`),
     send: (event) => {
       if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.reviewEvent, event)
@@ -254,6 +278,7 @@ async function bootstrap(): Promise<void> {
     settings: () => settings.read(),
     allowFakeModel: !app.isPackaged,
     apiKeyFor: memoryKey,
+    routing,
     gateSecret: sha256Hex(`memory-gate-${Date.now()}-${Math.random()}`),
     send: (event) => {
       if (!window.isDestroyed()) window.webContents.send(IPC_EVENTS.memoryEvent, event)
@@ -285,6 +310,7 @@ async function bootstrap(): Promise<void> {
     memory: memoryService,
     world: worldService,
     voice: voiceService,
+    routing,
     settings,
     settingsCenter,
     logger,

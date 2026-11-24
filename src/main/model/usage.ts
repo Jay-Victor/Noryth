@@ -1,4 +1,5 @@
 import type { Capabilities } from '../../shared/schema/model'
+import type { RoutingTrace } from '../../shared/schema/routing'
 import { estimateTokens } from '../context/tokens'
 import type { Repos } from '../db/repos'
 import type { TurnMetricRecord } from '../db/repos/model'
@@ -52,12 +53,15 @@ export function simpleContextJson(input: {
   promptVersion: string
   toolsetVersion: string
   blockTokens: number
+  /** 发生路由切换时留痕（PHASE-21 §5.1）；不切换时不写这个键。 */
+  routing?: RoutingTrace | null
 }): string {
   return JSON.stringify({
     kind: input.kind,
     prompt_version: input.promptVersion,
     toolset_version: input.toolsetVersion,
-    block_tokens: Math.max(0, Math.round(input.blockTokens))
+    block_tokens: Math.max(0, Math.round(input.blockTokens)),
+    ...(input.routing == null ? {} : { routing: input.routing })
   })
 }
 

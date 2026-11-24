@@ -7,6 +7,7 @@ import {
   ReviewSettingsSchema,
   ReviewSettingsPatchSchema
 } from './settings'
+import { RoutingSettingsSchema, RoutingSettingsPatchSchema } from './routing'
 
 export { PresetSchema }
 export type { Preset } from './model'
@@ -188,7 +189,9 @@ export const SettingsSchema = z.strictObject({
   /** 外观与基础偏好（PHASE-10 I4）：只改 CSS 变量，不改导出。 */
   appearance: AppearanceSchema.default(AppearanceSchema.parse({})),
   /** 审批（PHASE-16 M1-22）：异构复检默认关闭。 */
-  review: ReviewSettingsSchema.default(ReviewSettingsSchema.parse({}))
+  review: ReviewSettingsSchema.default(ReviewSettingsSchema.parse({})),
+  /** 多供应商路由（PHASE-21 M2-4）：默认关闭；旧设置文件缺字段时也能读。 */
+  routing: RoutingSettingsSchema.default(RoutingSettingsSchema.parse({}))
 })
 export type Settings = z.infer<typeof SettingsSchema>
 
@@ -208,7 +211,8 @@ export const SettingsPatchSchema = z
     tokenCalibration: z.record(z.string(), z.number()).optional(),
     providersEnabled: z.record(z.string(), z.boolean()).optional(),
     appearance: AppearancePatchSchema.optional(),
-    review: ReviewSettingsPatchSchema.optional()
+    review: ReviewSettingsPatchSchema.optional(),
+    routing: RoutingSettingsPatchSchema.optional()
   })
 export type SettingsPatch = z.infer<typeof SettingsPatchSchema>
 

@@ -1545,3 +1545,17 @@ kbd {
     animation: none !important;
   }
 }
+
+/* 路由徽标（PHASE-21 M2-4）：常驻、不弹模态；只说明「正在用备用」与原因。 */
+.statusbar__routing {
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent-strong);
+}
+
+.statusbar__routing[data-reason='routing_exhausted'] {
+  color: var(--danger);
+  font-weight: 600;
+}

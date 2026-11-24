@@ -4,7 +4,8 @@ import { estimateTokens } from '../context/tokens'
 import type { Repos } from '../db/repos'
 import type { PlanMessageRecord } from '../db/repos/plan'
 import type { ChatAdapter, ChatMessage, ChatResult, ChatToolCall } from '../model/adapter'
-import { resolveBinding } from '../model/bindings'
+import { resolveBinding, type ResolvedBinding } from '../model/bindings'
+import type { RoutingTrace } from '../../shared/schema/routing'
 import { capabilitiesFor } from '../model/presets'
 import { promptTokensOf, recordTurnMetric, simpleContextJson, sumUsages } from '../model/usage'
 import { PROMPT_VERSION } from '../agents/prompts'
@@ -33,6 +34,9 @@ export interface PlanRuntimeDeps {
   repos: Repos
   registry: RegistrySnapshot
   adapter: ChatAdapter
+  /** 路由后的实际绑定（PHASE-21）；省略 = 用 planner 的配置绑定。 */
+  binding?: ResolvedBinding
+  routingTrace?: RoutingTrace | null
   gateSecret: string
   /** 模型能力：tools=false 时只讨论，不传 tools，也不假装提交提案。 */
   allowTools?: boolean
@@ -216,7 +220,7 @@ export async function runPlanMessage(deps: PlanRuntimeDeps, input: PlanRunInput)
   let rounds = 0
   const proposalIds: string[] = []
   /** 全链路计量（PHASE-20 §5.3）：规划是项目级，chapter_id = NULL。 */
-  const binding = resolveBinding(deps.repos, project, 'planner')
+  const binding = deps.binding ?? resolveBinding(deps.repos, project, 'planner')
   const turns: ChatResult[] = []
   const startedAt = Date.now()
   const blockTokens = promptTokensOf(chat.map((message) => message.content))
@@ -322,7 +326,8 @@ export async function runPlanMessage(deps: PlanRuntimeDeps, input: PlanRunInput)
           kind: 'plan',
           promptVersion: PROMPT_VERSION,
           toolsetVersion: deps.registry.version,
-          blockTokens
+          blockTokens,
+          ...(deps.routingTrace == null ? {} : { routing: deps.routingTrace })
         })
       })
     }

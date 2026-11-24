@@ -99,6 +99,7 @@ test('I1–I4：Key 掩码、测试连接、绑定回滚与外观', async () => 
   await page.locator('[data-testid="input-key-deepseek"]').fill(secret)
   await page.locator('[data-testid="btn-save-key-deepseek"]').click()
   await expect(page.locator('[data-testid="provider-key-deepseek"]')).toContainText('1234')
+  await expect(page.locator('[data-testid="input-key-deepseek"]')).toHaveValue('')
   expect(await page.content()).not.toContain(secret)
 
   // 测试连接：真实适配器打到假服务器
@@ -136,6 +137,23 @@ test('I1–I4：Key 掩码、测试连接、绑定回滚与外观', async () => 
   await page.locator('[data-testid="btn-rollback-bindings"]').click()
   // 回滚到「从未绑定」：来源回到预设默认
   await expect(page.locator('[data-testid="binding-row-reviewer"]')).toContainText('预设默认')
+
+  // 故障切换（PHASE-21）：默认关闭；可开、可配逐 Agent 备用家、可再关闭
+  await expect(page.locator('[data-testid="routing-card"]')).toBeVisible()
+  await expect(page.locator('[data-testid="routing-enabled"]')).not.toBeChecked()
+  await page.locator('[data-testid="routing-enabled"]').check()
+  await expect(page.locator('[data-testid="routing-enabled"]')).toBeChecked()
+  await page.locator('[data-testid="routing-agent-narrator-provider"]').selectOption('tongyi')
+  await expect(page.locator('[data-testid="routing-agent-narrator-provider"]')).toHaveValue('tongyi')
+  await expect(page.locator('[data-testid="routing-agent-narrator-model"]')).toHaveValue('qwen-plus')
+  await page.locator('[data-testid="routing-enabled"]').uncheck()
+  await expect(page.locator('[data-testid="routing-enabled"]')).not.toBeChecked()
+  await page.reload()
+  await page.waitForSelector('[data-testid="app-ready"]')
+  await page.locator('[data-nav="settings"]').click()
+  await page.locator('[data-testid="settings-nav-agents"]').click()
+  await expect(page.locator('[data-testid="routing-enabled"]')).not.toBeChecked()
+  await expect(page.locator('[data-testid="routing-agent-narrator-provider"]')).toHaveValue('tongyi')
 
   // 外观：暗色 + 墨蓝即时生效，重开应用后保持
   await page.locator('[data-testid="settings-nav-appearance"]').click()

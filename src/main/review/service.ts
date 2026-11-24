@@ -33,6 +33,9 @@ import { markChapterComplete } from '../scheduler/loop'
 import { saveStoryboardDraft } from '../scheduler/storyboard'
 import { compareRevisions } from './diff'
 import { resolveHeteroReview, type HeteroResolution } from './hetero'
+import { buildCalibrationReport } from './calibration'
+import type { CalibrationReport } from '../../shared/schema/calibration'
+import { createRoutingRuntime, type RoutingPort } from '../model/router'
 import { checkAuthorGate, consumeAuthorGate, issueAuthorGate } from './gates'
 import { chapterPatches, decidePatches } from './patch'
 import { latestReport, parseReportRecord } from './report'
@@ -86,12 +89,15 @@ export interface ReviewServiceDeps {
    * 失败不能回滚定稿（已提交），只记日志；记忆台仍可手动按章重建。
    */
   autoRebuild?: (input: { chapterId: string; jobId: string }) => Promise<void>
+  /** 多供应商路由（PHASE-21）：与创作台/状态栏共用同一个内存健康状态。 */
+  routing?: RoutingPort
 }
 
 export class ReviewService {
   private running = false
   private abort: AbortController | null = null
   private readonly models: ReviewModelFactory
+  private readonly routing: RoutingPort
 
   constructor(private readonly deps: ReviewServiceDeps) {
     this.models = new ReviewModelFactory({
@@ -101,6 +107,14 @@ export class ReviewService {
       ...(deps.fakeChunkDelayMs === undefined ? {} : { fakeChunkDelayMs: deps.fakeChunkDelayMs }),
       ...(deps.apiKeyFor === undefined ? {} : { apiKeyFor: deps.apiKeyFor })
     })
+    this.routing =
+      deps.routing ??
+      createRoutingRuntime({
+        getSettings: deps.settings,
+        providerReady: (provider) => this.models.providerReady(provider),
+        capabilitiesLookup: this.models.capabilitiesLookup(),
+        ...(deps.log === undefined ? {} : { log: deps.log })
+      })
   }
 
   // ── 读状态 ────────────────────────────────────────────────────────────────
@@ -901,11 +915,17 @@ export class ReviewService {
   ): Promise<{ reply: string; toolCalls: number; reportId: string | null; patchIds: string[]; degraded: string | null }> {
     const project = host.repos.project.get()
     if (!project) throw new AppError('project_not_found', 'no project in database')
-    const binding =
+    const primary = resolveBinding(host.repos, project, 'reviewer', this.models.capabilitiesLookup())
+    const decision =
       options.binding === undefined
-        ? resolveBinding(host.repos, project, 'reviewer', this.models.capabilitiesLookup())
-        : options.binding
+        ? this.routing.route({ projectId: project.id, agentKey: 'reviewer', primary })
+        : {
+            binding: { provider: options.binding.provider, model: options.binding.model },
+            trace: options.binding.routing
+          }
+    const binding = decision.binding
     const messageId = options.messageId ?? newId('rmsg')
+    const routingTrace = decision.trace
     this.emit({
       projectId: project.id,
       chapterId: chapter.id,
@@ -921,6 +941,7 @@ export class ReviewService {
           adapter: this.models.adapter({ provider: binding.provider, model: binding.model }),
           binding: { provider: binding.provider, model: binding.model },
           ...(options.heteroDegraded === undefined ? {} : { heteroDegraded: options.heteroDegraded }),
+          routingTrace,
           gateSecret: this.deps.gateSecret,
           capabilitiesLookup: this.models.capabilitiesLookup(),
           ...(this.abort === null ? {} : { signal: this.abort.signal }),
@@ -947,6 +968,7 @@ export class ReviewService {
           jobId: options.jobId
         }
       )
+      this.routing.recordSuccess(project.id, binding.provider)
       this.emit({ projectId: project.id, chapterId: chapter.id, jobId: options.jobId, phase: 'done' })
       return {
         reply: outcome.reply,
@@ -956,6 +978,7 @@ export class ReviewService {
         degraded: outcome.degraded
       }
     } catch (error) {
+      this.routing.recordFailure(project.id, binding.provider, error)
       this.emit({
         projectId: project.id,
         chapterId: chapter.id,
@@ -1083,14 +1106,25 @@ export class ReviewService {
   private heteroFor(host: ReviewHost, chapter: ChapterRecord): HeteroResolution {
     const project = host.repos.project.get()
     if (!project) throw new AppError('project_not_found', 'no project in database')
+    const fallback = this.routing.fallbackFor('reviewer')
     return resolveHeteroReview({
       repos: host.repos,
       project,
       chapter,
       settings: this.deps.settings(),
       capabilitiesLookup: this.models.capabilitiesLookup(),
-      providerReady: (provider) => this.models.providerReady(provider)
+      providerReady: (provider) => this.models.providerReady(provider),
+      fallback,
+      usable: (provider) => this.routing.usable(project.id, provider)
     })
+  }
+
+  /** 异构校准（PHASE-21 M2-8）：只读报告/patch/gate；不新增打分 UI。 */
+  calibration(): CalibrationReport {
+    const host = this.requireHost()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'no project in database')
+    return buildCalibrationReport(host.repos, project.id)
   }
 
   private recheckScopeOf(rounds: RoundState): DimensionKey[] {

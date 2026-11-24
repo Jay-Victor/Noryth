@@ -9,6 +9,7 @@ import type {
   SettingsView
 } from '../../shared/schema/settings'
 import type { Preset } from '../../shared/schema/model'
+import type { RoutingSettingsPatch } from '../../shared/schema/routing'
 import { getBridge } from '../lib/bridge'
 import { useApp } from './app'
 
@@ -35,6 +36,8 @@ interface SettingsState {
   setOpenLastProject(enabled: boolean): Promise<void>
   /** 审批（PHASE-16 M1-22）：异构复检 off / prefer。 */
   setReviewHetero(mode: 'off' | 'prefer'): Promise<void>
+  /** 多供应商路由（PHASE-21 M2-4）：总开关 / 触发条件 / 冷却 / 逐 Agent 备用家。 */
+  setRouting(patch: RoutingSettingsPatch): Promise<void>
   setKey(preset: Preset, apiKey: string): Promise<boolean>
   clearKey(preset: Preset): Promise<void>
   setProviderEnabled(preset: Preset, enabled: boolean): Promise<void>
@@ -113,6 +116,17 @@ export const useSettings = create<SettingsState>((set, get) => {
       const bridge = getBridge()
       if (!bridge) return
       const result = await bridge.settings.set({ review: { hetero: mode } })
+      if (!result.ok) {
+        notify(result.error)
+        return
+      }
+      await get().load()
+    },
+
+    async setRouting(patch) {
+      const bridge = getBridge()
+      if (!bridge) return
+      const result = await bridge.settings.set({ routing: patch })
       if (!result.ok) {
         notify(result.error)
         return

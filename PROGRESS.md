@@ -26,7 +26,7 @@
 | 18 | `docs/PHASE-18-DELIVERY-M1.md` | done | M1-7 更新通道/回退/演练（`update.ts` 三通道 + semver 预发布 + 同 minor 才降级 + `scripts/update-drill.mjs` + 设置页「更新」卡）、M1-15 QA（`E2E-M1-SMOKE` 3 章提交门 / `E2E-M1-A` 30 章 3 卷 nightly / `project.verify` 只读校验 / 内存与孤儿断言）、M1-23 工具审计面板（迁移 0011 `tool_call.chapter_id` + 两条回填 + `memory.toolCalls` + `ToolCallList.tsx` + `E2E-M1-TOOLCALL`）、M1-25 图标/品牌（`scripts/gen-icons.mjs` + `resources/icon.ico` / `resources/icon.png` + `icons/*` + exe/窗口/随包断言）、版本 0.2.0、`docs/M1-ACCEPTANCE.md` | PRD M1 五条全绿（`E2E-M1-A` 20.8s / 30 final / 私有 512MB；`E2E-M1-TIME-01`、`E2E-M1-REBUILD-01`、`E2E-M1-ASOF-01`、`E2E-M1-DOCX-01` 复跑绿）；本地门禁全绿（typecheck / lint / depcruise 319 modules / unit 794 / integration 46 / chaos 8 / e2e 32 / perf 2 / build / gen:check / 规格脚本）；NSIS 167,298,203 B + 安装冒烟 PASS（Win11，schema 11）；更新演练 PASS（manifest / 四态判定 / 真实下载）；CI run `44045408802`（verify 2m34 + e2e 两片 2m05 / 2m46 均绿，package 按规则跳过）；标签 `phase-18-done` → `1f2b668` | Win10 22H2 与真实第二家 Key：作者决定不测（2026-11-17，外部依赖）；GitHub Release 未上传（首个 release tag 时做）；更新演练「安装→重启→迁移」为人工步骤；30 章长跑只在 nightly/发布前跑 |
 | 19 | `docs/PHASE-19-VOICE.md` | done | M2-1：T25 `voice.metrics` 实现（逐角色 + 两两分项 + `threshold`，1.1.0，审批白名单 19→20）；`zh-v1` 中文夹具语料校准（0.252；FPR 2.0% / TPR 97.5%）+ `scripts/calibrate-voice.mjs`；迁移 0012 `voice_metric`（scene + revision 一行）+ `voice.scene` 只读 IPC；M2-2：创作台场景头徽标 + 审批台 `VoicePanel` + 报告运行时 `voice` 建议（只建议，不阻断 G6）；`scripts/m2-baseline.mjs` + `docs/M2-METRICS-BASELINE.md` + ADR-0007；`E2E-M2-VOICE-01`、`E2E-M2-METRICS-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 328 modules / unit 827 / integration 48 / chaos 8 / e2e 34 / perf 2 / build / gen:check / 规格脚本）；CI run `44914033792` 全绿（verify + e2e 两片）；标签 `phase-19-done` → `eed3ef1` | 语料是合成夹具（阈值是起点，真实项目需复跑基线）；项目基线用假模型文本（最低一对 0 分，不代表真实分数）；旁白不参与两两区分度；声音建议只在 G4 全量报告追加（复检报告不重复） |
 | 20 | `docs/PHASE-20-COST-BUDGET.md` | done | M2-3 章预算（token + ¥，出口优先，暂停/恢复不丢拍，`job.result_json.budget`）+ 费用预测（最近 5 拍中位数 / 0.7–1.3 / 无计价 null）+ 状态栏预算段；M2-5 全链路计量（`turn_metric.chapter_id`：写拍/审批/记忆/讨论/规划）+ `report.cost` + `CostReportDialog`（本章/全书、按章/按 Agent、预算编辑、费用下限）+ 迁移 0013 + `docs/M2-COST-BASELINE.md`；`E2E-M2-BUDGET-01`、`E2E-M2-COST-01`、`COST-M2-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 335 modules / unit 840 / integration 58 / chaos 8 / e2e 36 / perf 2 / build / gen:check / 规格脚本）；基线 30 章 / 540 拍 / 2.73 万字 / ¥3.0912（¥1.1316 每万字） | 每千字净操作时间留阶段 24 秒表；非 DeepSeek 预设仍不计价（显示下限）；自动模式暂停账本行用 `beat.generate`（0013 不改 job 表，无独立 auto job 类型）；假 usage 基线不是报价；`E2E-M2-A` 100k 长跑在阶段 24 |
-| 21 | `docs/PHASE-21-ROUTING-HETERO.md` | todo | M2-4 多供应商路由/故障切换；M2-8 异构默认值 + 评分校准；ADR-0008/0009 | — | 阶段文档已建（2026-11-17），未开工 |
+| 21 | `docs/PHASE-21-ROUTING-HETERO.md` | done | M2-4 多供应商路由/故障切换（`routing` 设置、`model/router.ts`、`model/health.ts` 熔断、状态栏徽标、六 Agent 回合前切换）；M2-8 校准（`review/calibration.ts`、`scripts/m2-calibration.mjs`、`docs/M2-HETERO-CALIBRATION.md`、ADR-0008/0009）；`routing.status` / `review.calibration` 只读 IPC；错误码 `routing_exhausted`；无迁移 | 全部通过：本地门禁全绿（typecheck / lint / depcruise 341 modules / unit 857 / integration 61 / e2e 38（两片各 19）/ chaos 8 / perf 2 / build / gen:check / 规格脚本）；30 章校准：60 报告 / 60 阻断 / 30 定稿 / 审批 ¥1.2384 / `heteroDeltaPct=null` | 真实第二家 Key 未补测；D4 保持 `review.hetero=off`；健康状态只在内存（重启清零）；「立即重试」按钮未做（§7 风险表建议项，不阻断） |
 | 22 | `docs/PHASE-22-ARCHIVE-CONTEXT.md` | todo | M2-7 非事实类记忆归档；M2-9 上下文成本优化；迁移 0014 | — | 阶段文档已建（2026-11-17），未开工 |
 | 23 | `docs/PHASE-23-SCALE-100K.md` | todo | M2-6 10 万字性能专项；`PERF-M2-01`；0015 仅按需加索引 | — | 阶段文档已建（2026-11-17），未开工 |
 | 24 | `docs/PHASE-24-DELIVERY-M2.md` | todo | M2-10 100k 长跑 / QA / 内测 / M2 验收；0.3.0；`docs/M2-ACCEPTANCE.md` | — | 阶段文档已建（2026-11-17），未开工 |
@@ -404,18 +404,42 @@
 | CI（文档提交） | GitHub Actions run `44920593930`（`49e541d`） | verify + e2e 两片均绿；package 跳过 |
 | 阶段标签 | `phase-20-done` → `70ea573` | 已推送 origin |
 
+## 验证记录（阶段 21，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| 依赖边界 | `pnpm depcruise` | 341 modules / 1717 deps，0 违规（新增 `model/health.ts`、`model/router.ts`、`review/calibration.ts`） |
+| Lint | `pnpm lint` | 通过（新增 `RoutingCard` / 校准脚本 / routing 单测与 E2E） |
+| 单元 + 契约 | `pnpm test:unit` | 857 passed（新增 routing 9 / calibration 4 / settings 2；契约夹具不变） |
+| 集成 | `pnpm vitest run tests/integration` | 61 passed（新增 `routing.spec.ts` 3：429→下一拍备用、401 不切换、两家都失败 routing_exhausted） |
+| 混沌 | `pnpm test:chaos` | 8 passed / CHAOS-01..09 |
+| E2E | `pnpm exec playwright test --shard=1/2` + `--shard=2/2` | 19 + 19 = 38 passed（新增 `E2E-M2-ROUTING-01`、`E2E-M2-CALIBRATION-01`；`a11y` bridge 加 `routing`；settings 增加故障切换卡断言） |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→…→0013；未新增迁移，`LATEST_SCHEMA_VERSION = 13` |
+| 设置兼容 | `tests/unit/settings/store.test.ts` | 旧设置文件缺 `routing` → 默认关闭；只改开关保留 agents；显式 agents 整表替换 |
+| 路由决策 | `tests/unit/model/routing.test.ts` | 9 条：off 不切换；429 → 备用 + from/to/reason；auth/内容过滤/未勾选触发不记健康；3 次失败熔断 + 冷却半开 + 成功复位；两家失败 `routing_exhausted`；备用家资格（未测试/无工具/停用/无 Key/同家）；角色实例归一；重启清空 |
+| 异构优先级 | `tests/unit/review/hetero.test.ts` | 9 条（新增 2）：第二家不健康 → 备用家 ≠ 生成家才兜底；备用家 = 生成家 → `hetero_unavailable`；异构关闭仍可按路由切 reviewer |
+| 校准 | `tests/unit/review/calibration.test.ts` + `E2E-M2-CALIBRATION-01` | 同家/异构两组、阻断接受率、维度均值、费用与 D4 判定；IPC 与 `scripts/m2-calibration.mjs` 同口径；第二家未定价 `heteroDeltaPct=null` |
+| 30 章校准 | `NORYTH_COST_BASELINE=1` 夹具 + `node scripts/m2-calibration.mjs` | 60 报告 / 60 阻断（60 接受）/ 120 建议（30 拒绝）/ 30 定稿；审批 ¥1.2384、生成 ¥1.4688；同家 60 / 异构 0；`heteroDeltaPct=null`；D4 保持 off |
+| 路由 E2E | `tests/e2e/routing.spec.ts` | `E2E-M2-ROUTING-01`：主家 429 → 当前拍失败 → 下一拍备用 → 状态栏「备用 OpenAI」→ `turn_metric` provider/model + `context_json.routing` → job 快照仍 deepseek → 已确认拍逐字不变 → 审批报告 provider 正确 |
+| 性能 | `pnpm test:perf` | 2 passed（PERF-01 / PERF-M1-01 不变；路由只做回合前一次判定） |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具变更） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+
 ## 当前可运行命令
 
 - `pnpm dev` / `pnpm build` / `pnpm start`
 - `pnpm typecheck` / `pnpm lint` / `pnpm depcruise`
-- `pnpm test:unit`（827：unit+contract） / `pnpm vitest run tests/integration`（48）
+- `pnpm test:unit`（857：unit+contract） / `pnpm vitest run tests/integration`（61）
 - `pnpm test:perf`（PERF-01 + PERF-M1-01 基线；nightly，不进提交门）
-- `pnpm test:chaos`（8 条 / CHAOS-01..09） / `pnpm test:e2e`（34）
+- `pnpm test:chaos`（8 条 / CHAOS-01..09） / `pnpm test:e2e`（38）
 - `pnpm build && pnpm test:e2e:m1a`（E2E-M1-A 30 章长跑；nightly/发布前）
 - `pnpm verify:embed`（bge 冷启动/单条/维度门槛；打包前手工跑）
 - `node scripts/calibrate-voice.mjs`（声音阈值校准；固定夹具，不进提交门）
 - `node scripts/m2-baseline.mjs <项目目录>`（只读质量基线：声音区分度 + 伏笔回收率）
 - `node scripts/m2-cost-baseline.mjs <项目目录>`（只读成本基线：总费用 / 每万字 / 按章 / 按 Agent）
+- `node scripts/m2-calibration.mjs <项目目录>`（只读异构校准：报告 / 代理接受率 / 维度 / 费用 / D4 建议）
 - `node scripts/install-smoke.mjs`（安装冒烟：装 → 建项 → 卸载）
 - `node scripts/update-drill.mjs`（更新演练：manifest 完整性 + 四态判定 + 下载）
 - `node scripts/gen-icons.mjs` / `node scripts/gen-icons.mjs --check`
@@ -792,9 +816,9 @@
 
 ## 当前阻塞
 
-- 阶段 20 已 `done`（2026-11-21）：M2-3 双预算自动模式（token + ¥、退出优先、暂停/恢复不丢拍、`job.result_json.budget`）+ 费用预测；M2-5 全链路计量（`turn_metric.chapter_id`）+ `report.cost` + `CostReportDialog` + 状态栏预算段；迁移 0013；成本基线 `docs/M2-COST-BASELINE.md`（30 章 / 540 拍 / 2.73 万字 / ¥3.0912 / ¥1.1316 每万字）。`LATEST_SCHEMA_VERSION = 13`。
-- M2 进行中（2026-11-21）：阶段 19–20 已 `done`；阶段 21–24 仍为 `todo`，下一步从 `docs/PHASE-21-ROUTING-HETERO.md` 开始（多供应商路由/故障切换 + 异构默认值）。
-- **作者决定不测的外部依赖（2026-11-17，不阻断 M1 收口）**：
+- 阶段 21 已 `done`（2026-11-21）：M2-4 显式故障切换（回合前切换、内存熔断、状态栏徽标、`turn_metric.context_json.routing`）+ M2-8 校准（`review.calibration` / `scripts/m2-calibration.mjs` / `docs/M2-HETERO-CALIBRATION.md`）；D4 保持 `review.hetero=off`（ADR-0009）。无迁移，`LATEST_SCHEMA_VERSION = 13`。
+- M2 进行中（2026-11-21）：阶段 19–21 已 `done`；阶段 22–24 仍为 `todo`，下一步从 `docs/PHASE-22-ARCHIVE-CONTEXT.md` 开始（M2-7 非事实类归档 + M2-9 上下文成本优化，迁移 0014）。
+- **作者决定不测的外部依赖（2026-11-17，不阻断 M1/M2 收口）**：
   - Windows 10 22H2 安装冒烟：本机只有 Win11，未执行；在 Win10 VM 上跑 `node scripts/install-smoke.mjs`（PHASE-18 §7）。
   - 真实第二家供应商补测：无 DashScope/Moonshot Key；ADR-0003 记录，M1-26。
   - 更新演练的「安装 → 重启 → schema 迁移」：脚本只覆盖检查/判定/下载；发布前在干净机手动演练一次（同 §4 的 feed 格式）。
@@ -840,6 +864,14 @@
   6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）✅
   7. `E2E-M1-SMOKE`（3 章闭环，提交门）/ `E2E-M1-A`（30 章，nightly）/ `E2E-M1-TOOLCALL` ✅
 - 阶段 21 开工（M2-4 / M2-8，`docs/PHASE-21-ROUTING-HETERO.md`）：显式故障切换与异构默认值；不改 0013 的 `turn_metric` 报表口径，路由只影响绑定解析与 `provider` 记录。M2 验收口径见 `docs/DEV-PLAN.md` §16.5 与 `docs/PRD.md` §10。
+- 阶段 21 直接复用（M2 会用到）：
+  - **路由**：`createRoutingRuntime()`（`src/main/model/router.ts`）是唯一入口；六个 Agent 在回合开始前调用 `route()`，成功后 `recordSuccess()`、失败后 `recordFailure()`；不要在适配器里重试或换家。
+  - **健康**：`HealthRegistry`（`src/main/model/health.ts`）只在内存；3 次失败/5 分钟窗口/冷却半开都已固化，测试注入时钟；重启清空是刻意行为。
+  - **留痕**：`turn_metric.context_json.routing` 由 `contextSnapshot` / `simpleContextJson` 写入；`job.payload_json.bindings` 永远是初始快照，实际 provider 以 `turn_metric` 为准。
+  - **审批优先级**：`resolveHeteroReview()` 已带 `fallback` / `usable` 参数；先异构、后健康检查，备用家不得等于生成家。
+  - **校准**：`buildCalibrationReport()`（`src/main/review/calibration.ts`）只读报告/patch/G6；`review.calibration` 与 `scripts/m2-calibration.mjs` 同口径；改 D4 默认值前先重跑 30 章夹具并更新 ADR-0009。
+  - **设置**：`routing` 补丁只浅合并开关/触发/冷却，`agents` 整表替换；旧设置文件缺字段默认关闭。
+- 发布注意：首个 release tag（`v0.2.0-m1.1`）时上传 `release/Noryth-0.2.0-setup.exe` + `latest.yml` + blockmap 到 GitHub Releases，并配置 `NORYTH_UPDATE_FEED`（或 electron-builder publish），否则更新状态为 `disabled`；安装包 159.6MB（上限 250MB）；保留上一版安装包供回滚（`release/` 不入库）。GitHub Release 上传尚未执行（见 `docs/M1-ACCEPTANCE.md` §6 第 8 条）。
 - 阶段 20 直接复用（M2 会用到）：
   - **预算口径**：`chapterBudget()`（`src/main/scheduler/loop.ts`）同时返回 token/费用；`sumByChapter()`（`TurnMetricRepo`）按 `chapter_id` 汇总。新增报表或预算提示必须复用这两处，不要再写第二套口径。
   - **计量入口**：所有模型调用走 `recordTurnMetric()`（`src/main/model/usage.ts`）；turn_id 稳定 + upsert。新增运行时入口（例如路由探测）必须带 `chapterId` 或显式 NULL（项目级）。

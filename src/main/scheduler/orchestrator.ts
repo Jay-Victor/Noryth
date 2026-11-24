@@ -4,7 +4,8 @@ import { estimateTokens } from '../context/tokens'
 import type { Repos } from '../db/repos'
 import type { WriteMessageRecord } from '../db/repos/write'
 import type { ChatAdapter, ChatMessage, ChatResult, ChatToolCall } from '../model/adapter'
-import { resolveBinding } from '../model/bindings'
+import { resolveBinding, type ResolvedBinding } from '../model/bindings'
+import type { RoutingTrace } from '../../shared/schema/routing'
 import { capabilitiesFor } from '../model/presets'
 import { promptTokensOf, recordTurnMetric, simpleContextJson, sumUsages } from '../model/usage'
 import { PROMPT_VERSION } from '../agents/prompts'
@@ -33,6 +34,9 @@ export interface OrchestratorDeps {
   repos: Repos
   registry: RegistrySnapshot
   adapter: ChatAdapter
+  /** 路由后的实际绑定（PHASE-21）；省略 = 用 orchestrator 绑定。 */
+  binding?: ResolvedBinding
+  routingTrace?: RoutingTrace | null
   gateSecret: string
   /** 记忆检索的嵌入器（阶段 09）。 */
   embedder?: Embedder
@@ -220,7 +224,7 @@ export async function runOrchestratorTurn(
   let toolCalls = 0
   let storyboardUpdated = false
   /** 全链路计量（PHASE-20 §5.3）：编排讨论也消耗费用，记到当前章。 */
-  const binding = resolveBinding(deps.repos, project, 'orchestrator')
+  const binding = deps.binding ?? resolveBinding(deps.repos, project, 'orchestrator')
   const turns: ChatResult[] = []
   const startedAt = Date.now()
   const blockTokens = promptTokensOf(chat.map((message) => message.content))
@@ -313,7 +317,8 @@ export async function runOrchestratorTurn(
           kind: 'orchestrator',
           promptVersion: PROMPT_VERSION,
           toolsetVersion: deps.registry.version,
-          blockTokens
+          blockTokens,
+          ...(deps.routingTrace == null ? {} : { routing: deps.routingTrace })
         })
       })
     }

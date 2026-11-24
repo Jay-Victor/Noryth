@@ -3,6 +3,7 @@ import { useApp } from '../../stores/app'
 import { useSettings } from '../../stores/settings'
 import { AppearanceSection } from './AppearanceSection'
 import { BindingTable } from './BindingTable'
+import { RoutingCard } from './RoutingCard'
 import { GeneralSection } from './GeneralSection'
 import { ProviderSettingsCard } from './ProviderSettingsCard'
 
@@ -96,7 +97,10 @@ export function SettingsPage(): React.JSX.Element {
               <p>打开一个项目后可以逐 Agent 绑定模型。</p>
             </section>
           ) : (
-            <BindingTable />
+            <>
+              <RoutingCard />
+              <BindingTable />
+            </>
           )
         ) : null}
         {category === 'providers' ? (

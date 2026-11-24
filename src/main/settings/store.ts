@@ -32,6 +32,15 @@ export class SettingsStore {
       // 旧字段与外观里的主题保持一致：仍读 theme 的调用方不会分叉。
       if (parsed.appearance.theme !== undefined) merged.theme = parsed.appearance.theme
     }
+    if (parsed.routing !== undefined) {
+      // 开关 / 触发条件 / 冷却是浅合并；agents 是按整张表替换（UI 每次提交完整表，
+      // 这样删掉某一行才真的生效），避免旧备用家在作者清空后又被合并回来。
+      merged.routing = {
+        ...current.routing,
+        ...parsed.routing,
+        ...(parsed.routing.agents === undefined ? { agents: current.routing.agents } : {})
+      }
+    }
     const next = SettingsSchema.parse(merged)
     mkdirSync(dirname(this.file), { recursive: true })
     const tmp = `${this.file}.tmp`

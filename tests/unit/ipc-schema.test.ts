@@ -64,7 +64,13 @@ describe('IPC schema', () => {
       tokenCalibration: {},
       providersEnabled: {},
       appearance: { theme: 'light', accent: 'clay', fontScale: 'standard', lineHeight: 1.8 },
-      review: { hetero: 'off' }
+      review: { hetero: 'off' },
+      routing: {
+        enabled: false,
+        fallbackOn: ['rate_limit', 'server'],
+        cooldownMs: 60_000,
+        agents: {}
+      }
     })
     const summary = ProjectSummarySchema.safeParse({
       id: 'prj_1',

@@ -4,8 +4,9 @@ import type { Repos } from '../db/repos'
 import type { Db } from '../db/project-db'
 import { newId } from '../db/repos/common'
 import type { ChatAdapter, ChatMessage, ChatResult, ChatToolCall } from '../model/adapter'
-import type { CapabilitiesLookup } from '../model/bindings'
+import type { CapabilitiesLookup, ResolvedBinding } from '../model/bindings'
 import { resolveBinding } from '../model/bindings'
+import type { RoutingTrace } from '../../shared/schema/routing'
 import { capabilitiesFor } from '../model/presets'
 import { promptTokensOf, recordTurnMetric, simpleContextJson, sumUsages } from '../model/usage'
 import { PROMPT_VERSION } from '../agents/prompts'
@@ -44,6 +45,9 @@ export interface MemoryTurnDeps {
   repos: Repos
   registry: RegistrySnapshot
   adapter: ChatAdapter
+  /** 路由后的实际绑定（PHASE-21）；省略 = 用 memory 绑定。 */
+  binding?: ResolvedBinding
+  routingTrace?: RoutingTrace | null
   capabilitiesLookup?: CapabilitiesLookup
   embedder?: Embedder | null
   gateSecret?: string
@@ -252,7 +256,7 @@ export async function runMemoryTurn(
   const project = repos.project.get()
   if (!project) throw new AppError('project_not_found', 'project row missing')
 
-  const binding = resolveBinding(repos, project, 'memory', deps.capabilitiesLookup)
+  const binding = deps.binding ?? resolveBinding(repos, project, 'memory', deps.capabilitiesLookup)
   const system = buildMemoryPrompt(repos, { chapterId: chapter.id, mode: options.mode })
   const userText =
     options.text?.trim() ||
@@ -394,7 +398,8 @@ export async function runMemoryTurn(
           kind: 'memory',
           promptVersion: PROMPT_VERSION,
           toolsetVersion: deps.registry.version,
-          blockTokens
+          blockTokens,
+          ...(deps.routingTrace == null ? {} : { routing: deps.routingTrace })
         })
       })
     }

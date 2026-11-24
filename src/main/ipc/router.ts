@@ -129,6 +129,7 @@ import type { SliceService } from '../slice/service'
 import type { WriteService } from '../scheduler/service'
 import type { WorldService } from '../world/service'
 import type { VoiceService } from '../voice/service'
+import type { RoutingPort } from '../model/router'
 
 const EnvelopeSchema = z.strictObject({ requestId: z.string().min(1), payload: z.unknown() })
 const EmptySchema = z.strictObject({})
@@ -154,6 +155,8 @@ export interface IpcDeps {
   world: WorldService
   /** 声音指标（PHASE-19 M2-1）：只读 IPC + 场景级派生数据。 */
   voice: VoiceService
+  /** 供应商路由（PHASE-21 M2-4）：状态栏只读快照。 */
+  routing: RoutingPort
   /** 更新检查（PHASE-18 M1-7）：与启动后台检查共用 runUpdateCheck。 */
   checkUpdates?: () => Promise<UpdateState>
 }
@@ -425,6 +428,17 @@ export function registerIpc(deps: IpcDeps): void {
   register(IPC.settingsView, {
     schema: EmptySchema,
     handler: () => deps.settingsCenter.view()
+  })
+
+  register(IPC.routingStatus, {
+    schema: EmptySchema,
+    handler: () => {
+      const project = deps.project.currentHandle()?.repos.project.get() ?? null
+      if (project === null) {
+        return { enabled: deps.settings.read().routing.enabled, last: null, health: [] }
+      }
+      return deps.routing.status(project.id)
+    }
   })
 
   register(IPC.settingsAppearance, {
@@ -869,6 +883,11 @@ export function registerIpc(deps: IpcDeps): void {
     schema: ReviewBranchSwitchInputSchema,
     mutation: true,
     handler: (payload) => review.switchBranch(payload)
+  })
+
+  register(IPC.reviewCalibration, {
+    schema: EmptySchema,
+    handler: () => review.calibration()
   })
   if (deps.devTools) {
     register(IPC.reviewDevSeed, {

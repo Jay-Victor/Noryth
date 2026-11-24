@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useApp } from '../../stores/app'
 import { useSettings } from '../../stores/settings'
 import {
@@ -6,6 +6,8 @@ import {
   UPDATE_STATUS_LABELS,
   type UpdateState
 } from '../../../shared/schema/update'
+import type { CalibrationReport } from '../../../shared/schema/calibration'
+import { getBridge } from '../../lib/bridge'
 
 /**
  * 常规（UI-DESIGN §8.2 / PHASE-10 I4 / PHASE-18 M1-7）。
@@ -67,6 +69,87 @@ function UpdateCard({ update }: { update: UpdateState }): React.JSX.Element {
     </section>
   )
 }
+function CalibrationCard(): React.JSX.Element | null {
+  const current = useApp((state) => state.current)
+  const [report, setReport] = useState<CalibrationReport | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = async (): Promise<void> => {
+    const bridge = getBridge()
+    if (!bridge) return
+    setLoading(true)
+    const result = await bridge.review.calibration()
+    setLoading(false)
+    if (!result.ok) {
+      setError(result.error.message)
+      return
+    }
+    setReport(result.data)
+    setError(null)
+  }
+
+  useEffect(() => {
+    if (current !== null) void load()
+  }, [current])
+
+  if (current === null) return null
+
+  const pct = report?.cost.heteroDeltaPct
+  return (
+    <section className="side-card" data-testid="calibration-card">
+      <h2>异构校准</h2>
+      <p className="settings-hint">
+        只读审批报告、patch 决策与 G6 记录；阻断接受率是代理指标，不是人工标注召回率。
+      </p>
+      {error ? <p className="settings-warning">{error}</p> : null}
+      {report ? (
+        <>
+          <div className="kv">
+            <span>报告</span>
+            <b data-testid="calibration-reports">{report.reports}</b>
+          </div>
+          <div className="kv">
+            <span>阻断接受率（代理）</span>
+            <b data-testid="calibration-blocking">
+              {report.blocking.acceptanceRate === null
+                ? '—'
+                : `${Math.round(report.blocking.acceptanceRate * 100)}%（${report.blocking.accepted}/${report.blocking.accepted + report.blocking.rejected}）`}
+            </b>
+          </div>
+          <div className="kv">
+            <span>建议接受率（代理）</span>
+            <b>
+              {report.suggestions.acceptanceRate === null
+                ? '—'
+                : `${Math.round(report.suggestions.acceptanceRate * 100)}%（${report.suggestions.accepted}/${report.suggestions.accepted + report.suggestions.rejected}）`}
+            </b>
+          </div>
+          <div className="kv">
+            <span>异构费用差</span>
+            <b data-testid="calibration-cost">{pct == null ? '无法估算' : `${pct.toFixed(1)}%（模拟）`}</b>
+          </div>
+          <div className="kv">
+            <span>D4 建议</span>
+            <b data-testid="calibration-decision" data-decision={report.decision.recommended}>
+              {report.decision.recommended === 'prefer' ? '默认开启（prefer）' : '保持关闭（off）'}
+            </b>
+          </div>
+          <p className="settings-hint">{report.decision.reasons.join('；')}</p>
+          <p className="settings-hint">{report.limitations[0]}</p>
+        </>
+      ) : (
+        <p>{loading ? '读取中…' : '还没有可校准的数据。'}</p>
+      )}
+      <div style={{ marginTop: 8 }}>
+        <button type="button" className="button" disabled={loading} onClick={() => void load()}>
+          重新计算
+        </button>
+      </div>
+    </section>
+  )
+}
+
 export function GeneralSection(): React.JSX.Element {
   const appInfo = useApp((state) => state.appInfo)
   const refreshAppInfo = useApp((state) => state.refreshAppInfo)
@@ -164,6 +247,8 @@ export function GeneralSection(): React.JSX.Element {
           </select>
         </label>
       </section>
+
+      <CalibrationCard />
 
       <section className="side-card">
         <h2>诊断</h2>

@@ -103,6 +103,19 @@ export class PatchRepo extends BaseRepo {
     return rows.map(mapPatch)
   }
 
+  /** 校准（PHASE-21 M2-8）：全书 patch 只读遍历，由调用方按 revision 归组。 */
+  listByProject(projectId: string): PatchRecord[] {
+    const rows = allRows<PatchRow>(
+      this.runner,
+      this.runner.db
+        .selectFrom('patch')
+        .selectAll()
+        .where('project_id', '=', projectId)
+        .orderBy('created_at')
+    )
+    return rows.map(mapPatch)
+  }
+
   /** 决策只记录结果；真正写正文发生在阶段 08/09 的 apply 流程。 */
   setDecision(id: string, status: PatchStatus): PatchRecord {
     runStatement(
