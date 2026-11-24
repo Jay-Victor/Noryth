@@ -144,7 +144,7 @@
 - [x] 安全：Key 无明文、诊断包无正文/Key、CSP/导航/只读锁、200% 缩放无截断。（单元 + e2e + 诊断包扫描复跑绿）
 - [x] 安装冒烟 PASS（Win11，0.3.0，实际 schema）；更新演练 PASS；Win10 按外部依赖记录。（0.3.0 / schema 14 / packaged；update-drill `RESULT: PASS`）
 - [x] `docs/M2-ACCEPTANCE.md` 写完并自签；外部依赖与已知问题有里程碑。（报告已写完；签字为「**Agent 代审（作者委托，2026-11-24）**」，见 §5.2；不是人工签字，作者可抽查）
-- [ ] 版本 0.3.0 三处一致；标签 `phase-24-done` 推送，CI run 记录在 PROGRESS。（版本已一致、安装包已构建；**标签待 CI 全绿后打**）
+- [x] 版本 0.3.0 三处一致；标签 `phase-24-done` 推送，CI run 记录在 PROGRESS。（CI `45425757554` 全绿；标签 `phase-24-done` → `f637b60`，已推送 origin；run id 见 `PROGRESS.md`）
 - [x] 内测清单：作者 100k 项目 7 天 / 一卷；P0/P1 清零或作者豁免；P2/P3 进 BACKLOG。（作者 2026-11-24 委托 Agent 代审：机器项 1/2/5 通过、4 部分代审、3 无法代审（秒表）、6 未执行（外部）；P2/P3 进 `docs/BACKLOG.md` #15–#17；建议作者抽查）
 
 ## 7 风险与回退

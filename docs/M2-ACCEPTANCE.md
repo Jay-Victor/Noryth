@@ -19,6 +19,7 @@
 | 运行系统 | Windows 11 x64（本机）；Windows 10 22H2 作者决定不测（§8） |
 | 模型 | 全部假适配器/本地假服务器（`NORYTH_*_FAKE=1`）；CI 不调用真实 API |
 | 夹具模式 | 阶段 24 新增 `NORYTH_WRITE_FAKE_LONG=1`：每拍 ≥150 字、按角色分句长/口头禅（仅未打包构建） |
+| 阶段标签 | `phase-24-done` → `f637b60`（CI run `45425757554`；annotated tag `b707193`） |
 
 ## 1 PRD §10 M2 退出标准 → 证据（4 条）
 
