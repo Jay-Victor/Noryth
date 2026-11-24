@@ -123,6 +123,20 @@ export class MemoryRepo extends BaseRepo {
     return row ? mapMemory(row) : null
   }
 
+  /**
+   * 批量取条目（PHASE-23 M2-6）：检索与归档在候选集合上逐条 `get()` 是 N+1，
+   * 3k 记忆时单次召回会多出几十条同构查询。一次 `IN (...)` 取回，语义不变。
+   */
+  listByIds(ids: readonly string[]): MemoryEntryRecord[] {
+    const unique = [...new Set(ids)]
+    if (unique.length === 0) return []
+    const rows = allRows<MemoryRow>(
+      this.runner,
+      this.runner.db.selectFrom('memory_entry').selectAll().where('id', 'in', unique)
+    )
+    return rows.map(mapMemory)
+  }
+
   listByCharacter(
     characterId: string,
     options: { status?: MemoryStatus; includeArchived?: boolean } = {}

@@ -309,6 +309,14 @@
   gap: 3px;
 }
 
+.memory-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
 .memory-entry {
   display: grid;
   grid-template-columns: 34px 64px minmax(0, 1fr) auto auto;

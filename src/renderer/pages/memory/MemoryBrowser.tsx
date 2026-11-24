@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { MEMORY_PAGE_SIZE, pageSlice } from '../../../shared/domain/pagination'
 import type { MemoryEntryState, MemoryState } from '../../../shared/schema/memory'
 import { MEMORY_ARCHIVE_REASON_LABELS, MEMORY_KIND_LABELS, MEMORY_STATUS_LABELS } from '../../../shared/schema/memory'
 import { useMemory } from '../../stores/memory'
@@ -22,6 +23,7 @@ export function MemoryBrowser({ state }: { state: MemoryState }): React.JSX.Elem
   const filters = useMemory((store) => store.filters)
   const setFilters = useMemory((store) => store.setFilters)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [page, setPage] = useState(0)
   const [reason, setReason] = useState('')
   const [confirmRebuild, setConfirmRebuild] = useState(false)
   const [recallQuery, setRecallQuery] = useState('账本 祠堂')
@@ -50,6 +52,11 @@ export function MemoryBrowser({ state }: { state: MemoryState }): React.JSX.Elem
   )
 
   const filtered = entries
+  // 分页（PHASE-23 M2-6）：3,000 条记忆一次渲染会卡；每页 50 行，计数仍按全集。
+  useEffect(() => {
+    setPage(0)
+  }, [filters.characterId, filters.kind, filters.status, filters.archived, filters.pinnedOnly])
+  const view = pageSlice(filtered, page)
   const selected = filtered.find((entry) => entry.id === selectedId) ?? filtered[0] ?? null
 
   if (state.entries.length === 0) {
@@ -140,12 +147,12 @@ export function MemoryBrowser({ state }: { state: MemoryState }): React.JSX.Elem
           {filtered.length === 0 ? (
             <p className="write-note">过滤后没有条目。</p>
           ) : (
-            filtered.map((entry, index) => (
+            view.items.map((entry, index) => (
               <button
                 key={entry.id}
                 type="button"
                 className={`memory-entry${selected?.id === entry.id ? ' is-active' : ''}`}
-                data-testid={`memory-entry-${index}`}
+                data-testid={`memory-entry-${view.page * MEMORY_PAGE_SIZE + index}`}
                 data-status={entry.status}
                 onClick={() => setSelectedId(entry.id)}
               >
@@ -160,6 +167,31 @@ export function MemoryBrowser({ state }: { state: MemoryState }): React.JSX.Elem
               </button>
             ))
           )}
+          {view.pages > 1 ? (
+            <div className="memory-pager" data-testid="memory-pager">
+              <button
+                type="button"
+                className="plan-mini-btn"
+                data-testid="memory-page-prev"
+                disabled={view.page === 0}
+                onClick={() => setPage(view.page - 1)}
+              >
+                上一页
+              </button>
+              <span className="pane-header__meta" data-testid="memory-page-info">
+                共 {view.total} 条 · 第 {view.page + 1}/{view.pages} 页
+              </span>
+              <button
+                type="button"
+                className="plan-mini-btn"
+                data-testid="memory-page-next"
+                disabled={view.page >= view.pages - 1}
+                onClick={() => setPage(view.page + 1)}
+              >
+                下一页
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {selected ? (

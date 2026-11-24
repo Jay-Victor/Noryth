@@ -75,8 +75,15 @@ function characterInputs(
     })
 
   const byCharacter = new Map<string, VoiceCharacterInput>()
+  // 角色卡按 id 缓存（PHASE-23 M2-6）：24 拍逐拍 `character.get()` 是 N+1，
+  // 同一场最多 3 个发言角色，一次取齐即可。
+  const characterCache = new Map<string, ReturnType<Repos['character']['get']>>()
+  const characterOf = (characterId: string): ReturnType<Repos['character']['get']> => {
+    if (!characterCache.has(characterId)) characterCache.set(characterId, repos.character.get(characterId))
+    return characterCache.get(characterId) ?? null
+  }
   for (const member of members) {
-    const character = repos.character.get(member.speakerId)
+    const character = characterOf(member.speakerId)
     const card = character ? parseCharacterCard(character.cardJson) : null
     const existing = byCharacter.get(member.speakerId)
     if (existing) {

@@ -2340,6 +2340,8 @@ export async function retrieveOwn(q: Query, ctx: RetrievalCtx): Promise<Ref[]> {
 | pinned | 独立成段，最多 5 条，不参与相关性排序（PRD §8.4） |
 | 时间衰减 | **不做**（PRD §8.4） |
 
+**实现备注（PHASE-23）**：向量召回 SQL 必须写成 `memory_vec v CROSS JOIN memory_entry m`。普通 `JOIN` 时 SQLite 会选 `memory_own(character_id, status, learned_seq)` 当外循环，对每条候选记忆各跑一次 vec0 全表扫描；3,000 条记忆时单次检索从 9ms 退化到 ~1.5s（`tests/perf/m2-scale.spec.ts` 会红）。`character_id` / `as_of` / `archived_at` 的过滤仍在 join 后完成，语义不变。
+
 **中文 bigram（工程补充）**：
 
 ```ts
@@ -2781,7 +2783,7 @@ type UiState = {
 
 **M2 依赖链**：19 → 20 → 21 → 22 → 23 → 24。0012 在 19（`voice_metric`）、0013 在 20（`chapter.budget_cny` + `turn_metric.chapter_id`）、0014 在 22（归档列 + `cached_tokens` + 审计动作）；23 默认不加迁移，若实测必须加索引则只用 0015 且只加 `CREATE INDEX`；24 不动 schema。任一环阻塞先砍该阶段 P2/P3，不砍 PRD M2 的四条退出标准。
 
-**现状（2026-11-24）**：阶段 11–22 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20 交付双预算自动模式与成本报表（`LATEST_SCHEMA_VERSION = 13`，基线 `docs/M2-COST-BASELINE.md`）；阶段 21 交付显式故障切换与异构默认值校准（ADR-0008 / ADR-0009 / `docs/M2-HETERO-CALIBRATION.md`，无迁移；标签 `phase-21-done` → `825ea4c`）；阶段 22 交付归档与上下文成本（迁移 0014，`LATEST_SCHEMA_VERSION = 14`；基线 `docs/M2-CONTEXT-COST.md`；标签 `phase-22-done` → `706b62c`）；阶段 23–24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
+**现状（2026-11-24）**：阶段 11–23 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20 交付双预算自动模式与成本报表（`LATEST_SCHEMA_VERSION = 13`，基线 `docs/M2-COST-BASELINE.md`）；阶段 21 交付显式故障切换与异构默认值校准（ADR-0008 / ADR-0009 / `docs/M2-HETERO-CALIBRATION.md`，无迁移；标签 `phase-21-done` → `825ea4c`）；阶段 22 交付归档与上下文成本（迁移 0014，`LATEST_SCHEMA_VERSION = 14`；基线 `docs/M2-CONTEXT-COST.md`；标签 `phase-22-done` → `706b62c`）；阶段 23 交付 10 万字性能专项（`PERF-M2-01`；检索 `CROSS JOIN` 修复；无迁移，0015 未使用；基线 `docs/M2-PERF-BASELINE.md`）；阶段 24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
 
 ### 12.5 M0 砍单清单（写死在范围里）
 
@@ -2983,6 +2985,8 @@ response:
 | 生成一拍（不含模型） | 24 拍章节 | 装配 + 校验 < 150ms |
 | 导出 30 章 Markdown | 120k 字 | < 2s |
 | 内存 | 打开项目后 | < 600MB |
+
+阶段 23（M2-6）在 10 万字 / 3,000 条记忆的夹具上复测上述口径，并补 T23 时间线、上下文装配、成本报表、声音指标、归档候选、DOCX 导出与查询计数；实测数字、优化依据与局限见 `docs/M2-PERF-BASELINE.md`。性能门只在 `pnpm test:perf` / nightly 跑，不进每次提交。
 
 ### 13.8 安全与隔离测试
 
@@ -3325,6 +3329,8 @@ M2-7（非事实类归档）与 M2-9（上下文成本）同样是工程质量�
 ---
 
 ## 变更记录
+
+- **v0.15（阶段 23 实施）**：M2-6 10 万字性能专项。新增 `PERF-M2-01`（`tests/perf/m2-scale.spec.ts`：30 章 / 720 拍 / 119,660 字 / 3,000 记忆 / 90 声音行 / 153 成本行 / 12 伏笔，确定性计划与 `fixtureDigest`）与 `scripts/m2-perf-report.mjs`（JSON + Markdown）；基线 `docs/M2-PERF-BASELINE.md`。§10.4 增加实现备注：向量召回必须 `memory_vec CROSS JOIN memory_entry`，否则 SQLite 反选 `memory_own` 当外循环，3k 记忆时单次检索 ~1.5s；§13.7 指向新基线。数据层批量取数：`MemoryRepo.listByIds`、`MemoryIndexRepo.readVectors`、声音角色卡缓存；UI：记忆台与已归档列表每页 50 行（`shared/domain/pagination.ts`，UI-DESIGN §7.4）。**未改 PRD 契约与工具 manifest；未新增迁移（0015 未使用），`LATEST_SCHEMA_VERSION = 14`**。检索语义不变（top30 + RRF + 门槛 + 去重 + pinned）；`PERF-01` / `PERF-M1-01` 不退化（检索 P95 3ms）。
 
 - **v0.14（阶段 22 实施）**：迁移 `0014_archive_context.sql`（`memory_entry.archived_at/archive_reason` + `memory_entry_archive` 索引；`turn_metric.cached_tokens`；`memory_audit.action` 重建 CHECK 加入 `archive` / `restore`，旧行逐列复制、id 不变；`LATEST_SCHEMA_VERSION = 14`）；§4.3 IPC 增加 `memory.archive.candidates/issue/apply/restore`（`author_confirm`，批次哈希绑定）；§5.22 记录归档候选、软失效、令牌/幂等与缓存口径；§7.3 增加块去重、L3 旁观者相关裁与「最近拍先到 4」；§7.4 增加 `cached_tokens` 解析与 NULL 语义。**未改工具 manifest、闸门语义、`voice_metric` 与正文写入路径**；归档只用 `author_confirm`，不新增 G7。上下文成本基线见 `docs/M2-CONTEXT-COST.md`（180 拍：2,725 → 2,167，−20.5%；P95 不升；裁剪 0%）。`E2E-M2-ARCHIVE-01` / `COST-M2-02` 覆盖。
 - **v0.13（阶段 21 实施）**：设置新增 `routing`（`enabled` / `fallbackOn` / `cooldownMs` / 逐 Agent `agents`，默认关闭；补丁不带 default，旧设置文件缺字段可读）；§7.7 增加故障切换、熔断与留痕规则；§9.9 增加「先异构、后健康检查」的审批优先级。新增只读 IPC `routing.status`（内存健康快照）与 `review.calibration`（只读报告/patch/G6，D4 建议）；新增错误码 `routing_exhausted`（§18.2 已补文案）。**无迁移**（`LATEST_SCHEMA_VERSION = 13`）；不改工具 manifest、不改闸门语义、不改 `model_binding_audit`。D4 判定保持 `review.hetero=off`（ADR-0009），理由与 30 章校准见 `docs/M2-HETERO-CALIBRATION.md`。`E2E-M2-ROUTING-01` / `E2E-M2-CALIBRATION-01` 覆盖。

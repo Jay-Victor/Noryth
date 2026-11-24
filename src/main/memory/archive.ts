@@ -117,19 +117,23 @@ type VectorLookup = (entry: MemoryEntryRecord) => Float32Array | null
  * 同角色 keeper：`group` 已按 `(importance desc, learnedSeq desc, id asc)` 排序。
  * 文本相等优先（相似度 1）；否则只有**同一 embedding_model** 才比余弦。
  * 因为按重要度降序，扫到低于候选重要度即可停。
+ *
+ * PHASE-23 M2-6：3k 条记忆时逐条 `textKey()` 与逐条读向量都是热点：
+ * 文本键按条目缓存一次，向量按角色一次批量读回（`readVectors`）。
  */
 function keeperOf(
   candidate: MemoryEntryRecord,
   group: readonly MemoryEntryRecord[],
-  vectorOf: VectorLookup
+  vectorOf: VectorLookup,
+  keyOf: (entry: MemoryEntryRecord) => string
 ): KeeperHit | null {
-  const key = textKey(candidate.text)
+  const key = keyOf(candidate)
   const candidateVector = vectorOf(candidate)
   let similar: KeeperHit | null = null
   for (const other of group) {
     if (other.id === candidate.id) continue
     if (other.importance < candidate.importance) break
-    if (textKey(other.text) === key) return { keeper: other, similarity: 1 }
+    if (keyOf(other) === key) return { keeper: other, similarity: 1 }
     if (similar !== null) continue
     if (candidateVector === null) continue
     const otherVector = vectorOf(other)
@@ -167,10 +171,26 @@ export function buildArchiveCandidates(repos: Repos, projectId: string): Archive
   }
   for (const group of byCharacter.values()) group.sort(compareKeeperOrder)
 
-  const vectors = new Map<string, Float32Array | null>()
-  const vectorOf: VectorLookup = (entry) => {
-    if (!vectors.has(entry.id)) vectors.set(entry.id, repos.memoryIndex.readVector(entry.id))
-    return vectors.get(entry.id) ?? null
+  const textKeys = new Map<string, string>()
+  const keyOf = (entry: MemoryEntryRecord): string => {
+    const cached = textKeys.get(entry.id)
+    if (cached !== undefined) return cached
+    const key = textKey(entry.text)
+    textKeys.set(entry.id, key)
+    return key
+  }
+
+  // 向量按角色批量读回（PHASE-23 M2-6）：同一角色只发一条 IN 查询。
+  const vectorsByCharacter = new Map<string, Map<string, Float32Array>>()
+  const vectorOfFor = (characterId: string, group: readonly MemoryEntryRecord[]): VectorLookup => {
+    return (entry) => {
+      let vectors = vectorsByCharacter.get(characterId)
+      if (vectors === undefined) {
+        vectors = repos.memoryIndex.readVectors(group.map((item) => item.id))
+        vectorsByCharacter.set(characterId, vectors)
+      }
+      return vectors.get(entry.id) ?? null
+    }
   }
 
   const candidates: ArchiveCandidate[] = []
@@ -184,7 +204,7 @@ export function buildArchiveCandidates(repos: Repos, projectId: string): Archive
     )
   for (const entry of ordered) {
     const group = byCharacter.get(entry.characterId) ?? []
-    const hit = keeperOf(entry, group, vectorOf)
+    const hit = keeperOf(entry, group, vectorOfFor(entry.characterId, group), keyOf)
     if (hit === null) continue
     candidates.push({
       id: entry.id,

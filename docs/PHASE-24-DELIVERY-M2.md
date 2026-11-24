@@ -113,7 +113,7 @@
 | 生成物 / 规格 | `pnpm gen:check`、`check_ui_spec.py`、`check_tool_spec.py` |
 
 - M1 关键回归每次发布前跑：`E2E-M1-TIME-01`、`E2E-M1-ASOF-01`、`E2E-M1-REBUILD-01`、`E2E-M1-BLUEPRINT-01`、`E2E-M1-BRANCH-01`、`E2E-M1-DOCX-01`、`E2E-M1-SMOKE`、`E2E-M1-A`。
-- 版本 0.3.0：`package.json`、`app.info`、安装包文件名、`latest.yml` 一致；`schema_version` 记录实际（预计 14；若阶段 23 用了 0015 则为 15）。
+- 版本 0.3.0：`package.json`、`app.info`、安装包文件名、`latest.yml` 一致；`schema_version` 记录实际（阶段 23 未使用 0015，仍为 14）。
 - 安装冒烟：Win11 本机；Win10 22H2 有 VM 则跑，没有按外部依赖记录。
 - 更新演练：`update-drill` PASS；人工「安装 → 重启 → 迁移」发布前在干净机跑一次，记录为人工步骤。
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { MEMORY_PAGE_SIZE, pageSlice } from '../../../shared/domain/pagination'
 import type { MemoryState } from '../../../shared/schema/memory'
 import {
   MEMORY_ARCHIVE_BLOCK_LABELS,
@@ -27,6 +28,7 @@ export function MemoryArchivePanel({ state }: { state: MemoryState }): React.JSX
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirming, setConfirming] = useState(false)
   const [restoreId, setRestoreId] = useState<string | null>(null)
+  const [archivedPage, setArchivedPage] = useState(0)
 
   useEffect(() => {
     if (archive === null) void useMemory.getState().loadArchive()
@@ -36,6 +38,8 @@ export function MemoryArchivePanel({ state }: { state: MemoryState }): React.JSX
     () => state.entries.filter((entry) => entry.archivedAt !== null),
     [state.entries]
   )
+  // 已归档列表分页 50（PHASE-23 M2-6）：3,000 条记忆时归档区可能有上百行。
+  const archivedView = pageSlice(archivedEntries, archivedPage)
 
   if (loading && archive === null) {
     return (
@@ -190,55 +194,88 @@ export function MemoryArchivePanel({ state }: { state: MemoryState }): React.JSX
             还没有归档条目。
           </p>
         ) : (
-          archivedEntries.map((entry, index) => (
-            <div key={entry.id} className="memory-archive__item memory-archive__item--archived" data-testid={`archive-archived-${index}`} data-id={entry.id}>
-              <span className="memory-archive__kind">{MEMORY_KIND_LABELS[entry.kind] ?? entry.kind}</span>
-              <span className="memory-archive__who">{entry.characterName}</span>
-              <span className="memory-archive__text">{entry.text}</span>
-              <span className="pane-header__meta">
-                {entry.archiveReason
-                  ? (MEMORY_ARCHIVE_REASON_LABELS[entry.archiveReason] ?? entry.archiveReason)
-                  : '已归档'}
-                {entry.archivedAt ? ` · ${entry.archivedAt.slice(0, 10)}` : ''}
-              </span>
-              {restoreId === entry.id ? (
-                <span className="memory-archive__confirm" data-testid={`archive-restore-confirm-${index}`}>
-                  <span>恢复后重新参与检索（向量不重建）。确认？</span>
-                  <button
-                    type="button"
-                    className="plan-btn"
-                    data-testid={`archive-restore-run-${index}`}
-                    disabled={busy}
-                    onClick={() => {
-                      void useMemory.getState().restoreArchived(entry.id)
-                      setRestoreId(null)
-                    }}
-                  >
-                    确认恢复
-                  </button>
+          archivedView.items.map((entry, index) => {
+            const absolute = archivedView.page * MEMORY_PAGE_SIZE + index
+            return (
+              <div
+                key={entry.id}
+                className="memory-archive__item memory-archive__item--archived"
+                data-testid={`archive-archived-${absolute}`}
+                data-id={entry.id}
+              >
+                <span className="memory-archive__kind">{MEMORY_KIND_LABELS[entry.kind] ?? entry.kind}</span>
+                <span className="memory-archive__who">{entry.characterName}</span>
+                <span className="memory-archive__text">{entry.text}</span>
+                <span className="pane-header__meta">
+                  {entry.archiveReason
+                    ? (MEMORY_ARCHIVE_REASON_LABELS[entry.archiveReason] ?? entry.archiveReason)
+                    : '已归档'}
+                  {entry.archivedAt ? ` · ${entry.archivedAt.slice(0, 10)}` : ''}
+                </span>
+                {restoreId === entry.id ? (
+                  <span className="memory-archive__confirm" data-testid={`archive-restore-confirm-${absolute}`}>
+                    <span>恢复后重新参与检索（向量不重建）。确认？</span>
+                    <button
+                      type="button"
+                      className="plan-btn"
+                      data-testid={`archive-restore-run-${absolute}`}
+                      disabled={busy}
+                      onClick={() => {
+                        void useMemory.getState().restoreArchived(entry.id)
+                        setRestoreId(null)
+                      }}
+                    >
+                      确认恢复
+                    </button>
+                    <button
+                      type="button"
+                      className="plan-mini-btn"
+                      data-testid={`archive-restore-cancel-${absolute}`}
+                      onClick={() => setRestoreId(null)}
+                    >
+                      取消
+                    </button>
+                  </span>
+                ) : (
                   <button
                     type="button"
                     className="plan-mini-btn"
-                    data-testid={`archive-restore-cancel-${index}`}
-                    onClick={() => setRestoreId(null)}
+                    data-testid={`archive-restore-${absolute}`}
+                    disabled={state.readOnly || busy}
+                    onClick={() => setRestoreId(entry.id)}
                   >
-                    取消
+                    恢复
                   </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  className="plan-mini-btn"
-                  data-testid={`archive-restore-${index}`}
-                  disabled={state.readOnly || busy}
-                  onClick={() => setRestoreId(entry.id)}
-                >
-                  恢复
-                </button>
-              )}
-            </div>
-          ))
+                )}
+              </div>
+            )
+          })
         )}
+        {archivedView.pages > 1 ? (
+          <div className="memory-pager" data-testid="archive-archived-pager">
+            <button
+              type="button"
+              className="plan-mini-btn"
+              data-testid="archive-archived-prev"
+              disabled={archivedView.page === 0}
+              onClick={() => setArchivedPage(archivedView.page - 1)}
+            >
+              上一页
+            </button>
+            <span className="pane-header__meta" data-testid="archive-archived-info">
+              共 {archivedView.total} 条 · 第 {archivedView.page + 1}/{archivedView.pages} 页
+            </span>
+            <button
+              type="button"
+              className="plan-mini-btn"
+              data-testid="archive-archived-next"
+              disabled={archivedView.page >= archivedView.pages - 1}
+              onClick={() => setArchivedPage(archivedView.page + 1)}
+            >
+              下一页
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {archive.items.length > 0 && chosen.length > archive.batchLimit ? (

@@ -152,6 +152,9 @@ export async function retrieveOwn(
   const threshold = context.threshold ?? 0.35
   const kwFloor = context.kwFloor ?? 0
   const candidates = new Set<string>([...vectorRank.keys(), ...keywordRank.keys()])
+  // 批量取候选行（PHASE-23 M2-6）：逐条 get() 在 3k 记忆、top30×2 通道时
+  // 会多出最多 60 条同构单行查询；一次 IN 取回后仍逐条做可见性双保险。
+  const entriesById = new Map(repos.memory.listByIds([...candidates]).map((entry) => [entry.id, entry]))
 
   const scored: RetrievedItem[] = []
   for (const memoryId of candidates) {
@@ -160,7 +163,7 @@ export async function retrieveOwn(
     const passes = (cosine !== null && cosine >= threshold) || (bm25 !== null && bm25 >= kwFloor)
     if (!passes) continue
     const score = rrf(vectorRank.get(memoryId) ?? 999, 1.0) + rrf(keywordRank.get(memoryId) ?? 999, 0.7)
-    const entry = repos.memory.get(memoryId)
+    const entry = entriesById.get(memoryId)
     if (!entry) continue
     if (entry.characterId !== context.characterId) continue // 双保险：跨角色永不召回
     if (entry.status !== 'active') continue

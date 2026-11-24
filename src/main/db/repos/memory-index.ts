@@ -37,6 +37,14 @@ function embeddingBlob(vector: readonly number[]): Buffer {
   return Buffer.from(floats.buffer, floats.byteOffset, floats.byteLength)
 }
 
+function decodeVector(value: Buffer | Uint8Array): Float32Array | null {
+  const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value)
+  if (buffer.byteLength % 4 !== 0) return null
+  const copy = new Float32Array(buffer.byteLength / 4)
+  Buffer.from(copy.buffer, copy.byteOffset, copy.byteLength).set(buffer)
+  return copy
+}
+
 /** FTS5 MATCH 串：每个 token 加引号，内部引号翻倍；OR 连接。 */
 export function ftsMatchQuery(text: string): string | null {
   const tokens = [...bigrams(text)]
@@ -78,19 +86,25 @@ export class MemoryIndexRepo {
   }
 
   /**
-   * 读取单条向量（PHASE-22 归档候选的相似度判断）。
-   * 只读；把 sqlite-vec 的 BLOB 解成 Float32Array。行不存在返回 null。
+   * 批量读向量（PHASE-23 M2-6）：归档候选按角色一次取回，避免逐条查询；
+   * 单条语句最多 400 个占位符，超出按批切分。
    */
-  readVector(memoryId: string): Float32Array | null {
-    const row = this.runner.raw.prepare('SELECT embedding AS embedding FROM memory_vec WHERE memory_id = ?').get(memoryId) as
-      | { embedding: Buffer | Uint8Array }
-      | undefined
-    if (!row) return null
-    const buffer = Buffer.isBuffer(row.embedding) ? row.embedding : Buffer.from(row.embedding)
-    if (buffer.byteLength % 4 !== 0) return null
-    const copy = new Float32Array(buffer.byteLength / 4)
-    Buffer.from(copy.buffer, copy.byteOffset, copy.byteLength).set(buffer)
-    return copy
+  readVectors(memoryIds: readonly string[]): Map<string, Float32Array> {
+    const unique = [...new Set(memoryIds)]
+    const out = new Map<string, Float32Array>()
+    const chunkSize = 400
+    for (let start = 0; start < unique.length; start += chunkSize) {
+      const slice = unique.slice(start, start + chunkSize)
+      const placeholders = slice.map(() => '?').join(',')
+      const rows = this.runner.raw
+        .prepare(`SELECT memory_id AS memory_id, embedding AS embedding FROM memory_vec WHERE memory_id IN (${placeholders})`)
+        .all(...slice) as Array<{ memory_id: string; embedding: Buffer | Uint8Array }>
+      for (const row of rows) {
+        const vector = decodeVector(row.embedding)
+        if (vector !== null) out.set(row.memory_id, vector)
+      }
+    }
+    return out
   }
 
   countVectors(): number {
@@ -98,13 +112,21 @@ export class MemoryIndexRepo {
     return row.count
   }
 
-  /** KNN：k 必须是小整数常量；这里只允许调用方传 1–200 的整数。 */
+  /**
+   * KNN：k 必须是小整数常量；这里只允许调用方传 1–200 的整数。
+   *
+   * 必须写成 `CROSS JOIN`（PHASE-23 M2-6）：普通 JOIN 时 SQLite 会选
+   * `memory_own(character_id, status, learned_seq)` 当外循环，对每条候选记忆
+   * 各跑一次 vec0 全表扫描——3,000 条记忆时单次召回从 2ms 退化到 ~1s。
+   * CROSS JOIN 固定「vec0 先取 k 个最近邻，再按 id 过滤」的执行顺序，
+   * 与 DEV-PLAN §10.4「向量召回 k=30，character_id 过滤在 join 中完成」一致。
+   */
   searchVector(vector: readonly number[], filter: VisibilityFilter, limit: number): VecHit[] {
     const k = Math.max(1, Math.min(200, Math.trunc(limit)))
     const sql = `
       SELECT v.memory_id AS memory_id, v.distance AS distance
       FROM memory_vec v
-      JOIN memory_entry m ON m.id = v.memory_id
+      CROSS JOIN memory_entry m ON m.id = v.memory_id
       WHERE v.embedding MATCH ?
         AND k = ${k}
         AND m.character_id = ?
