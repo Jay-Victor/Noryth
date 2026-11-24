@@ -901,7 +901,7 @@
 | 更新演练 | `node scripts/update-drill.mjs` | PASS：manifest sha512 / up_to_date / available / downgrade_blocked / failed / 真实下载 |
 | 基线文档 | `docs/M2-ACCEPTANCE.md` | PRD M2 四条证据 + 内测清单 + 已知问题 + 复跑命令；`M2-CONTEXT-COST` §7 / `M2-COST-BASELINE` §9 / `M2-METRICS-BASELINE` §3.1 / `M2-PERF-BASELINE` §7 已更新 |
 | 内测 | 作者委托 Agent 代审（2026-11-24） | 6 项：机器可测 1/2/5 通过、4 部分代审、3 无法代审（秒表）、6 未执行（外部试用）；不冒充人工 7 天（`docs/M2-ACCEPTANCE.md` §5.2） |
-| CI | GitHub Actions run `45424317414`（`c6ba0a2`）、`45425757554`（`f637b60`） | verify + e2e 两片均绿；package 按规则跳过（非 `v*` tag） |
+| CI | GitHub Actions run `45424317414`（`c6ba0a2`）、`45425757554`（`f637b60`）、`45427578857`（`ce3ff00`，收口文档） | verify + e2e 两片均绿；package 按规则跳过（非 `v*` tag） |
 | 阶段标签 | `phase-24-done` → `f637b60` | 已推送 origin（annotated tag `b707193`） |
 | 未执行（人工/外部） | — | 每千字净操作时间（秒表）/ 外部试用；GitHub Release 上传与 feed（作者决定暂不发布）；Win10 22H2（作者决定不测）；真实第二家 Key（作者决定不测） |
 
