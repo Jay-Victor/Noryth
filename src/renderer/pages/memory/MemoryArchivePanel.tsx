@@ -191,7 +191,7 @@ export function MemoryArchivePanel({ state }: { state: MemoryState }): React.JSX
           </p>
         ) : (
           archivedEntries.map((entry, index) => (
-            <div key={entry.id} className="memory-archive__item" data-testid={`archive-archived-${index}`} data-id={entry.id}>
+            <div key={entry.id} className="memory-archive__item memory-archive__item--archived" data-testid={`archive-archived-${index}`} data-id={entry.id}>
               <span className="memory-archive__kind">{MEMORY_KIND_LABELS[entry.kind] ?? entry.kind}</span>
               <span className="memory-archive__who">{entry.characterName}</span>
               <span className="memory-archive__text">{entry.text}</span>

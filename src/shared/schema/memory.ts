@@ -31,8 +31,9 @@ export const MEMORY_STATUS_LABELS: Record<string, string> = {
   superseded: '被取代'
 }
 
-/** 归档原因（0014 / PHASE-22）：当前只有「重复经历」。 */
+/** 归档原因（0014 / PHASE-22）：候选原因与落库原因都映射成中文。 */
 export const MEMORY_ARCHIVE_REASON_LABELS: Record<string, string> = {
+  duplicate_experience: '重复经历',
   redundant: '重复经历（软归档）'
 }
 

@@ -1015,3 +1015,136 @@
   gap: 4px;
   align-items: center;
 }
+
+/* 维护 → 归档（PHASE-22 M2-7） */
+.memory-archive {
+  overflow: auto;
+  padding: 10px 12px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.memory-archive__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+}
+
+.memory-archive__head .pane-header__meta,
+.memory-archive__toolbar .pane-header__meta,
+.memory-archive__item > .pane-header__meta {
+  margin-left: 0;
+}
+
+.memory-archive__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.memory-archive__confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px 8px;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-sm);
+  background: var(--warn-weak);
+  color: var(--warn);
+  font-size: 12px;
+}
+
+.memory-archive__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.memory-archive__item {
+  display: grid;
+  grid-template-columns: 18px 64px minmax(0, 1fr) auto;
+  grid-template-areas:
+    'check who text reason'
+    'check meta meta meta'
+    'check keeper keeper keeper';
+  gap: 2px 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-size: 12px;
+}
+
+.memory-archive__item.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+
+.memory-archive__item input[type='checkbox'] {
+  grid-area: check;
+}
+
+.memory-archive__who {
+  grid-area: who;
+  color: var(--fg);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-archive__text {
+  grid-area: text;
+  color: var(--fg-soft);
+  overflow-wrap: anywhere;
+}
+
+.memory-archive__reason {
+  grid-area: reason;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.memory-archive__item > .pane-header__meta {
+  grid-area: meta;
+}
+
+.memory-archive__keeper {
+  grid-area: keeper;
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-archive__archived {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.memory-archive__item--archived {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.memory-archive__kind {
+  font-size: 10px;
+  line-height: 16px;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--muted);
+  white-space: nowrap;
+}
