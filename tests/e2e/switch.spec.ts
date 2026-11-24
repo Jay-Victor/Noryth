@@ -172,7 +172,9 @@ test('E2E-M1-SWITCH-01：A 写一拍 → 切 B → 回 A，revision 与未确认
       timeout: 15_000
     })
     .toBe(proseBeforeFlat)
-  expect(await page.locator('[data-testid^="write-chapter-status-"]').first().innerText()).toBe(chapterStatusBefore)
+  await expect(page.locator('[data-testid^="write-chapter-status-"]').first()).toHaveText(chapterStatusBefore, {
+    timeout: 15_000
+  })
 
   const after = countRevisions(a.path)
   expect(after).toEqual(before)
