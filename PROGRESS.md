@@ -28,7 +28,7 @@
 | 20 | `docs/PHASE-20-COST-BUDGET.md` | done | M2-3 章预算（token + ¥，出口优先，暂停/恢复不丢拍，`job.result_json.budget`）+ 费用预测（最近 5 拍中位数 / 0.7–1.3 / 无计价 null）+ 状态栏预算段；M2-5 全链路计量（`turn_metric.chapter_id`：写拍/审批/记忆/讨论/规划）+ `report.cost` + `CostReportDialog`（本章/全书、按章/按 Agent、预算编辑、费用下限）+ 迁移 0013 + `docs/M2-COST-BASELINE.md`；`E2E-M2-BUDGET-01`、`E2E-M2-COST-01`、`COST-M2-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 335 modules / unit 840 / integration 58 / chaos 8 / e2e 36 / perf 2 / build / gen:check / 规格脚本）；基线 30 章 / 540 拍 / 2.73 万字 / ¥3.0912（¥1.1316 每万字） | 每千字净操作时间留阶段 24 秒表；非 DeepSeek 预设仍不计价（显示下限）；自动模式暂停账本行用 `beat.generate`（0013 不改 job 表，无独立 auto job 类型）；假 usage 基线不是报价；`E2E-M2-A` 100k 长跑在阶段 24 |
 | 21 | `docs/PHASE-21-ROUTING-HETERO.md` | done | M2-4 多供应商路由/故障切换（`routing` 设置、`model/router.ts`、`model/health.ts` 熔断、状态栏徽标、六 Agent 回合前切换）；M2-8 校准（`review/calibration.ts`、`scripts/m2-calibration.mjs`、`docs/M2-HETERO-CALIBRATION.md`、ADR-0008/0009）；`routing.status` / `review.calibration` 只读 IPC；错误码 `routing_exhausted`；无迁移 | 全部通过：本地门禁全绿（typecheck / lint / depcruise 341 modules / unit 857 / integration 61 / e2e 38（两片各 19）/ chaos 8 / perf 2 / build / gen:check / 规格脚本）；30 章校准：60 报告 / 60 阻断 / 30 定稿 / 审批 ¥1.2384 / `heteroDeltaPct=null`；CI run `45384289571` 全绿（verify + e2e 两片）；标签 `phase-21-done` → `825ea4c` | 真实第二家 Key 未补测；D4 保持 `review.hetero=off`；健康状态只在内存（重启清零）；「立即重试」按钮未做（§7 风险表建议项，不阻断） |
 | 22 | `docs/PHASE-22-ARCHIVE-CONTEXT.md` | done | M2-7 非事实类归档（`memory/archive.ts` 确定性候选 + `apply.archiveMemoryEntries` 单事务 + `memory_audit` archive/restore + 记忆台「维护」tab + `memory.archive.*` 四个 IPC + 归档过滤/计数/缓存失效）；M2-9 上下文成本（块去重、L3 相关裁、最近拍 4→2 兜底、提示词去重、`cached_tokens` 解析 + 报表/检查器）；迁移 0014（`memory_entry.archived_at/archive_reason` + `memory_entry_archive` + `turn_metric.cached_tokens` + `memory_audit` CHECK 重建，`LATEST_SCHEMA_VERSION = 14`）；基线 `docs/M2-CONTEXT-COST.md`（180 拍：2,725 → 2,167，−20.5%；P95 不升；裁剪 0%）；`E2E-M2-ARCHIVE-01`、`COST-M2-02` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 344 modules / unit 873 / integration 61 / e2e 41 / chaos 8 / perf 2 / build / gen:check / 规格脚本）；CI run `45395894252` / `45398509831` 全绿（verify + e2e 两片）；标签 `phase-22-done` → `706b62c` | 真实供应商缓存命中率未测（单家 Key，外部依赖）；归档不做语义判断，只按 kind + 引用 + 文本/向量相似度；`skipped` 不半写但需要作者重新勾选；100k 项目的上下文成本留阶段 24 复测 |
-| 23 | `docs/PHASE-23-SCALE-100K.md` | done | M2-6 10 万字性能专项：`PERF-M2-01` 夹具（30 章 / 720 拍 / 119,660 字 / 3,000 记忆 / 90 声音行 / 153 成本行 / 12 伏笔，确定性计划）+ `scripts/m2-perf-report.mjs` + `docs/M2-PERF-BASELINE.md`；修复 vec0 KNN 被 SQLite 反选外循环（`CROSS JOIN`，检索 P95 1,521→9ms）、检索/归档批量取数、声音角色卡缓存、记忆台分页 50；无迁移（`LATEST_SCHEMA_VERSION = 14`，0015 未使用） | `pnpm test:perf` 4 passed；打开 31.6ms / 切章 1.3ms / T23 0.2ms / 检索 8.8ms / 装配 4.8ms / 报表 1.7ms / 声音 1.4ms / 归档 30.3ms / MD 16.7ms / DOCX 203.4ms / RSS 254.2MB；查询计数 8/9/8/4；unit 878 / integration 61 / e2e 41 绿；旧基线不退化（检索 3ms） | — |
+| 23 | `docs/PHASE-23-SCALE-100K.md` | done | M2-6 10 万字性能专项：`PERF-M2-01` 夹具（30 章 / 720 拍 / 119,660 字 / 3,000 记忆 / 90 声音行 / 153 成本行 / 12 伏笔，确定性计划）+ `scripts/m2-perf-report.mjs` + `docs/M2-PERF-BASELINE.md`；修复 vec0 KNN 被 SQLite 反选外循环（`CROSS JOIN`，检索 P95 1,521→9ms）、检索/归档批量取数、声音角色卡缓存、记忆台分页 50；无迁移（`LATEST_SCHEMA_VERSION = 14`，0015 未使用） | `pnpm test:perf` 4 passed；打开 31.6ms / 切章 1.3ms / T23 0.2ms / 检索 8.8ms / 装配 4.8ms / 报表 1.7ms / 声音 1.4ms / 归档 30.3ms / MD 16.7ms / DOCX 203.4ms / RSS 254.2MB；查询计数 8/9/8/4；unit 878 / integration 61 / e2e 41 绿；旧基线不退化（检索 3ms）；CI run `45416212068` 全绿（verify 2m40 + e2e 3m03/2m54）；标签 `phase-23-done` → `fa3287d` | — |
 | 24 | `docs/PHASE-24-DELIVERY-M2.md` | todo | M2-10 100k 长跑 / QA / 内测 / M2 验收；0.3.0；`docs/M2-ACCEPTANCE.md` | — | 阶段文档已建（2026-11-17），未开工 |
 
 状态：`todo` / `in_progress` / `blocked` / `done`。
@@ -870,10 +870,12 @@
 | 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 变更） |
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
 | 基线文档 | `docs/M2-PERF-BASELINE.md` | 命令、机器、P50/P95、查询计数、优化依据、局限 |
+| CI | GitHub Actions run `45416212068`（`fa3287d`） | verify 2m40 / e2e (1) 3m03 / e2e (2) 2m54 全绿；package 按规则跳过 |
+| 阶段标签 | `phase-23-done` → `fa3287d` | 已推送 origin |
 
 ## 当前阻塞
 
-- 阶段 23 已 `done`（2026-11-24）：M2-6 10 万字性能专项——`PERF-M2-01` 夹具（30 章 / 720 拍 / 119,660 字 / 3,000 记忆 / 90 声音行 / 153 成本行 / 12 伏笔，确定性计划）、`scripts/m2-perf-report.mjs`、`docs/M2-PERF-BASELINE.md`；修复 vec0 KNN 被 SQLite 反选外循环（`CROSS JOIN`，检索 P95 1,521→9ms）、检索/归档批量取数、声音角色卡缓存、记忆台分页 50；无迁移（`LATEST_SCHEMA_VERSION = 14`，0015 未使用）。本地门禁全绿（unit 878 / integration 61 / perf 4 / build / gen:check / 规格脚本）；CI 待提交后跑。
+- 阶段 23 已 `done`（2026-11-24）：M2-6 10 万字性能专项——`PERF-M2-01` 夹具（30 章 / 720 拍 / 119,660 字 / 3,000 记忆 / 90 声音行 / 153 成本行 / 12 伏笔，确定性计划）、`scripts/m2-perf-report.mjs`、`docs/M2-PERF-BASELINE.md`；修复 vec0 KNN 被 SQLite 反选外循环（`CROSS JOIN`，检索 P95 1,521→9ms）、检索/归档批量取数、声音角色卡缓存、记忆台分页 50；无迁移（`LATEST_SCHEMA_VERSION = 14`，0015 未使用）。本地门禁全绿（unit 878 / integration 61 / e2e 41 / perf 4 / build / gen:check / 规格脚本）；CI run `45416212068` 全绿；标签 `phase-23-done` → `fa3287d`。
 - M2 进行中（2026-11-24）：阶段 19–23 已 `done`；阶段 24 仍为 `todo`，下一步从 `docs/PHASE-24-DELIVERY-M2.md` 开始（M2-10 100k 长跑 / QA / 内测 / 0.3.0 / `docs/M2-ACCEPTANCE.md`）。
 - **作者决定不测的外部依赖（2026-11-17，不阻断 M1/M2 收口）**：
   - Windows 10 22H2 安装冒烟：本机只有 Win11，未执行；在 Win10 VM 上跑 `node scripts/install-smoke.mjs`（PHASE-18 §7）。
@@ -920,7 +922,7 @@
   5. `E2E-M1-BRANCH-01`（重开定稿 / 分支对比与切换 / 再定稿自动重建记忆，阶段 16）✅
   6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）✅
   7. `E2E-M1-SMOKE`（3 章闭环，提交门）/ `E2E-M1-A`（30 章，nightly）/ `E2E-M1-TOOLCALL` ✅
-- 阶段 23 已 `done`（2026-11-24）；M2-6 交付；`PERF-M2-01` 全部目标 PASS（数字见 `docs/M2-PERF-BASELINE.md`），旧 `PERF-01` / `PERF-M1-01` 未退化。阶段 24 开工：M2-10 100k 长跑 / QA / 内测 / M2 验收（`docs/PHASE-24-DELIVERY-M2.md`），版本 0.3.0，产出 `docs/M2-ACCEPTANCE.md`。
+- 阶段 23 已 `done`（2026-11-24，标签 `phase-23-done` → `fa3287d`）；M2-6 交付；`PERF-M2-01` 全部目标 PASS（数字见 `docs/M2-PERF-BASELINE.md`），旧 `PERF-01` / `PERF-M1-01` 未退化。阶段 24 开工：M2-10 100k 长跑 / QA / 内测 / M2 验收（`docs/PHASE-24-DELIVERY-M2.md`），版本 0.3.0，产出 `docs/M2-ACCEPTANCE.md`。
 - 阶段 23 直接复用（阶段 24 会用到）：
   - **100k 夹具**：`tests/perf/m2-scale.spec.ts` 的 `buildPlan()` 是纯函数（显式 id、固定时钟、无随机数），阶段 24 长跑可直接复用同一计划生成 30 章 / 10 万字；`fixtureDigest()` 用于断言确定性。
   - **查询计数**：`startQueryCounter(db)` 包装 `db.prepare`，报表/声音/归档/检索的语句数上界在 perf 门里断言；新增查询路径时先想清楚是否随章数线性增长。
