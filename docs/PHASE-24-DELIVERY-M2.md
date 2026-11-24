@@ -137,7 +137,7 @@
 - [x] `E2E-M2-A`：30 章 / 100,000+ 字 / 30 final；每 5 章 `project.verify()` 绿；0 孤儿 / 0 双活 / 0 failed job / 0 `context_overflow`；至少一卷 G2→G7；RSS <600MB（私有合计）。（2026-11-24：`pnpm test:e2e:m2a` 27.8s；142,344 字确认正文；三卷逐章 G2→G7；私有 514–520MB）
 - [x] `E2E-M2-SMOKE`：3 章闭环；`pnpm test:e2e` 全绿；提交门 <4 分钟。（`pnpm test:e2e` 42 passed / 4.1m；smoke 3.6s）
 - [x] `E2E-M2-BUDGET-01`：预算内跑完一场并正确收束；暂停/恢复不丢拍；`job.result_json.budget` 有证据。（`pnpm test:e2e` 绿；出口优先见 `tests/integration/budget.spec.ts`）
-- [x] `E2E-M2-METRICS-01` + `docs/M2-METRICS-BASELINE.md`：声音区分度、伏笔回收率、阈值版本、语料/局限。（长跑 §3.1：90/90 场景、270 对、0 低于阈值、最低 0.4333；伏笔 0.667）
+- [x] `E2E-M2-METRICS-01` + `docs/M2-METRICS-BASELINE.md`：声音区分度、伏笔回收率、阈值版本、语料/局限。（`docs/M2-METRICS-BASELINE.md` §3.1：90/90 场景、270 对、0 低于阈值、最低 0.4333；伏笔 0.667）
 - [x] `E2E-M2-COST-01` + `docs/M2-COST-BASELINE.md`：每万字成本、按章/Agent、项目级单列、对账一致。（§9：¥3.67252 / 142,344 字 = ¥0.2580 每万字；规划 ¥0.0074 单列）
 - [x] M1 关键回归全绿（时间线 / as-of / 重建 / 蓝图 / 分支 / DOCX / smoke / 30 章长跑）。（`pnpm test:e2e` 42 passed；`pnpm test:e2e:m1a` 21.6s / 30 章 / 私有 514MB）
 - [x] 全量门禁：typecheck / lint / depcruise / unit / integration / chaos / e2e / perf / build / gen:check / 规格脚本。（878 / 61 / 8 / 42 / 4；0 违规；0 diff）
@@ -178,5 +178,5 @@
 | 安装冒烟 | PASS：0.3.0 / schema 14 / packaged=true / `embedder source=model` / user_version=14 / 卸载清理 |
 | 更新演练 | PASS：manifest sha512 / up_to_date / available / downgrade_blocked / failed / 真实下载 |
 | 基线 | `docs/M2-CONTEXT-COST.md` §7、`docs/M2-COST-BASELINE.md` §9、`docs/M2-METRICS-BASELINE.md` §3.1、`docs/M2-PERF-BASELINE.md` §7 已按长跑数字更新 |
-| 未完成（人工） | 作者 7 天自测 / 每千字净操作时间 / 外部试用；GitHub Release 上传与 feed；Win10 22H2（作者决定不测）；真实第二家 Key（作者决定不测） |
-| 标签 | `phase-24-done` 待 CI 全绿后打；发布标签 `v0.3.0-m2.1` 与 Release 上传属发布动作，未执行 |
+| 未完成（人工） | 作者 7 天自测（已按作者委托 Agent 代审，§5.2）/ 每千字净操作时间（秒表）/ 外部试用；GitHub Release 上传与 feed（作者决定暂不发布）；Win10 22H2（作者决定不测）；真实第二家 Key（作者决定不测） |
+| 标签 | `phase-24-done` → `f637b60`（CI `45425757554`）已推送；发布标签 `v0.3.0-m2.1` 与 Release 上传属发布动作，作者决定暂不发布 |
