@@ -27,7 +27,7 @@
 | 19 | `docs/PHASE-19-VOICE.md` | done | M2-1：T25 `voice.metrics` 实现（逐角色 + 两两分项 + `threshold`，1.1.0，审批白名单 19→20）；`zh-v1` 中文夹具语料校准（0.252；FPR 2.0% / TPR 97.5%）+ `scripts/calibrate-voice.mjs`；迁移 0012 `voice_metric`（scene + revision 一行）+ `voice.scene` 只读 IPC；M2-2：创作台场景头徽标 + 审批台 `VoicePanel` + 报告运行时 `voice` 建议（只建议，不阻断 G6）；`scripts/m2-baseline.mjs` + `docs/M2-METRICS-BASELINE.md` + ADR-0007；`E2E-M2-VOICE-01`、`E2E-M2-METRICS-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 328 modules / unit 827 / integration 48 / chaos 8 / e2e 34 / perf 2 / build / gen:check / 规格脚本）；CI run `44914033792` 全绿（verify + e2e 两片）；标签 `phase-19-done` → `eed3ef1` | 语料是合成夹具（阈值是起点，真实项目需复跑基线）；项目基线用假模型文本（最低一对 0 分，不代表真实分数）；旁白不参与两两区分度；声音建议只在 G4 全量报告追加（复检报告不重复） |
 | 20 | `docs/PHASE-20-COST-BUDGET.md` | done | M2-3 章预算（token + ¥，出口优先，暂停/恢复不丢拍，`job.result_json.budget`）+ 费用预测（最近 5 拍中位数 / 0.7–1.3 / 无计价 null）+ 状态栏预算段；M2-5 全链路计量（`turn_metric.chapter_id`：写拍/审批/记忆/讨论/规划）+ `report.cost` + `CostReportDialog`（本章/全书、按章/按 Agent、预算编辑、费用下限）+ 迁移 0013 + `docs/M2-COST-BASELINE.md`；`E2E-M2-BUDGET-01`、`E2E-M2-COST-01`、`COST-M2-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 335 modules / unit 840 / integration 58 / chaos 8 / e2e 36 / perf 2 / build / gen:check / 规格脚本）；基线 30 章 / 540 拍 / 2.73 万字 / ¥3.0912（¥1.1316 每万字） | 每千字净操作时间留阶段 24 秒表；非 DeepSeek 预设仍不计价（显示下限）；自动模式暂停账本行用 `beat.generate`（0013 不改 job 表，无独立 auto job 类型）；假 usage 基线不是报价；`E2E-M2-A` 100k 长跑在阶段 24 |
 | 21 | `docs/PHASE-21-ROUTING-HETERO.md` | done | M2-4 多供应商路由/故障切换（`routing` 设置、`model/router.ts`、`model/health.ts` 熔断、状态栏徽标、六 Agent 回合前切换）；M2-8 校准（`review/calibration.ts`、`scripts/m2-calibration.mjs`、`docs/M2-HETERO-CALIBRATION.md`、ADR-0008/0009）；`routing.status` / `review.calibration` 只读 IPC；错误码 `routing_exhausted`；无迁移 | 全部通过：本地门禁全绿（typecheck / lint / depcruise 341 modules / unit 857 / integration 61 / e2e 38（两片各 19）/ chaos 8 / perf 2 / build / gen:check / 规格脚本）；30 章校准：60 报告 / 60 阻断 / 30 定稿 / 审批 ¥1.2384 / `heteroDeltaPct=null`；CI run `45384289571` 全绿（verify + e2e 两片）；标签 `phase-21-done` → `825ea4c` | 真实第二家 Key 未补测；D4 保持 `review.hetero=off`；健康状态只在内存（重启清零）；「立即重试」按钮未做（§7 风险表建议项，不阻断） |
-| 22 | `docs/PHASE-22-ARCHIVE-CONTEXT.md` | done | M2-7 非事实类归档（`memory/archive.ts` 确定性候选 + `apply.archiveMemoryEntries` 单事务 + `memory_audit` archive/restore + 记忆台「维护」tab + `memory.archive.*` 四个 IPC + 归档过滤/计数/缓存失效）；M2-9 上下文成本（块去重、L3 相关裁、最近拍 4→2 兜底、提示词去重、`cached_tokens` 解析 + 报表/检查器）；迁移 0014（`memory_entry.archived_at/archive_reason` + `memory_entry_archive` + `turn_metric.cached_tokens` + `memory_audit` CHECK 重建，`LATEST_SCHEMA_VERSION = 14`）；基线 `docs/M2-CONTEXT-COST.md`（180 拍：2,725 → 2,167，−20.5%；P95 不升；裁剪 0%）；`E2E-M2-ARCHIVE-01`、`COST-M2-02` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 344 modules / unit 873 / integration 61 / e2e 41 / chaos 8 / perf 2 / build / gen:check / 规格脚本）；CI run `45395894252` 全绿（verify + e2e 两片）；标签 `phase-22-done` → `536b7db` | 真实供应商缓存命中率未测（单家 Key，外部依赖）；归档不做语义判断，只按 kind + 引用 + 文本/向量相似度；`skipped` 不半写但需要作者重新勾选；100k 项目的上下文成本留阶段 24 复测 |
+| 22 | `docs/PHASE-22-ARCHIVE-CONTEXT.md` | done | M2-7 非事实类归档（`memory/archive.ts` 确定性候选 + `apply.archiveMemoryEntries` 单事务 + `memory_audit` archive/restore + 记忆台「维护」tab + `memory.archive.*` 四个 IPC + 归档过滤/计数/缓存失效）；M2-9 上下文成本（块去重、L3 相关裁、最近拍 4→2 兜底、提示词去重、`cached_tokens` 解析 + 报表/检查器）；迁移 0014（`memory_entry.archived_at/archive_reason` + `memory_entry_archive` + `turn_metric.cached_tokens` + `memory_audit` CHECK 重建，`LATEST_SCHEMA_VERSION = 14`）；基线 `docs/M2-CONTEXT-COST.md`（180 拍：2,725 → 2,167，−20.5%；P95 不升；裁剪 0%）；`E2E-M2-ARCHIVE-01`、`COST-M2-02` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 344 modules / unit 873 / integration 61 / e2e 41 / chaos 8 / perf 2 / build / gen:check / 规格脚本）；CI run `45395894252` / `45398509831` 全绿（verify + e2e 两片）；标签 `phase-22-done` → `706b62c` | 真实供应商缓存命中率未测（单家 Key，外部依赖）；归档不做语义判断，只按 kind + 引用 + 文本/向量相似度；`skipped` 不半写但需要作者重新勾选；100k 项目的上下文成本留阶段 24 复测 |
 | 23 | `docs/PHASE-23-SCALE-100K.md` | todo | M2-6 10 万字性能专项；`PERF-M2-01`；0015 仅按需加索引 | — | 阶段文档已建（2026-11-17），未开工 |
 | 24 | `docs/PHASE-24-DELIVERY-M2.md` | todo | M2-10 100k 长跑 / QA / 内测 / M2 验收；0.3.0；`docs/M2-ACCEPTANCE.md` | — | 阶段文档已建（2026-11-17），未开工 |
 
@@ -843,11 +843,14 @@
 | CI（首次） | run `45394778424`（`fe831da`） | verify 绿、e2e (1) 绿；e2e (2) 在 `E2E-M1-SWITCH-01` 读到空状态文案（切回 A 后立即读 innerText 的竞态） |
 | 竞态修复 | `tests/e2e/switch.spec.ts` | `toHaveText` 自动重试（语义不变）；单跑 3 passed |
 | CI（收口） | run `45395894252`（`536b7db`） | verify + e2e 两片全绿；package 按规则跳过（非 `v*` tag） |
-| 阶段标签 | `phase-22-done` → `536b7db` | 已推送 origin |
+| CI（文档提交） | run `45397201830`（`71a6a8a`） | verify + e2e 两片全绿 |
+| UI 巡检 | 1440×900 截图（临时 spec，已删） | 维护 tab 候选行原为无样式内联文本、reason 显示英文；`706b62c` 补网格/已归档行/左对齐并把 `duplicate_experience` 映射为「重复经历」；复查无裁切/溢出 |
+| CI（UI 修复） | run `45398509831`（`706b62c`） | verify + e2e 两片全绿；package 跳过 |
+| 阶段标签 | `phase-22-done` → `706b62c` | 已推送 origin（UI 修复后从 `536b7db` 移动） |
 
 ## 当前阻塞
 
-- 阶段 22 已 `done`（2026-11-24）：M2-7 非事实类归档（`memory/archive.ts` + `apply.archiveMemoryEntries` + `memory.archive.*` + 记忆台「维护」）+ M2-9 上下文成本（块去重、L3 相关裁、最近拍 4→2、提示词去重、`cached_tokens`）；迁移 0014，`LATEST_SCHEMA_VERSION = 14`；基线 `docs/M2-CONTEXT-COST.md`（180 拍 −20.5%）。CI run `45395894252` 全绿；标签 `phase-22-done` → `536b7db`。
+- 阶段 22 已 `done`（2026-11-24）：M2-7 非事实类归档（`memory/archive.ts` + `apply.archiveMemoryEntries` + `memory.archive.*` + 记忆台「维护」）+ M2-9 上下文成本（块去重、L3 相关裁、最近拍 4→2、提示词去重、`cached_tokens`）；迁移 0014，`LATEST_SCHEMA_VERSION = 14`；基线 `docs/M2-CONTEXT-COST.md`（180 拍 −20.5%）。CI run `45395894252` / `45398509831` 全绿；标签 `phase-22-done` → `706b62c`。
 - M2 进行中（2026-11-24）：阶段 19–22 已 `done`；阶段 23–24 仍为 `todo`，下一步从 `docs/PHASE-23-SCALE-100K.md` 开始（M2-6 10 万字性能；0015 只在实测必须时加索引）。
 - **作者决定不测的外部依赖（2026-11-17，不阻断 M1/M2 收口）**：
   - Windows 10 22H2 安装冒烟：本机只有 Win11，未执行；在 Win10 VM 上跑 `node scripts/install-smoke.mjs`（PHASE-18 §7）。
@@ -894,7 +897,7 @@
   5. `E2E-M1-BRANCH-01`（重开定稿 / 分支对比与切换 / 再定稿自动重建记忆，阶段 16）✅
   6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）✅
   7. `E2E-M1-SMOKE`（3 章闭环，提交门）/ `E2E-M1-A`（30 章，nightly）/ `E2E-M1-TOOLCALL` ✅
-- 阶段 22 已 `done`（2026-11-24）；M2-7 / M2-9 交付；CI run `45395894252` 全绿，标签 `phase-22-done` → `536b7db`。阶段 23 开工：M2-6 10 万字性能专项（`docs/PHASE-23-SCALE-100K.md`），默认不加迁移，实测必须才用 0015 且只加 `CREATE INDEX`。
+- 阶段 22 已 `done`（2026-11-24）；M2-7 / M2-9 交付；CI run `45395894252` / `45398509831` 全绿，标签 `phase-22-done` → `706b62c`。阶段 23 开工：M2-6 10 万字性能专项（`docs/PHASE-23-SCALE-100K.md`），默认不加迁移，实测必须才用 0015 且只加 `CREATE INDEX`。
 - 阶段 22 直接复用（M2 会用到）：
   - **归档**：`buildArchiveCandidates()` 是唯一候选规则（只读、确定性）；写入只走 `archiveMemoryEntries()` / `restoreMemoryEntry()`（`memory/apply.ts`）；批次 id 用 `archiveBatchId(ids)`；令牌是 `author_confirm`（实体类型 `archive`），不是 G7。
   - **迁移 0014**：`memory_entry.archived_at/archive_reason`、`turn_metric.cached_tokens`、`memory_audit` CHECK 含 `archive/restore`；`LATEST_SCHEMA_VERSION = 14`。
