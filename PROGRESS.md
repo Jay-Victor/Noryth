@@ -428,6 +428,7 @@
 | 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
 | 提交 | `7e8e833`（feat + 文档）、`825ea4c`（fix：routing_exhausted 补记 job failed） | 已推送 origin/dev |
 | CI | GitHub Actions run `45384289571`（`825ea4c`） | verify 绿；e2e (1) / e2e (2) 均绿；package 按规则跳过（非 `v*` tag） |
+| CI（文档提交） | GitHub Actions run `45385713668`（`ed42ed5`） | verify + e2e 两片均绿；package 跳过；`edab431` 的 run 已取消（同一内容被 v0.13 变更记录取代） |
 | 阶段标签 | `phase-21-done` → `825ea4c` | 已推送 origin |
 
 ## 当前可运行命令
