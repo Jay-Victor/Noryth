@@ -2751,7 +2751,7 @@ type UiState = {
 
 **M2 依赖链**：19 → 20 → 21 → 22 → 23 → 24。0012 在 19（`voice_metric`）、0013 在 20（`chapter.budget_cny` + `turn_metric.chapter_id`）、0014 在 22（归档列 + `cached_tokens` + 审计动作）；23 默认不加迁移，若实测必须加索引则只用 0015 且只加 `CREATE INDEX`；24 不动 schema。任一环阻塞先砍该阶段 P2/P3，不砍 PRD M2 的四条退出标准。
 
-**现状（2026-11-21）**：阶段 11–21 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20 交付双预算自动模式与成本报表（`LATEST_SCHEMA_VERSION = 13`，基线 `docs/M2-COST-BASELINE.md`）；阶段 21 交付显式故障切换与异构默认值校准（ADR-0008 / ADR-0009 / `docs/M2-HETERO-CALIBRATION.md`，无迁移）；阶段 22–24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
+**现状（2026-11-21）**：阶段 11–21 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20 交付双预算自动模式与成本报表（`LATEST_SCHEMA_VERSION = 13`，基线 `docs/M2-COST-BASELINE.md`）；阶段 21 交付显式故障切换与异构默认值校准（ADR-0008 / ADR-0009 / `docs/M2-HETERO-CALIBRATION.md`，无迁移；标签 `phase-21-done` → `825ea4c`）；阶段 22–24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
 
 ### 12.5 M0 砍单清单（写死在范围里）
 
