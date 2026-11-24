@@ -873,7 +873,7 @@ Tabs：提案 / 角色记忆 / 世界状态 / 关系图 / 伏笔 / 维护 / 审�
 - [x] 定稿后可「重新打开」：旧 final 保留、新 draft 可编辑、再次定稿生成新 final（阶段 16 交付：`ReopenDialog.tsx` + `doc/reopen.ts`；`E2E-M1-BRANCH-01`）
 - [x] 版本 tab 有分支树：可开新分支、对比任意两版、切换分支不丢数据；final 不挂分支（阶段 16 交付：`BranchTree.tsx` + `doc/branches.ts`）
 - [x] 设置可开异构复检（默认关闭）；报告显示实际 provider，无第二家时标「异构不可用」不阻断（阶段 16 交付：`review/hetero.ts` + 设置页「审批」卡）
-- [ ] 设置可显式启用故障切换（默认关闭）：总开关 / 触发条件 / 冷却 / 逐 Agent 备用家；主家 429 后下一拍用备用，状态栏显示「备用」徽标；`auth` / 内容过滤不切换（阶段 21 交付：`model/router.ts` + `RoutingCard.tsx`；`E2E-M2-ROUTING-01`）
+- [x] 设置可显式启用故障切换（默认关闭）：总开关 / 触发条件 / 冷却 / 逐 Agent 备用家；主家 429 后下一拍用备用，状态栏显示「备用」徽标；`auth` / 内容过滤不切换（阶段 21 交付：`model/router.ts` + `RoutingCard.tsx`；`E2E-M2-ROUTING-01`）
 - [x] 记忆台「维护 → 归档」：候选（keeper / 相似度 / 原因）→ 勾选 → 确认 → 已归档列表 → 恢复；默认不含归档，可切「仅已归档」；只碰经历类、软归档、不物理删除（阶段 22 交付：`MemoryArchivePanel.tsx` + `memory.archive.*`；`E2E-M2-ARCHIVE-01`）
 - [x] 记忆列表与已归档列表每页 50 行，筛选变化回到第 1 页；1,000+ 行不一次性渲染（阶段 23 交付：`shared/domain/pagination.ts` + `MemoryBrowser.tsx` / `MemoryArchivePanel.tsx`；`pagination.test.ts`）
 - [x] 创作台可导出 DOCX：标题页（书名 / 作者 / 日期）+ 目录 + 每章分页；未定稿章标「草稿」；仅正文 / 正文 + 修订建议两档；同名文件追加序号不覆盖（阶段 17 交付：`ExportDialog.tsx` + `doc/export-docx.ts`；`E2E-M1-DOCX-01`）

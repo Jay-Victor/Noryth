@@ -117,7 +117,9 @@ node scripts/m2-perf-report.mjs --from out/perf/m2-perf-report.json
   记忆重复率、群戏人数与成本行按 M2 目标场景设定。
 - RSS 是 Node perf 进程的 `process.memoryUsage().rss`，不等于 Electron
   主进程 + 渲染进程 + GPU 的私有工作集合；阶段 24 的 100k 长跑用
-  `app.getAppMetrics()` 复测（`E2E-M2-A`）。
+  `app.getAppMetrics()` 复测（`E2E-M2-A`：30 章 / 14.2 万字 / 240 条记忆，
+  私有合计 514–520MB（< 600MB 门槛）、工作集合计 641–649MB（参考值，Electron
+  进程间共享页不重复计入私有值）；逐章 5 点采样，ch5 → ch30 增长 1.29×，< 1.5× 上限）。
 - 打开口径在测试进程内跑（迁移 + `db.verify()` + 摘要），不含 Electron 窗口创建；
   `PERF-01` 的历史口径相同，可纵向对比。
 - 性能门只在 `pnpm test:perf` / nightly 跑；共享 runner 的磁盘与杀软抖动会让

@@ -67,3 +67,31 @@ jobs:
         with:
           name: e2e-m1a-results
           path: test-results/
+
+  # E2E-M2-A（PHASE-24 §5.1）：3 卷 × 10 章 × 3 场 × 8 拍 = 720 拍 / ≥10 万字。
+  # 提交门只跑 3 章 E2E-M2-SMOKE；这里是 nightly / 发布前的 10 万字长跑。
+  m2-a:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: e2e M2-A (30 chapters / 100k words)
+        run: pnpm test:e2e:m2a > m2a.log 2>&1 || { tail -n 120 m2a.log; exit 1; }
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-m2a-results
+          path: |
+            m2a.log
+            test-results/

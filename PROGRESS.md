@@ -29,7 +29,7 @@
 | 21 | `docs/PHASE-21-ROUTING-HETERO.md` | done | M2-4 多供应商路由/故障切换（`routing` 设置、`model/router.ts`、`model/health.ts` 熔断、状态栏徽标、六 Agent 回合前切换）；M2-8 校准（`review/calibration.ts`、`scripts/m2-calibration.mjs`、`docs/M2-HETERO-CALIBRATION.md`、ADR-0008/0009）；`routing.status` / `review.calibration` 只读 IPC；错误码 `routing_exhausted`；无迁移 | 全部通过：本地门禁全绿（typecheck / lint / depcruise 341 modules / unit 857 / integration 61 / e2e 38（两片各 19）/ chaos 8 / perf 2 / build / gen:check / 规格脚本）；30 章校准：60 报告 / 60 阻断 / 30 定稿 / 审批 ¥1.2384 / `heteroDeltaPct=null`；CI run `45384289571` 全绿（verify + e2e 两片）；标签 `phase-21-done` → `825ea4c` | 真实第二家 Key 未补测；D4 保持 `review.hetero=off`；健康状态只在内存（重启清零）；「立即重试」按钮未做（§7 风险表建议项，不阻断） |
 | 22 | `docs/PHASE-22-ARCHIVE-CONTEXT.md` | done | M2-7 非事实类归档（`memory/archive.ts` 确定性候选 + `apply.archiveMemoryEntries` 单事务 + `memory_audit` archive/restore + 记忆台「维护」tab + `memory.archive.*` 四个 IPC + 归档过滤/计数/缓存失效）；M2-9 上下文成本（块去重、L3 相关裁、最近拍 4→2 兜底、提示词去重、`cached_tokens` 解析 + 报表/检查器）；迁移 0014（`memory_entry.archived_at/archive_reason` + `memory_entry_archive` + `turn_metric.cached_tokens` + `memory_audit` CHECK 重建，`LATEST_SCHEMA_VERSION = 14`）；基线 `docs/M2-CONTEXT-COST.md`（180 拍：2,725 → 2,167，−20.5%；P95 不升；裁剪 0%）；`E2E-M2-ARCHIVE-01`、`COST-M2-02` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 344 modules / unit 873 / integration 61 / e2e 41 / chaos 8 / perf 2 / build / gen:check / 规格脚本）；CI run `45395894252` / `45398509831` 全绿（verify + e2e 两片）；标签 `phase-22-done` → `706b62c` | 真实供应商缓存命中率未测（单家 Key，外部依赖）；归档不做语义判断，只按 kind + 引用 + 文本/向量相似度；`skipped` 不半写但需要作者重新勾选；100k 项目的上下文成本留阶段 24 复测 |
 | 23 | `docs/PHASE-23-SCALE-100K.md` | done | M2-6 10 万字性能专项：`PERF-M2-01` 夹具（30 章 / 720 拍 / 119,660 字 / 3,000 记忆 / 90 声音行 / 153 成本行 / 12 伏笔，确定性计划）+ `scripts/m2-perf-report.mjs` + `docs/M2-PERF-BASELINE.md`；修复 vec0 KNN 被 SQLite 反选外循环（`CROSS JOIN`，检索 P95 1,521→9ms）、检索/归档批量取数、声音角色卡缓存、记忆台分页 50；无迁移（`LATEST_SCHEMA_VERSION = 14`，0015 未使用） | `pnpm test:perf` 4 passed；打开 31.6ms / 切章 1.3ms / T23 0.2ms / 检索 8.8ms / 装配 4.8ms / 报表 1.7ms / 声音 1.4ms / 归档 30.3ms / MD 16.7ms / DOCX 203.4ms / RSS 254.2MB；查询计数 8/9/8/4；unit 878 / integration 61 / e2e 41 绿；旧基线不退化（检索 3ms）；CI run `45416212068` 全绿（verify 2m40 + e2e 3m03/2m54）；标签 `phase-23-done` → `fa3287d` | — |
-| 24 | `docs/PHASE-24-DELIVERY-M2.md` | todo | M2-10 100k 长跑 / QA / 内测 / M2 验收；0.3.0；`docs/M2-ACCEPTANCE.md` | — | 阶段文档已建（2026-11-17），未开工 |
+| 24 | `docs/PHASE-24-DELIVERY-M2.md` | in_progress | M2-10 QA / 内测 / M2 验收：`E2E-M2-A`（30 章 / 720 拍 / 142,344 字 / 30 final / 三卷逐章 G2→G7 / 每 5 章 verify / 0 孤儿 / 0 双活 / 0 failed / 0 overflow / 6 Agent / 伏笔 3-2-1 / 私有 514–520MB）、`E2E-M2-SMOKE`（3.6s，提交门）、长文本假适配器 `NORYTH_WRITE_FAKE_LONG`、`tests/e2e/m2-flow.ts`、`playwright.m2a.config.ts` + `pnpm test:e2e:m2a`、nightly `m2-a`、0.3.0 安装包 159.6MB + 安装冒烟 PASS + 更新演练 PASS；`docs/M2-ACCEPTANCE.md`；基线更新 `M2-CONTEXT-COST` §7 / `M2-COST-BASELINE` §9 / `M2-METRICS-BASELINE` §3.1 / `M2-PERF-BASELINE` §7 | PRD M2 四条均有用命令与实际输出（§1）；全量门禁 typecheck / lint / depcruise 345 / unit 878 / integration 61 / chaos 8 / e2e 42 / perf 4 / M1-A 21.6s / build / gen:check / 规格脚本 / 图标；安装 0.3.0 / schema 14 / `embedder source=model` | **人工内测待作者**（7 天自测 / 每千字净操作时间 / 外部试用）→ 签字或豁免后才标 done；标签 `phase-24-done` 未打（待 CI）；GitHub Release 未上传；Win10 22H2 与真实第二家 Key 作者决定不测；长跑内存余量 BACKLOG #15 |
 
 状态：`todo` / `in_progress` / `blocked` / `done`。
 
@@ -438,8 +438,9 @@
 - `pnpm test:unit`（878：unit+contract） / `pnpm vitest run tests/integration`（61）
 - `pnpm test:perf`（PERF-01 + PERF-M1-01 + PERF-M2-01 基线；nightly，不进提交门）
 - `node scripts/m2-perf-report.mjs`（跑 100k 基线并输出 `out/perf/m2-perf-report.json` + `.md`）
-- `pnpm test:chaos`（8 条 / CHAOS-01..09） / `pnpm test:e2e`（41）
+- `pnpm test:chaos`（8 条 / CHAOS-01..09） / `pnpm test:e2e`（42）
 - `pnpm build && pnpm test:e2e:m1a`（E2E-M1-A 30 章长跑；nightly/发布前）
+- `pnpm build && pnpm test:e2e:m2a`（E2E-M2-A 30 章 / 10 万字长跑；nightly/发布前）
 - `pnpm verify:embed`（bge 冷启动/单条/维度门槛；打包前手工跑）
 - `node scripts/calibrate-voice.mjs`（声音阈值校准；固定夹具，不进提交门）
 - `node scripts/m2-baseline.mjs <项目目录>`（只读质量基线：声音区分度 + 伏笔回收率）
@@ -873,10 +874,38 @@
 | CI | GitHub Actions run `45416212068`（`fa3287d`） | verify 2m40 / e2e (1) 3m03 / e2e (2) 2m54 全绿；package 按规则跳过 |
 | 阶段标签 | `phase-23-done` → `fa3287d` | 已推送 origin |
 
+## 验证记录（阶段 24，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| Lint | `pnpm lint` | 通过（新增 `m2-flow` / `m2-a` / `m2-smoke` / 长文本假适配器） |
+| 依赖边界 | `pnpm depcruise` | 345 modules / 1,733 deps，0 违规 |
+| 单元 + 契约 | `pnpm test:unit` | 878 passed（111 文件） |
+| 集成 | `pnpm vitest run tests/integration` | 61 passed（含预算出口优先） |
+| 混沌 | `pnpm test:chaos` | 8 passed / CHAOS-01..09 |
+| E2E | `pnpm test:e2e` | **42 passed（4.1m；新增 `E2E-M2-SMOKE` 3.6s）** |
+| 100k 长跑 | `pnpm build && pnpm test:e2e:m2a` | **1 passed（27.8s）**：30 章 / 720 拍 / 142,344 字确认正文（`beat` 合计 160,887）/ 30 final / 每 5 章 verify / 0 孤儿 / 0 双活 / 0 failed / 0 overflow / 240 记忆 / 30 摘要 / 150 声音行 / 6 Agent / 伏笔 3-2-1 / 私有 514–520MB（ch5→ch30 1.29×）/ 最慢章 1.26s |
+| M1 长跑回归 | `pnpm build && pnpm test:e2e:m1a` | 1 passed（21.6s）/ 1 skipped（成本夹具默认 skip）；30 章 / 私有 514MB |
+| 性能 | `pnpm test:perf` | 4 passed：PERF-01 打开 2ms / 切章 1ms / 检索 P95 3ms / 导出 13ms（148,104 字）/ DOCX 111ms / RSS 307MB；PERF-M1-01 打开 3ms / 切章 1ms / 摘要 1ms / RSS 150MB；PERF-M2-01 打开 31.1ms / 切章 1.2ms / T23 0.4ms / 检索 8.7ms / 装配 5.2ms / 报表 1.6ms / 声音 1.1ms / 归档 29.9ms / MD 14.9ms / DOCX 207.1ms / RSS 258.5MB / 查询 8-9-9-8-4 |
+| 预算证据 | `tests/e2e/budget.spec.ts` + `tests/integration/budget.spec.ts` | E2E：¥0.01 暂停 → 提高 → 恢复 → `draft_complete`，`job.result_json.budget` 两套数字；集成：出口优先（预算 500、`beats(1)` 1 拍收束） |
+| 声音 / 伏笔基线 | `node scripts/m2-baseline.mjs <长跑项目>` | 90/90 场景、270 对、0 低于阈值、最低 0.4333；伏笔 3 埋设 / 2 回收 / 1 open、回收率 0.667、超期 1 |
+| 成本基线 | `node scripts/m2-cost-baseline.mjs <长跑项目>` | ¥3.67252 / 142,344 字 = ¥0.2580 每万字；分章 0.12208–0.1248；角色 42.22% / 审批 33.72% / 旁白 13.33% / 记忆 10.46% / 规划 0.20% / 编排 0.07%；872 有计价 / 0 无计价 |
+| 迁移 | `tests/unit/migrator.test.ts` | 未新增迁移，`LATEST_SCHEMA_VERSION = 14` |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 图标 | `node scripts/gen-icons.mjs --check` | `icons ok: 9 files` |
+| 打包 | `pnpm dist` | `release/Noryth-0.3.0-setup.exe` 167,340,425 B（≈159.6MB）+ `latest.yml` + blockmap |
+| 安装冒烟 | `node scripts/install-smoke.mjs` | PASS：0.3.0 / schema 14 / packaged=true / `embedder source=model` / `user_version=14` / 卸载清理 |
+| 更新演练 | `node scripts/update-drill.mjs` | PASS：manifest sha512 / up_to_date / available / downgrade_blocked / failed / 真实下载 |
+| 基线文档 | `docs/M2-ACCEPTANCE.md` | PRD M2 四条证据 + 内测清单 + 已知问题 + 复跑命令；`M2-CONTEXT-COST` §7 / `M2-COST-BASELINE` §9 / `M2-METRICS-BASELINE` §3.1 / `M2-PERF-BASELINE` §7 已更新 |
+| 未执行（人工/外部） | — | 作者 7 天自测 / 每千字净操作时间 / 外部试用；GitHub Release 上传与 feed；Win10 22H2（作者决定不测）；真实第二家 Key（作者决定不测） |
+
 ## 当前阻塞
 
 - 阶段 23 已 `done`（2026-11-24）：M2-6 10 万字性能专项——`PERF-M2-01` 夹具（30 章 / 720 拍 / 119,660 字 / 3,000 记忆 / 90 声音行 / 153 成本行 / 12 伏笔，确定性计划）、`scripts/m2-perf-report.mjs`、`docs/M2-PERF-BASELINE.md`；修复 vec0 KNN 被 SQLite 反选外循环（`CROSS JOIN`，检索 P95 1,521→9ms）、检索/归档批量取数、声音角色卡缓存、记忆台分页 50；无迁移（`LATEST_SCHEMA_VERSION = 14`，0015 未使用）。本地门禁全绿（unit 878 / integration 61 / e2e 41 / perf 4 / build / gen:check / 规格脚本）；CI run `45416212068` 全绿；标签 `phase-23-done` → `fa3287d`。
-- M2 进行中（2026-11-24）：阶段 19–23 已 `done`；阶段 24 仍为 `todo`，下一步从 `docs/PHASE-24-DELIVERY-M2.md` 开始（M2-10 100k 长跑 / QA / 内测 / 0.3.0 / `docs/M2-ACCEPTANCE.md`）。
+- 阶段 24 `in_progress`（2026-11-24）：代码、全量门禁、100k 长跑、0.3.0 打包、安装冒烟与更新演练全部完成；PRD M2 四条有证据（`docs/M2-ACCEPTANCE.md`）。**待作者**：7 天自测 / 每千字净操作时间 / 外部试用，或明确豁免；在此之前 `docs/M2-ACCEPTANCE.md` 的自签与 `phase-24-done` 标签保持未完成（推送后补 CI run id）。
 - **作者决定不测的外部依赖（2026-11-17，不阻断 M1/M2 收口）**：
   - Windows 10 22H2 安装冒烟：本机只有 Win11，未执行；在 Win10 VM 上跑 `node scripts/install-smoke.mjs`（PHASE-18 §7）。
   - 真实第二家供应商补测：无 DashScope/Moonshot Key；ADR-0003 记录，M1-26。
@@ -923,6 +952,13 @@
   6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）✅
   7. `E2E-M1-SMOKE`（3 章闭环，提交门）/ `E2E-M1-A`（30 章，nightly）/ `E2E-M1-TOOLCALL` ✅
 - 阶段 23 已 `done`（2026-11-24，标签 `phase-23-done` → `fa3287d`）；M2-6 交付；`PERF-M2-01` 全部目标 PASS（数字见 `docs/M2-PERF-BASELINE.md`），旧 `PERF-01` / `PERF-M1-01` 未退化。阶段 24 开工：M2-10 100k 长跑 / QA / 内测 / M2 验收（`docs/PHASE-24-DELIVERY-M2.md`），版本 0.3.0，产出 `docs/M2-ACCEPTANCE.md`。
+- 阶段 24 已执行（2026-11-24，状态 `in_progress` 等作者签字）：`E2E-M2-A` 30 章 / 142,344 字 / 27.8s、`E2E-M2-SMOKE` 3.6s、0.3.0 安装包 159.6MB、安装冒烟与更新演练 PASS。直接复用：
+  - **长跑脚手架**：`tests/e2e/m2-flow.ts` 的 `seedLongrun`（3 卷 / 30 章 / 5 角色 / 3 场 × 8 拍，角色轮换）/ `runChapterM2`（章预算 + 编排回合 + 2 拍含重生成 + G4/G5/G6/G7）/ `launchM2` / `runPlanningTurn`；M1 的审批/记忆闭环从 `m1-flow.ts` 导出复用，不要复制第二份。
+  - **长文本假模型**：`NORYTH_WRITE_FAKE_LONG=1`（未打包构建）每拍 ≥150 字、按「角色：<名字>」选句长/口头禅；改风格或长度会同时影响声音基线，改后重跑 `scripts/m2-baseline.mjs`。
+  - **配置边界**：`playwright.m2a.config.ts` 只跑 `m2-a.spec.ts`；`playwright.m1a.config.ts` 已 `testIgnore` m2-a，`test:e2e:m1a` 不会重复跑 30 章 M2 长跑。
+  - **nightly**：`.github/workflows/nightly.yml` 的 `m2-a` job（失败上传 `m2a.log` + `test-results/`）；只在默认分支 schedule / workflow_dispatch 生效。
+  - **基线**：`docs/M2-ACCEPTANCE.md`（四条证据 + 内测清单 + 未执行项）；`M2-CONTEXT-COST` §7 / `M2-COST-BASELINE` §9 / `M2-METRICS-BASELINE` §3.1 / `M2-PERF-BASELINE` §7 已按长跑数字更新。
+  - **待办**：作者 7 天自测 / 每千字净操作时间 / 外部试用 → 签字或豁免；`v0.3.0-m2.1` 标签与 GitHub Release 上传（NSIS + `latest.yml` + blockmap）属发布动作，未执行。
 - 阶段 23 直接复用（阶段 24 会用到）：
   - **100k 夹具**：`tests/perf/m2-scale.spec.ts` 的 `buildPlan()` 是纯函数（显式 id、固定时钟、无随机数），阶段 24 长跑可直接复用同一计划生成 30 章 / 10 万字；`fixtureDigest()` 用于断言确定性。
   - **查询计数**：`startQueryCounter(db)` 包装 `db.prepare`，报表/声音/归档/检索的语句数上界在 perf 门里断言；新增查询路径时先想清楚是否随章数线性增长。

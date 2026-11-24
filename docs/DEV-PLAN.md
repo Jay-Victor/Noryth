@@ -2783,7 +2783,7 @@ type UiState = {
 
 **M2 依赖链**：19 → 20 → 21 → 22 → 23 → 24。0012 在 19（`voice_metric`）、0013 在 20（`chapter.budget_cny` + `turn_metric.chapter_id`）、0014 在 22（归档列 + `cached_tokens` + 审计动作）；23 默认不加迁移，若实测必须加索引则只用 0015 且只加 `CREATE INDEX`；24 不动 schema。任一环阻塞先砍该阶段 P2/P3，不砍 PRD M2 的四条退出标准。
 
-**现状（2026-11-24）**：阶段 11–23 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20 交付双预算自动模式与成本报表（`LATEST_SCHEMA_VERSION = 13`，基线 `docs/M2-COST-BASELINE.md`）；阶段 21 交付显式故障切换与异构默认值校准（ADR-0008 / ADR-0009 / `docs/M2-HETERO-CALIBRATION.md`，无迁移；标签 `phase-21-done` → `825ea4c`）；阶段 22 交付归档与上下文成本（迁移 0014，`LATEST_SCHEMA_VERSION = 14`；基线 `docs/M2-CONTEXT-COST.md`；标签 `phase-22-done` → `706b62c`）；阶段 23 交付 10 万字性能专项（`PERF-M2-01`；检索 `CROSS JOIN` 修复；无迁移，0015 未使用；基线 `docs/M2-PERF-BASELINE.md`）；阶段 24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
+**现状（2026-11-24）**：阶段 11–23 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20 交付双预算自动模式与成本报表（`LATEST_SCHEMA_VERSION = 13`，基线 `docs/M2-COST-BASELINE.md`）；阶段 21 交付显式故障切换与异构默认值校准（ADR-0008 / ADR-0009 / `docs/M2-HETERO-CALIBRATION.md`，无迁移；标签 `phase-21-done` → `825ea4c`）；阶段 22 交付归档与上下文成本（迁移 0014，`LATEST_SCHEMA_VERSION = 14`；基线 `docs/M2-CONTEXT-COST.md`；标签 `phase-22-done` → `706b62c`）；阶段 23 交付 10 万字性能专项（`PERF-M2-01`；检索 `CROSS JOIN` 修复；无迁移，0015 未使用；基线 `docs/M2-PERF-BASELINE.md`；标签 `phase-23-done` → `fa3287d`）；阶段 24 交付 `E2E-M2-A`（30 章 / 142,344 字）、`E2E-M2-SMOKE`、0.3.0 安装包与 `docs/M2-ACCEPTANCE.md`，PRD M2 四条已有可复跑证据（`E2E-M2-A` 27.8s、全量门禁、安装冒烟与更新演练 PASS）；**作者 7 天自测与外部试用是待办人工项，阶段 24 在作者签字/豁免前不标 `done`、不打 `phase-24-done`**。验收口径见 `docs/PRD.md` §10 与 §16.5。
 
 ### 12.5 M0 砍单清单（写死在范围里）
 
@@ -3329,6 +3329,8 @@ M2-7（非事实类归档）与 M2-9（上下文成本）同样是工程质量�
 ---
 
 ## 变更记录
+
+- **v0.16（阶段 24 实施）**：M2-10 QA / 内测 / M2 验收。新增 `E2E-M2-A`（`tests/e2e-long/m2-a.spec.ts` + `playwright.m2a.config.ts` + `pnpm test:e2e:m2a`：3 卷 × 10 章 × 3 场 × 8 拍 = 720 拍 / 142,344 字确认正文 / 30 final / 每 5 章 verify / 0 孤儿 / 0 双活 / 0 failed / 0 overflow / 6 Agent / 伏笔 3-2-1 / 私有 514–520MB）与 `E2E-M2-SMOKE`（`tests/e2e/m2-smoke.spec.ts`：3 章闭环 + 预算 / 声音徽标 / 成本报表 / 归档候选，提交门 3.6s）；长跑共用 `tests/e2e/m2-flow.ts`（分镜 3 场 × 8 拍、3 角色轮换 + 旁白；章预算；编排/规划回合），`m1-flow.ts` 导出审批/记忆闭环供复用。假创作适配器新增 `NORYTH_WRITE_FAKE_LONG=1`（每拍 ≥150 字、按角色分句长/口头禅，仅未打包构建）。版本 **0.3.0**；`nightly.yml` 增加 `m2-a` job。基线按长跑数字更新：`docs/M2-CONTEXT-COST.md` §7、`docs/M2-COST-BASELINE.md` §9（¥3.67252 / 142,344 字 = ¥0.2580 每万字，6 个 Agent）、`docs/M2-METRICS-BASELINE.md` §3.1（90/90 场景、270 对、0 低于阈值、最低 0.4333；伏笔 0.667）、`docs/M2-PERF-BASELINE.md` §7（`app.getAppMetrics()` 复测 514–520MB）。验收报告 `docs/M2-ACCEPTANCE.md`：PRD M2 四条全部有证据；安装冒烟（0.3.0 / schema 14）与更新演练 PASS。**未改 PRD 契约、工具 manifest、IPC 与 schema（`LATEST_SCHEMA_VERSION = 14`）**；作者 7 天自测 / 外部试用 / GitHub Release 上传为未执行人工项（`docs/M2-ACCEPTANCE.md` §5/§8/§9）。
 
 - **v0.15（阶段 23 实施）**：M2-6 10 万字性能专项。新增 `PERF-M2-01`（`tests/perf/m2-scale.spec.ts`：30 章 / 720 拍 / 119,660 字 / 3,000 记忆 / 90 声音行 / 153 成本行 / 12 伏笔，确定性计划与 `fixtureDigest`）与 `scripts/m2-perf-report.mjs`（JSON + Markdown）；基线 `docs/M2-PERF-BASELINE.md`。§10.4 增加实现备注：向量召回必须 `memory_vec CROSS JOIN memory_entry`，否则 SQLite 反选 `memory_own` 当外循环，3k 记忆时单次检索 ~1.5s；§13.7 指向新基线。数据层批量取数：`MemoryRepo.listByIds`、`MemoryIndexRepo.readVectors`、声音角色卡缓存；UI：记忆台与已归档列表每页 50 行（`shared/domain/pagination.ts`，UI-DESIGN §7.4）。**未改 PRD 契约与工具 manifest；未新增迁移（0015 未使用），`LATEST_SCHEMA_VERSION = 14`**。检索语义不变（top30 + RRF + 门槛 + 去重 + pinned）；`PERF-01` / `PERF-M1-01` 不退化（检索 P95 3ms）。
 

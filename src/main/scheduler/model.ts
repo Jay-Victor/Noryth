@@ -49,13 +49,15 @@ export class WriteModelFactory {
 
   adapter(binding: ResolvedBinding): ChatAdapter {
     if (this.fakeEnabled()) {
-      const key = `${binding.provider}|${binding.model}`
+      const longMode = (this.options.env ?? process.env).NORYTH_WRITE_FAKE_LONG === '1'
+      const key = `${binding.provider}|${binding.model}|${longMode ? 'long' : 'short'}`
       const existing = fakeAdapters.get(key)
       if (existing) return existing
       const created = new FakeWriteModelAdapter({
         provider: binding.provider,
         model: binding.model,
         chunkDelayMs: this.options.fakeChunkDelayMs ?? 4,
+        longMode,
         cachedTokens: parseCachedTokens(
           (this.options.env ?? process.env).NORYTH_WRITE_FAKE_CACHED_TOKENS
         )

@@ -1,6 +1,6 @@
 {
   "name": "noryth",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Noryth - 本地优先的多 Agent 小说创作工作台",
   "author": "Noryth",
@@ -19,6 +19,7 @@
     "test:unit": "vitest run tests/unit tests/contract",
     "test:e2e": "playwright test",
     "test:e2e:m1a": "playwright test --config playwright.m1a.config.ts",
+    "test:e2e:m2a": "playwright test --config playwright.m2a.config.ts",
     "gen:layout": "python docs/scripts/check_ui_spec.py --emit-json > layout.tmp.json && node scripts/gen-layout.mjs layout.tmp.json",
     "prepare:native": "node scripts/prepare-native.mjs",
     "verify:embed": "node scripts/embed-smoke.mjs",

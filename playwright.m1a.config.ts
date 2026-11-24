@@ -8,6 +8,8 @@ import { defineConfig } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './tests/e2e-long',
+  // M2 长跑有自己的配置（playwright.m2a.config.ts）；这里排除，避免 `test:e2e:m1a` 跑两遍。
+  testIgnore: ['m2-a.spec.ts'],
   timeout: 3_600_000,
   expect: { timeout: 30_000 },
   fullyParallel: false,

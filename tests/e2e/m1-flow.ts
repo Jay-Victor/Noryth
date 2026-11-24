@@ -33,7 +33,7 @@ export async function listChapters(page: Page): Promise<Array<{ id: string; ord:
 }
 
 /** 逐拍：生成一拍并确认（返回确认的拍 id）。 */
-async function generateAndConfirmBeat(page: Page, chapterId: string): Promise<string> {
+export async function generateAndConfirmBeat(page: Page, chapterId: string): Promise<string> {
   // 生成会 supersede 槽位现行拍（含 proposed 占位），所以确认前要按
   // (sceneId, ord) 重新取当前行的 id，不能拿生成前的 id。
   const slot = await page.evaluate(async (id) => {
@@ -77,7 +77,7 @@ async function waitDraftComplete(page: Page, chapterId: string): Promise<void> {
 }
 
 /** 审批闭环：G4 → G5 → 2 接受 1 拒绝 → 复检 → G6。 */
-async function reviewAndFinalize(page: Page, chapterId: string): Promise<{ verdict: string; patches: number; accepted: number }> {
+export async function reviewAndFinalize(page: Page, chapterId: string): Promise<{ verdict: string; patches: number; accepted: number }> {
   const report = await page.evaluate(async (id) => {
     const result = await window.noryth!.review.run(id)
     return result.ok ? { verdict: result.data.state.report?.verdict ?? null } : { verdict: null }
@@ -137,7 +137,7 @@ async function reviewAndFinalize(page: Page, chapterId: string): Promise<{ verdi
 }
 
 /** 记忆闭环：抽取 → 全部接受 → G7 应用。 */
-async function extractAndApplyMemory(page: Page, chapterId: string): Promise<number> {
+export async function extractAndApplyMemory(page: Page, chapterId: string): Promise<number> {
   const extracted = await page.evaluate(async (id) => window.noryth!.memory.extract(id), chapterId)
   if (!extracted.ok) throw new Error(`memory extract failed: ${extracted.error.code}`)
   const proposals = extracted.data.state.proposals

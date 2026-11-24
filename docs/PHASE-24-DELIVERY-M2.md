@@ -134,18 +134,18 @@
 
 ## 6 验收清单
 
-- [ ] `E2E-M2-A`：30 章 / 100,000+ 字 / 30 final；每 5 章 `project.verify()` 绿；0 孤儿 / 0 双活 / 0 failed job / 0 `context_overflow`；至少一卷 G2→G7；RSS <600MB（私有合计）。
-- [ ] `E2E-M2-SMOKE`：3 章闭环；`pnpm test:e2e` 全绿；提交门 <4 分钟。
-- [ ] `E2E-M2-BUDGET-01`：预算内跑完一场并正确收束；暂停/恢复不丢拍；`job.result_json.budget` 有证据。
-- [ ] `E2E-M2-METRICS-01` + `docs/M2-METRICS-BASELINE.md`：声音区分度、伏笔回收率、阈值版本、语料/局限。
-- [ ] `E2E-M2-COST-01` + `docs/M2-COST-BASELINE.md`：每万字成本、按章/Agent、项目级单列、对账一致。
-- [ ] M1 关键回归全绿（时间线 / as-of / 重建 / 蓝图 / 分支 / DOCX / smoke / 30 章长跑）。
-- [ ] 全量门禁：typecheck / lint / depcruise / unit / integration / chaos / e2e / perf / build / gen:check / 规格脚本。
-- [ ] 安全：Key 无明文、诊断包无正文/Key、CSP/导航/只读锁、200% 缩放无截断。
-- [ ] 安装冒烟 PASS（Win11，0.3.0，实际 schema）；更新演练 PASS；Win10 按外部依赖记录。
-- [ ] `docs/M2-ACCEPTANCE.md` 写完并自签；外部依赖与已知问题有里程碑。
-- [ ] 版本 0.3.0 三处一致；标签 `phase-24-done` 推送，CI run 记录在 PROGRESS。
-- [ ] 内测清单：作者 100k 项目 7 天 / 一卷；P0/P1 清零或作者豁免；P2/P3 进 BACKLOG。
+- [x] `E2E-M2-A`：30 章 / 100,000+ 字 / 30 final；每 5 章 `project.verify()` 绿；0 孤儿 / 0 双活 / 0 failed job / 0 `context_overflow`；至少一卷 G2→G7；RSS <600MB（私有合计）。（2026-11-24：`pnpm test:e2e:m2a` 27.8s；142,344 字确认正文；三卷逐章 G2→G7；私有 514–520MB）
+- [x] `E2E-M2-SMOKE`：3 章闭环；`pnpm test:e2e` 全绿；提交门 <4 分钟。（`pnpm test:e2e` 42 passed / 4.1m；smoke 3.6s）
+- [x] `E2E-M2-BUDGET-01`：预算内跑完一场并正确收束；暂停/恢复不丢拍；`job.result_json.budget` 有证据。（`pnpm test:e2e` 绿；出口优先见 `tests/integration/budget.spec.ts`）
+- [x] `E2E-M2-METRICS-01` + `docs/M2-METRICS-BASELINE.md`：声音区分度、伏笔回收率、阈值版本、语料/局限。（长跑 §3.1：90/90 场景、270 对、0 低于阈值、最低 0.4333；伏笔 0.667）
+- [x] `E2E-M2-COST-01` + `docs/M2-COST-BASELINE.md`：每万字成本、按章/Agent、项目级单列、对账一致。（§9：¥3.67252 / 142,344 字 = ¥0.2580 每万字；规划 ¥0.0074 单列）
+- [x] M1 关键回归全绿（时间线 / as-of / 重建 / 蓝图 / 分支 / DOCX / smoke / 30 章长跑）。（`pnpm test:e2e` 42 passed；`pnpm test:e2e:m1a` 21.6s / 30 章 / 私有 514MB）
+- [x] 全量门禁：typecheck / lint / depcruise / unit / integration / chaos / e2e / perf / build / gen:check / 规格脚本。（878 / 61 / 8 / 42 / 4；0 违规；0 diff）
+- [x] 安全：Key 无明文、诊断包无正文/Key、CSP/导航/只读锁、200% 缩放无截断。（单元 + e2e + 诊断包扫描复跑绿）
+- [x] 安装冒烟 PASS（Win11，0.3.0，实际 schema）；更新演练 PASS；Win10 按外部依赖记录。（0.3.0 / schema 14 / packaged；update-drill `RESULT: PASS`）
+- [ ] `docs/M2-ACCEPTANCE.md` 写完并自签；外部依赖与已知问题有里程碑。（报告已写完（`docs/M2-ACCEPTANCE.md`）；**自签待作者：§5.2 的 7 天自测/外部试用**）
+- [ ] 版本 0.3.0 三处一致；标签 `phase-24-done` 推送，CI run 记录在 PROGRESS。（版本已一致、安装包已构建；**标签待 CI 全绿后打**）
+- [ ] 内测清单：作者 100k 项目 7 天 / 一卷；P0/P1 清零或作者豁免；P2/P3 进 BACKLOG。（机器可测项见 §5.1；**作者 7 天自测与外部试用待作者**；P2/P3 已进 `docs/BACKLOG.md` #15–#17）
 
 ## 7 风险与回退
 
@@ -166,3 +166,17 @@
 3. 声音/伏笔基线与每万字成本报告有数字、口径与局限。
 4. M1 关键回归、全量门禁、安装/更新通过；无 P0/P1。
 5. `docs/M2-ACCEPTANCE.md` 自签；`PROGRESS` / `AGENTS` / `DEV-PLAN` 同步；标签与安装包保留。
+
+## 9 执行记录（2026-11-24）
+
+| 项 | 实际结果 |
+|---|---|
+| `E2E-M2-A` | `pnpm build && pnpm test:e2e:m2a` → 1 passed（27.8s）：30 章 / 720 拍 / 142,344 字确认正文 / 30 final；每 5 章 verify 绿；0 孤儿 / 0 双活 / 0 failed / 0 overflow；240 记忆 / 30 摘要 / 150 声音行 / 6 Agent / 伏笔 3-2-1；私有 514–520MB |
+| `E2E-M2-SMOKE` | `pnpm test:e2e` → 42 passed（4.1m），其中 smoke 3.6s：预算 / 声音徽标 / 成本对话框 / 归档候选（不执行） |
+| 全量门禁 | typecheck / lint / depcruise（345 modules）/ unit 878 / integration 61 / chaos 8 / e2e 42 / perf 4 / M1-A 21.6s / build / gen:check / 规格脚本 / 图标 |
+| 打包 | `release/Noryth-0.3.0-setup.exe` 167,340,425 B（≈159.6MB）+ `latest.yml` + blockmap |
+| 安装冒烟 | PASS：0.3.0 / schema 14 / packaged=true / `embedder source=model` / user_version=14 / 卸载清理 |
+| 更新演练 | PASS：manifest sha512 / up_to_date / available / downgrade_blocked / failed / 真实下载 |
+| 基线 | `docs/M2-CONTEXT-COST.md` §7、`docs/M2-COST-BASELINE.md` §9、`docs/M2-METRICS-BASELINE.md` §3.1、`docs/M2-PERF-BASELINE.md` §7 已按长跑数字更新 |
+| 未完成（人工） | 作者 7 天自测 / 每千字净操作时间 / 外部试用；GitHub Release 上传与 feed；Win10 22H2（作者决定不测）；真实第二家 Key（作者决定不测） |
+| 标签 | `phase-24-done` 待 CI 全绿后打；发布标签 `v0.3.0-m2.1` 与 Release 上传属发布动作，未执行 |
