@@ -25,6 +25,25 @@ function makeTemp(prefix: string): string {
   return dir
 }
 
+/**
+ * 定稿确认：勾选所有存在的确认项后点确认。
+ *
+ * 勾选状态由 FinalizeDialog 的 mount effect 初始化；E2E 可能在 effect 之前
+ * 就完成第一次点击，随后被重置，按钮保持 disabled。用 toPass 反复「勾选 →
+ * 断言可用」，既等待预览渲染完成，也不会赌一次点击的时序。
+ */
+async function confirmFinalize(page: Page): Promise<void> {
+  const confirm = page.locator('[data-testid="review-finalize-confirm"]')
+  await expect(async () => {
+    for (const testId of ['review-ack-blocking', 'review-ack-unreviewed']) {
+      const box = page.locator(`[data-testid="${testId}"]`)
+      if ((await box.count()) > 0) await box.check()
+    }
+    await expect(confirm).toBeEnabled()
+  }).toPass({ timeout: 20_000 })
+  await confirm.click()
+}
+
 async function launch(userData: string): Promise<ElectronApplication> {
   const env: Record<string, string> = {}
   for (const [key, value] of Object.entries(process.env)) {
@@ -116,11 +135,7 @@ test('E2E-M1-BRANCH-01：重开定稿 → 分支对比/切换 → 再定稿 → 
   // 第一次定稿（有阻断 → 勾选「我已复核」）。
   await page.locator('[data-testid="review-finalize"]').click()
   await expect(page.locator('[data-testid="review-finalize-dialog"]')).toBeVisible()
-  const ackBlocking = page.locator('[data-testid="review-ack-blocking"]')
-  if (await ackBlocking.count()) await ackBlocking.check()
-  const ackUnreviewed = page.locator('[data-testid="review-ack-unreviewed"]')
-  if (await ackUnreviewed.count()) await ackUnreviewed.check()
-  await page.locator('[data-testid="review-finalize-confirm"]').click()
+  await confirmFinalize(page)
   await expect(page.locator('[data-testid="review-finalize"]')).toContainText('已定稿', { timeout: 60_000 })
 
   const firstFinal = await page.evaluate(async (id) => {
@@ -250,11 +265,7 @@ test('E2E-M1-BRANCH-01：重开定稿 → 分支对比/切换 → 再定稿 → 
   // 再定稿（主线，含重开后的修改）。
   await page.locator('[data-testid="review-finalize"]').click()
   await expect(page.locator('[data-testid="review-finalize-dialog"]')).toBeVisible()
-  for (const testId of ['review-ack-blocking', 'review-ack-unreviewed']) {
-    const box = page.locator(`[data-testid="${testId}"]`)
-    if (await box.count()) await box.check()
-  }
-  await page.locator('[data-testid="review-finalize-confirm"]').click()
+  await confirmFinalize(page)
   await expect(page.locator('[data-testid="review-finalize"]')).toContainText('已定稿', { timeout: 60_000 })
 
   const secondFinal = await page.evaluate(async (id) => {
