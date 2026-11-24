@@ -331,6 +331,10 @@ contextBridge.exposeInMainWorld('noryth', {
 | memory | `index.issue`（M1-20） | — | `{token, expiresAt, preview{targetModel, pendingCount}}` | author_confirm |
 | memory | `index.rebuild`（M1-20） | token | `{state, detail}`；32 条/批、可恢复、成功才消费令牌 | author_confirm |
 | memory | `toolCalls`（M1-23） | chapterId?、actorId?、status?、page? | `{items[], total, page, pageSize, chapters[], actors[]}`；50 条/页，条目不含 args | — |
+| memory | `archive.candidates`（M2-7） | — | `{projectId, readOnly, items[{id, characterId, characterName, text, importance, learnedSeq, keeperId, keeperText, similarity, reason}], counts{active, archived, inactive, superseded}, batchLimit, threshold{importanceMax, similarityMin}}`；只读、只含 experience | — |
+| memory | `archive.issue`（M2-7） | ids[]（1–50） | `{token, expiresAt, preview{batchId, count, items[]}}`；`author_confirm` 10 分钟，绑定批次哈希 | author_confirm |
+| memory | `archive.apply`（M2-7） | ids[]、token | `{state, detail, archived[], skipped[{id, reason}]}`；单事务；失效候选进 skipped，不半写；重放返回首次结果 | author_confirm |
+| memory | `archive.restore`（M2-7） | entryId | `{state, detail}`；清两列 + `restore` 审计；不重建向量 | — |
 | settings | `setProvider` / `testProvider` | provider、key、baseUrl | `{status, models[], latencyMs}` | — |
 | settings | `bindAgent` | agentKey、provider、model、params | `{bindingVersion}` | — |
 | routing | `status`（M2-4） | — | `{enabled, last{agentKey,trace}｜null, health[{preset,failures,coolingUntil,openUntil,lastError}]}`；只读内存快照 | — |
@@ -1299,6 +1303,29 @@ CREATE INDEX turn_metric_by_agent   ON turn_metric(project_id, agent_key, create
 - **暂停记录**：`scheduler_event(reason='budget_exceeded')` + `job.status='paused'` 的账本行（type 仍为 `beat.generate`，`result_json.budget` 带两套 limit/used/reason）。自动模式没有独立 job 类型，0013 不改 job 表。
 - **报表**：字数取 revision 清单（定稿 final / 其余 current），`costPer10k = cost / words × 10000`（words=0 → null）；P50/P95 线性插值、样本 <5 只给中位数；每拍确认耗时来自 `scheduler_event` 的 `beat_committed → beat_confirmed`，自动确认（无 `beat_confirmed`）计为缺失，不补 0。
 
+### 5.22 归档与上下文缓存（迁移 0014）
+
+```sql
+ALTER TABLE memory_entry ADD COLUMN archived_at TEXT;
+ALTER TABLE memory_entry ADD COLUMN archive_reason TEXT;
+CREATE INDEX memory_entry_archive
+  ON memory_entry(project_id, kind, status, archived_at);
+
+ALTER TABLE turn_metric ADD COLUMN cached_tokens INTEGER;
+
+-- memory_audit.action 的 CHECK 加入 archive / restore：
+-- 新建同构表 → 逐列复制（id 不变）→ 删旧表 → 改名 → 重建索引。
+```
+
+规则（PHASE-22 / M2-7、M2-9）：
+
+- **只归档非事实类**：候选同时满足 `kind='experience'`、active、未归档、未 pin、`importance <= 0.30`、未被有效事实/关系边按来源引用、不是 pending 提案的来源拍、同角色存在 keeper（NFKC + 去空白后文本相等，或同一 `embedding_model` 余弦 ≥ 0.92）。fact / relationship / cognition / pinned 永不自动归档。
+- **软归档**：只写 `archived_at` / `archive_reason='redundant'`，`status` 不变；行、向量与 FTS 都保留；检索（`memory.retrieve_own` / pinned / 向量 / 关键词 / LIKE）默认排除；恢复清两列，不重建向量。归档与恢复各写 `memory_audit`（`archive` / `restore`），另有一条批次汇总（`entity_type='proposal'`、`entity_id=batchHash`）作为重放依据。
+- **令牌与幂等**：`memory.archive.issue` 签发 `author_confirm`（10 分钟，绑定 `sha256(sorted ids)` 批次哈希）；`apply` 在事务内重新校验候选，失效项进 `skipped`，有效项一次事务全写；同一批次重放返回首次结果，不双写、不重复消费；0 条有效 → 零写入、令牌保留。
+- **计数口径**：`memory.state.counts` 分 `active / archived / inactive / superseded` 四个互斥值；归档不混进 `inactive`。记忆浏览器默认「不含归档」，可切「仅已归档」；`memory.retrieve_audit` 与状态列表仍能看见归档行。
+- **缓存指标**：`turn_metric.cached_tokens` 只记供应商报告的值（OpenAI `prompt_tokens_details.cached_tokens` → DeepSeek `prompt_cache_hit_tokens` → 缺省 NULL）；NULL 表示「未报告」，不是 0。写拍 `context_json.cache` 记 `{prefix_hash, stable_tokens, cached_tokens}`；报表 `cache{cachedTokens, cacheCalls, calls, hitRate}` 与上下文检查器都显示「未报告」而不是 0%。缓存命中只用于成本归因，不跳过 grounding。
+- **上下文成本优化**：装配器默认档做块去重（pinned 优先，同 `(type,id)`/同文本只留一份）、L3 旁观者相关裁（点名/有张力优先，零相关最多补到 4，上限仍 8）、最近拍预算不足时先降到 4 再降 top_k（最后才允许到 2）；`assembleContextBaseline` 保留优化前路径，仅用于同一夹具的 COST-M2-02 对照。基线数字见 `docs/M2-CONTEXT-COST.md`。
+
 ---
 
 ## 6 工具层
@@ -1733,7 +1760,7 @@ budget        = hardCap - reserveOut
   3. 最近 N 拍正文（从新到旧，默认 6 拍）
 
 裁剪顺序（超预算时循环执行，直到不超）：
-  a. 最近拍 N-1（保留至少 2 拍）
+  a. 最近拍 N-1（M2-9：先保留至少 4 拍；仅在所有降级之后仍超才降到 2）
   a2. 上一章摘要（summary.prev）：先压到 150 tokens，仍超则整块丢（PHASE-16 §5.4）
   b. top_k -1（最低 2）
   c. L3 丢弃张力最低的旁观者（保留发言者与场景目标相关者）
@@ -1751,6 +1778,8 @@ budget        = hardCap - reserveOut
 
 **确定性要求**：`blocks` 按 `(layer, priority, id)` 排序；检索结果按 `(score desc, id asc)`；不使用 `Object.keys` 顺序或 `Set` 迭代顺序。测试用同一 fixture 跑两次，`totalTokens` 与块顺序必须一致。
 
+**M2-9 去重与稳定前缀**：pinned 与检索按 `(type,id)` 只留一份（pinned 优先）；同一归一化文本的重复记忆不再占检索名额。L3 旁观者先保留「场景目标/本拍意图点名」或「与发言者有非中性张力」的角色，零相关者最多补到 4 个，上限仍是 8。`stablePrefixTokens()` 只统计 `stable=true` 的块，写进 `context_json.cache.stable_tokens`；`prefixHash` 覆盖 system（含稳定块），动态块不进前缀。
+
 ### 7.4 Token 估算与校准
 
 ```ts
@@ -1767,6 +1796,7 @@ export function estimateTokens(text: string): number {
 
 - 每个 provider 维护 `calibration`：最近 20 次真实 `usage.prompt_tokens` / 估算值的中位数，clamp `[0.7, 1.6]`；写 `settings.json`。
 - 估算只用于**预算与裁剪**，不用于计费；计费以供应商返回的 `usage` 为准。
+- 缓存命中（PHASE-22）：`ChatUsage.cachedTokens` 只解析供应商报告的字段；`sumUsages` 只累加报告了的轮次，全未报告为 `null`。写 `turn_metric.cached_tokens`；NULL 表示「未报告」，不是 0。缓存命中不参与预算裁剪，也不跳过 grounding。
 - 上下文检查器显示「估算 token + 上次实际 ratio」，不显示假精确值：ratio = `turn_metric.tokens_in / context_json.total_tokens`，样本不足时留空。
 
 ### 7.5 模型适配器
@@ -2751,7 +2781,7 @@ type UiState = {
 
 **M2 依赖链**：19 → 20 → 21 → 22 → 23 → 24。0012 在 19（`voice_metric`）、0013 在 20（`chapter.budget_cny` + `turn_metric.chapter_id`）、0014 在 22（归档列 + `cached_tokens` + 审计动作）；23 默认不加迁移，若实测必须加索引则只用 0015 且只加 `CREATE INDEX`；24 不动 schema。任一环阻塞先砍该阶段 P2/P3，不砍 PRD M2 的四条退出标准。
 
-**现状（2026-11-21）**：阶段 11–21 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20 交付双预算自动模式与成本报表（`LATEST_SCHEMA_VERSION = 13`，基线 `docs/M2-COST-BASELINE.md`）；阶段 21 交付显式故障切换与异构默认值校准（ADR-0008 / ADR-0009 / `docs/M2-HETERO-CALIBRATION.md`，无迁移；标签 `phase-21-done` → `825ea4c`）；阶段 22–24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
+**现状（2026-11-24）**：阶段 11–22 均已 `done`，M1 收口标签 `phase-18-done` → `1f2b668`；验收证据见 `docs/M1-ACCEPTANCE.md`。阶段 19 交付声音指标与漂移告警（ADR-0007 / `docs/M2-METRICS-BASELINE.md`）；阶段 20 交付双预算自动模式与成本报表（`LATEST_SCHEMA_VERSION = 13`，基线 `docs/M2-COST-BASELINE.md`）；阶段 21 交付显式故障切换与异构默认值校准（ADR-0008 / ADR-0009 / `docs/M2-HETERO-CALIBRATION.md`，无迁移；标签 `phase-21-done` → `825ea4c`）；阶段 22 交付归档与上下文成本（迁移 0014，`LATEST_SCHEMA_VERSION = 14`；基线 `docs/M2-CONTEXT-COST.md`）；阶段 23–24 仍为 `todo`。验收口径见 `docs/PRD.md` §10 与 §16.5。
 
 ### 12.5 M0 砍单清单（写死在范围里）
 
@@ -3182,6 +3212,8 @@ M2 验收报告：`docs/M2-ACCEPTANCE.md`（阶段 24 交付）；外部依赖�
 
 M2-4（故障切换）与 M2-8（异构默认值）是 PRD M2 四条退出标准之外的工程质量项，验收见 `docs/PHASE-21-ROUTING-HETERO.md` §6；不把「默认开启异构」写成 M2 退出标准。
 
+M2-7（非事实类归档）与 M2-9（上下文成本）同样是工程质量项：验收见 `docs/PHASE-22-ARCHIVE-CONTEXT.md` §6（`E2E-M2-ARCHIVE-01` / `COST-M2-02`）与 `docs/M2-CONTEXT-COST.md`；归档不改变四条退出标准的口径，成本下降不替代「每万字成本可归因到章/Agent」（第 4 条）。
+
 ---
 
 ## 17 待定技术决策（ADR）
@@ -3294,6 +3326,7 @@ M2-4（故障切换）与 M2-8（异构默认值）是 PRD M2 四条退出标准
 
 ## 变更记录
 
+- **v0.14（阶段 22 实施）**：迁移 `0014_archive_context.sql`（`memory_entry.archived_at/archive_reason` + `memory_entry_archive` 索引；`turn_metric.cached_tokens`；`memory_audit.action` 重建 CHECK 加入 `archive` / `restore`，旧行逐列复制、id 不变；`LATEST_SCHEMA_VERSION = 14`）；§4.3 IPC 增加 `memory.archive.candidates/issue/apply/restore`（`author_confirm`，批次哈希绑定）；§5.22 记录归档候选、软失效、令牌/幂等与缓存口径；§7.3 增加块去重、L3 旁观者相关裁与「最近拍先到 4」；§7.4 增加 `cached_tokens` 解析与 NULL 语义。**未改工具 manifest、闸门语义、`voice_metric` 与正文写入路径**；归档只用 `author_confirm`，不新增 G7。上下文成本基线见 `docs/M2-CONTEXT-COST.md`（180 拍：2,725 → 2,167，−20.5%；P95 不升；裁剪 0%）。`E2E-M2-ARCHIVE-01` / `COST-M2-02` 覆盖。
 - **v0.13（阶段 21 实施）**：设置新增 `routing`（`enabled` / `fallbackOn` / `cooldownMs` / 逐 Agent `agents`，默认关闭；补丁不带 default，旧设置文件缺字段可读）；§7.7 增加故障切换、熔断与留痕规则；§9.9 增加「先异构、后健康检查」的审批优先级。新增只读 IPC `routing.status`（内存健康快照）与 `review.calibration`（只读报告/patch/G6，D4 建议）；新增错误码 `routing_exhausted`（§18.2 已补文案）。**无迁移**（`LATEST_SCHEMA_VERSION = 13`）；不改工具 manifest、不改闸门语义、不改 `model_binding_audit`。D4 判定保持 `review.hetero=off`（ADR-0009），理由与 30 章校准见 `docs/M2-HETERO-CALIBRATION.md`。`E2E-M2-ROUTING-01` / `E2E-M2-CALIBRATION-01` 覆盖。
 - **v0.11（阶段 19 实施）**：迁移 `0012_voice.sql`（`voice_metric`：scene + revision + `metrics_json` + `threshold_version`，`UNIQUE(scene_id, revision_id)` 与 `voice_metric_by_chapter` 索引，`LATEST_SCHEMA_VERSION = 12`）；§5.20 记录派生数据与计算时机；§4.3 IPC 增加只读 `voice.scene`。**同步 PRD v0.11**：T25 输出扩展为旧四字段 + `characters[]` + `pairs[]` + `threshold`（`reviewer` 白名单 19 → 20），T25 manifest 升 1.1.0 并启用；阈值 `zh-v1` 由 `tests/fixtures/voice/zh-corpus.json` 校准（ADR-0007），常量在 `src/shared/domain/voice.ts`。**未改闸门与状态机**：`voice` 仍是建议类，G6 不受影响；指标不进 L0–L3、不写 `beat.body`、不建 revision。`E2E-M2-VOICE-01` / `E2E-M2-METRICS-01` 与 `tests/unit/voice/*` 覆盖。
 - **v0.10（M2 阶段文档，2026-11-17）**：新增 `PHASE-19-VOICE.md` 至 `PHASE-24-DELIVERY-M2.md`，把 PRD §10 M2 的范围拆成 6 个阶段（声音/质量基线 → 预算与成本 → 路由与异构 → 归档与上下文成本 → 10 万字性能 → QA/内测/验收）。§12.4 增加阶段 19–24，§12.6 增加 M2 任务与阶段的映射，§16.5 增加 PRD M2 四条 → 测试 ID 对照，§14.5 增加 M2 验收报告引用；§12.5 把项目模板、自动补旁白建议改标为「M2 之后（未列入 M2-1..M2-10）」，避免与 M2 范围冲突。迁移编号预留：0012（19，`voice_metric`）、0013（20，`chapter.budget_cny` + `turn_metric.chapter_id`）、0014（22，`memory_entry.archived_at/archive_reason` + `turn_metric.cached_tokens` + `memory_audit` 动作），0015 仅当阶段 23 实测需要索引时使用且只加 `CREATE INDEX`。ADR 编号预留：0007（声音阈值）、0008（路由与故障切换）、0009（异构默认值决策）。新增 IPC（`voice.scene`、`report.cost`、`memory.archive.*`）与迁移 0012–0014 见各阶段文档；执行时同步 §4.3 IPC 表与 §5.5 DDL。**本版只建计划，不改 PRD 契约**：T25 输出扩展、`routing` 设置、`review.hetero` 默认值三处属于阶段执行时的契约变更，先按 §18.4 写 PRD 变更记录与 `docs/tools/*.json` 生成物，再改代码；M2-8 的默认开启由 D4 数据决定，数据不足保持 `off`。

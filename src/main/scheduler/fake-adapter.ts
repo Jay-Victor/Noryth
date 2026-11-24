@@ -32,18 +32,22 @@ export interface FakeWriteModelOptions {
   provider?: string
   model?: string
   chunkDelayMs?: number
+  /** 模拟供应商报告的缓存命中（PHASE-22 E2E）；省略 = 未报告。 */
+  cachedTokens?: number | null
 }
 
 export class FakeWriteModelAdapter implements ChatAdapter {
   readonly provider: string
   readonly model: string
   private readonly chunkDelayMs: number
+  private readonly cachedTokens: number | null
   private readonly attempts = new Map<string, number>()
 
   constructor(options: FakeWriteModelOptions = {}) {
     this.provider = options.provider ?? 'deepseek'
     this.model = options.model ?? 'deepseek-flash'
     this.chunkDelayMs = options.chunkDelayMs ?? 4
+    this.cachedTokens = options.cachedTokens ?? null
   }
 
   async probe(): Promise<Capabilities> {
@@ -109,7 +113,11 @@ export class FakeWriteModelAdapter implements ChatAdapter {
       text: JSON.stringify({ body, grounding: [] }),
       reasoning: '',
       toolCalls: [],
-      usage: { promptTokens: 1_000, completionTokens: 90 },
+      usage: {
+        promptTokens: 1_000,
+        completionTokens: 90,
+        ...(this.cachedTokens === null ? {} : { cachedTokens: this.cachedTokens })
+      },
       finishReason: 'stop',
       model: this.model,
       latencyMs: Date.now() - started,

@@ -59,21 +59,25 @@ function parseTime(value: string | undefined, field: string): number | null {
 interface Bucket {
   tokensIn: number
   tokensOut: number
+  cachedTokens: number
   costCny: number
   calls: number
   pricedCalls: number
+  cacheCalls: number
 }
 
 function emptyBucket(): Bucket {
-  return { tokensIn: 0, tokensOut: 0, costCny: 0, calls: 0, pricedCalls: 0 }
+  return { tokensIn: 0, tokensOut: 0, cachedTokens: 0, costCny: 0, calls: 0, pricedCalls: 0, cacheCalls: 0 }
 }
 
 function addTo(bucket: Bucket, row: TurnMetricAggregateRow): void {
   bucket.tokensIn += row.tokensIn
   bucket.tokensOut += row.tokensOut
+  bucket.cachedTokens += row.cachedTokens
   bucket.costCny += row.costCny
   bucket.calls += row.calls
   bucket.pricedCalls += row.pricedCalls
+  bucket.cacheCalls += row.cacheCalls
 }
 
 function unpricedOf(bucket: Bucket): number {
@@ -183,6 +187,8 @@ export function buildCostReport(repos: Repos, input: CostReportInput = {}): Cost
       calls: bucket.calls,
       pricedCalls: bucket.pricedCalls,
       unpricedCalls: unpricedOf(bucket),
+      cacheCalls: bucket.cacheCalls,
+      cachedTokens: bucket.cachedTokens,
       latencyP50: latency.p50,
       latencyP95: latency.p95
     }
@@ -213,9 +219,11 @@ export function buildCostReport(repos: Repos, input: CostReportInput = {}): Cost
   for (const bucket of agentBuckets.values()) {
     totalBucket.tokensIn += bucket.tokensIn
     totalBucket.tokensOut += bucket.tokensOut
+    totalBucket.cachedTokens += bucket.cachedTokens
     totalBucket.costCny += bucket.costCny
     totalBucket.calls += bucket.calls
     totalBucket.pricedCalls += bucket.pricedCalls
+    totalBucket.cacheCalls += bucket.cacheCalls
   }
   const totalWords = chapters.reduce((sum, chapter) => sum + (wordsByChapter.get(chapter.id) ?? 0), 0)
   const shareBasis: 'cost' | 'tokens' = totalBucket.costCny > 0 ? 'cost' : 'tokens'
@@ -241,6 +249,8 @@ export function buildCostReport(repos: Repos, input: CostReportInput = {}): Cost
         pricedCalls: bucket.pricedCalls,
         unpricedCalls: unpricedOf(bucket),
         share: Math.round(share * 10_000) / 10_000,
+        cacheCalls: bucket.cacheCalls,
+        cachedTokens: bucket.cachedTokens,
         latencyP50: latency.p50,
         latencyP95: latency.p95
       }
@@ -253,6 +263,8 @@ export function buildCostReport(repos: Repos, input: CostReportInput = {}): Cost
     costCny: round6(totalBucket.costCny),
     pricedCalls: totalBucket.pricedCalls,
     unpricedCalls: unpricedOf(totalBucket),
+    cacheCalls: totalBucket.cacheCalls,
+    cachedTokens: totalBucket.cachedTokens,
     words: totalWords,
     costPer10k: costPer10k(totalBucket.costCny, totalWords)
   }
@@ -272,6 +284,15 @@ export function buildCostReport(repos: Repos, input: CostReportInput = {}): Cost
       calls: projectLevel.calls
     },
     shareBasis,
+    cache: {
+      cachedTokens: totalBucket.cachedTokens,
+      cacheCalls: totalBucket.cacheCalls,
+      calls: totalBucket.calls,
+      hitRate:
+        totalBucket.cacheCalls > 0 && totalBucket.tokensIn > 0
+          ? Math.round((totalBucket.cachedTokens / totalBucket.tokensIn) * 10_000) / 10_000
+          : null
+    },
     confirm,
     generatedAt: new Date().toISOString()
   }

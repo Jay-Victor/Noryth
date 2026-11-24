@@ -5,6 +5,7 @@ import type {
   ForeshadowUpdateInput
 } from '../../shared/schema/foreshadow'
 import type {
+  MemoryArchiveCandidatesState,
   MemoryEvent,
   MemoryRecallResult,
   MemoryState,
@@ -26,12 +27,14 @@ import { useApp } from './app'
  * - 讨论只解释来源，不改库。
  */
 
-export type MemoryTab = 'proposals' | 'entries' | 'world' | 'relations' | 'foreshadows' | 'audit'
+export type MemoryTab = 'proposals' | 'entries' | 'world' | 'relations' | 'foreshadows' | 'archive' | 'audit'
 
 export interface MemoryFilters {
   characterId: string | null
   kind: 'all' | 'experience' | 'fact' | 'relationship' | 'cognition'
   status: 'all' | 'active' | 'inactive' | 'superseded'
+  /** 归档可见性（PHASE-22）：默认不含归档；「已归档」单独看。 */
+  archived: 'exclude' | 'only'
   pinnedOnly: boolean
 }
 
@@ -62,6 +65,9 @@ interface MemoryStoreState {
   /** 伏笔（PHASE-15 M1-10）：作者标注 + 距离；不产生任何阻断。 */
   foreshadows: ForeshadowState | null
   foreshadowsLoading: boolean
+  /** 归档（PHASE-22 M2-7）：只读候选；执行后刷新 state。 */
+  archive: MemoryArchiveCandidatesState | null
+  archiveLoading: boolean
   /** 工具调用审计（PHASE-18 M1-23）：只读分页；过滤条件也放在 store 里，翻页不丢。 */
   toolCalls: ToolCallListState | null
   toolCallsLoading: boolean
@@ -89,6 +95,10 @@ interface MemoryStoreState {
   loadRelations(input?: RelationGraphInput): Promise<void>
   /** 伏笔（M1-10）：列表 / 标注 / 回收；距离按当前章计算。 */
   loadForeshadows(chapterId?: string): Promise<void>
+  /** 归档（M2-7）：候选只读；勾选后签发 author_confirm 再执行。 */
+  loadArchive(): Promise<void>
+  archiveSelected(ids: string[]): Promise<void>
+  restoreArchived(entryId: string): Promise<void>
   /** 工具调用审计（M1-23）：只读、分页 50；patch 里省略的过滤条件保持不变。 */
   loadToolCalls(patch?: Partial<{ chapterId: string; actorId: string; status: 'all' | 'ok' | 'error'; page: number }>): Promise<void>
   createForeshadow(input: ForeshadowCreateInput): Promise<boolean>
@@ -128,7 +138,7 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
     busy: false,
     streaming: '',
     tab: 'proposals',
-    filters: { characterId: null, kind: 'all', status: 'all', pinnedOnly: false },
+    filters: { characterId: null, kind: 'all', status: 'all', archived: 'exclude', pinnedOnly: false },
     activeProposalId: null,
     editing: null,
     recall: null,
@@ -139,6 +149,8 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
     projectionLoading: false,
     foreshadows: null,
     foreshadowsLoading: false,
+    archive: null,
+    archiveLoading: false,
     relations: null,
     relationsLoading: false,
     toolCalls: null,
@@ -226,6 +238,62 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
         return
       }
       set({ foreshadows: result.data })
+    },
+
+    async loadArchive() {
+      const bridge = getBridge()
+      if (!bridge) return
+      set({ archiveLoading: true })
+      const result = await bridge.memory.archiveCandidates()
+      set({ archiveLoading: false })
+      if (!result.ok) {
+        set({ archive: null })
+        toastError(result.error.message, result.error.code)
+        return
+      }
+      set({ archive: result.data })
+    },
+
+    async archiveSelected(ids) {
+      const bridge = getBridge()
+      if (!bridge || ids.length === 0) return
+      set({ busy: true })
+      // 只有真正点「归档所选」才签发 author_confirm：取消不留下未消费的令牌。
+      const issued = await bridge.memory.issueArchiveToken(ids)
+      if (!issued.ok) {
+        set({ busy: false })
+        toastError(issued.error.message, issued.error.code)
+        return
+      }
+      const result = await bridge.memory.archiveApply({ ids, token: issued.data.token })
+      set({ busy: false })
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        await get().loadArchive()
+        return
+      }
+      apply(result.data.state)
+      if (result.data.skipped.length > 0) {
+        toastOk(result.data.detail ?? '已归档', `跳过 ${result.data.skipped.length} 条（已变化）`)
+      } else {
+        toastOk(result.data.detail ?? '已归档')
+      }
+      await get().loadArchive()
+    },
+
+    async restoreArchived(entryId) {
+      const bridge = getBridge()
+      if (!bridge) return
+      set({ busy: true })
+      const result = await bridge.memory.restoreArchive(entryId)
+      set({ busy: false })
+      if (!result.ok) {
+        toastError(result.error.message, result.error.code)
+        return
+      }
+      apply(result.data.state)
+      toastOk(result.data.detail ?? '已恢复')
+      await get().loadArchive()
     },
 
     async loadToolCalls(patch = {}) {
@@ -583,7 +651,7 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
         state: null,
         streaming: '',
         tab: 'proposals',
-        filters: { characterId: null, kind: 'all', status: 'all', pinnedOnly: false },
+        filters: { characterId: null, kind: 'all', status: 'all', archived: 'exclude', pinnedOnly: false },
         activeProposalId: null,
         editing: null,
         recall: null,
@@ -594,6 +662,8 @@ export const useMemory = create<MemoryStoreState>((set, get) => {
         projectionLoading: false,
         foreshadows: null,
         foreshadowsLoading: false,
+        archive: null,
+        archiveLoading: false,
         relations: null,
         relationsLoading: false,
         toolCalls: null,

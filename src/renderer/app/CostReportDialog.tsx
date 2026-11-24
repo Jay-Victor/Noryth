@@ -238,6 +238,14 @@ export function CostReportDialog({
                 确认耗时 P50 <strong data-testid="cost-confirm-p50">{LATENCY(report.confirm.p50)}</strong> · P95{' '}
                 <strong data-testid="cost-confirm-p95">{LATENCY(report.confirm.p95)}</strong>
               </span>
+              <span data-testid="cost-cache">
+                缓存命中{' '}
+                <strong>
+                  {report.cache.cacheCalls === 0
+                    ? '未报告'
+                    : `${formatBudgetTokens(report.cache.cachedTokens)} · ${percent(report.cache.hitRate ?? 0)}`}
+                </strong>
+              </span>
             </div>
 
             {unpriced ? (
@@ -263,6 +271,7 @@ export function CostReportDialog({
             <p className="cost-note">
               项目级：{report.projectLevel.calls} 次规划调用 {CNY(report.projectLevel.costCny)}（不摊到章）。每拍确认耗时只统计作者确认，自动确认不计入；
               缺失 {report.confirm.missingBeats} 拍不补 0。P95 在样本少于 5 时只显示 P50（线性插值）。
+              缓存命中只统计供应商报告了的调用（{report.cache.cacheCalls}/{report.cache.calls} 次）；未报告不显示 0%。
             </p>
           </>
         ) : loading ? (

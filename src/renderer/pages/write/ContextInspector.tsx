@@ -178,6 +178,12 @@ export function ContextInspector({ state }: { state: WriteState }): React.JSX.El
                   输出 {inspection.usage.tokensOut ?? '—'} · 费用 ¥
                   {inspection.usage.costCny.toFixed(4)}
                 </span>
+                <span data-testid="context-cache">
+                  缓存{' '}
+                  {inspection.cache.cachedTokens === null
+                    ? '未报告'
+                    : `${inspection.cache.cachedTokens} · ${Math.round((inspection.cache.hitRate ?? 0) * 100)}%`}
+                </span>
                 <span>延迟 {inspection.usage.latencyMs ?? '—'}ms</span>
                 <span>首字 {inspection.usage.firstTokenMs ?? '—'}ms</span>
                 <span className="mono" title={inspection.prefixHash ?? ''} data-testid="context-prefix">

@@ -15,7 +15,9 @@ const ACTION_LABELS: Record<string, string> = {
   invalidate: '标记失效',
   rebuild: '重建',
   supersede: '取代',
-  evidence_mismatch: '证据不符'
+  evidence_mismatch: '证据不符',
+  archive: '软归档',
+  restore: '恢复'
 }
 
 export function AuditList({ state }: { state: MemoryState }): React.JSX.Element {

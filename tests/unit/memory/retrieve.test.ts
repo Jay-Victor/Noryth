@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createHashEmbedder, hashEmbedding } from '../../../src/main/memory/embed/hash'
-import { retrieveOwn } from '../../../src/main/memory/retrieve'
+import { invalidateRetrievalCache, retrieveOwn } from '../../../src/main/memory/retrieve'
 import { openMemoryWorld, type MemoryTestWorld } from '../../support/memory-world'
 
 /**
@@ -122,6 +122,44 @@ describe('memory retrieve', () => {
       expect(result.items.map((item) => item.entry.id)).toContain(id)
       expect(result.stats.vectorHits).toBe(0)
       expect(result.stats.keywordHits).toBeGreaterThan(0)
+    } finally {
+      world.cleanup()
+    }
+  })
+
+  it('软归档：检索、pinned 与 SQL 通道都排除；恢复后重新命中（PHASE-22）', async () => {
+    const world = openMemoryWorld()
+    try {
+      const first = world.characterIds[0]!
+      const [id] = seed(world, [{ characterId: first, text: '雨夜里独自从后门离开', learnedSeq: 1, pinned: true }])
+      expect(id).toBeDefined()
+      const repos = world.handle.repos
+      repos.memory.archive(id!, '2026-01-01T00:00:00.000Z', 'redundant')
+
+      const filter = { characterId: first, asOf: 10 }
+      expect(repos.memory.listPinned(first, 10)).toEqual([])
+      expect(repos.memoryIndex.searchBigrams('雨夜 后门', filter, 30)).toEqual([])
+      expect(repos.memoryIndex.searchLike('后门', filter, 30)).toEqual([])
+      const result = await retrieveOwn(
+        repos,
+        createHashEmbedder(),
+        { text: '雨夜里独自从后门离开', topK: 5 },
+        { projectId: world.projectId, actorId: `character:${first}`, characterId: first, asOf: 10 }
+      )
+      expect([...result.items, ...result.pinned].map((item) => item.entry.id)).not.toContain(id)
+      expect(result.empty).toBe(true)
+
+      // 恢复后重新进入两条通道。
+      // 生产入口 `memory.restoreArchive` 会清检索缓存；这里直接写 repo，需手动清。
+      repos.memory.restore(id!)
+      invalidateRetrievalCache(world.projectId)
+      const back = await retrieveOwn(
+        repos,
+        createHashEmbedder(),
+        { text: '雨夜里独自从后门离开', topK: 5 },
+        { projectId: world.projectId, actorId: `character:${first}`, characterId: first, asOf: 10 }
+      )
+      expect([...back.items, ...back.pinned].map((item) => item.entry.id)).toContain(id)
     } finally {
       world.cleanup()
     }

@@ -5,6 +5,7 @@ import { baseAgentOf } from '../tools/registry'
 import type { ContextBundle, CtxBlock } from './budget'
 import { BUDGET, fitToBudget, planBudget } from './budget'
 import { estimateTokens, truncateToTokens } from './tokens'
+import { normalizeText } from '../tools/support/text'
 
 /**
  * L0–L3 上下文装配（PRD §8.1 / DEV-PLAN §7.3）。
@@ -109,6 +110,12 @@ export interface AssembleInput {
   recentLimit?: number
   /** 上一章摘要；没有摘要（旧项目 / 未定稿）时为 null / 省略。 */
   previousSummary?: PreviousSummarySpec | null
+  /**
+   * 装配档位（PHASE-22 M2-9）：
+   * - `optimized`（默认）：块去重、旁观者相关裁、最近拍先降到 4；
+   * - `baseline`：优化前路径，只用于同一夹具的前后对比（COST-M2-02）。
+   */
+  mode?: 'optimized' | 'baseline'
 }
 
 export interface AssembleResult {
@@ -241,7 +248,66 @@ function capped(text: string, maxTokens: number): string {
   return truncateToTokens(text, maxTokens)
 }
 
+function refKeyOf(item: RetrievedItem): string {
+  return `${item.refType}:${item.id}`
+}
+
+function textKeyOf(text: string): string {
+  return normalizeText(text).replace(/\s+/g, '')
+}
+
+/**
+ * L3 旁观者相关度（PHASE-22 M2-9）：
+ *   2 = 场景目标/本拍意图里点名；
+ *   1 = 与发言者有非中性关系张力（`sources.ts` 用 0.5 表示「没有张力边」）；
+ *   0 = 无台词、无关系：人少时占位，人多时先裁。
+ */
+function spectatorRelevance(spectator: SpectatorSpec, contextText: string): number {
+  if (spectator.name.length > 0 && contextText.includes(spectator.name)) return 2
+  if (Math.abs(spectator.tension - 0.5) > 1e-9) return 1
+  return 0
+}
+
+/**
+ * 旁观者裁剪：相关者优先，零相关者最多补到 4 个；总上限仍是 8（`plan.caps.spectators`）。
+ * 顺序按原 participants 稳定输出，保证同一输入两次装配完全一致。
+ */
+function selectSpectators(
+  spectators: readonly SpectatorSpec[],
+  contextText: string,
+  cap: number
+): SpectatorSpec[] {
+  const ranked = spectators.map((spectator, index) => ({
+    spectator,
+    index,
+    rank: spectatorRelevance(spectator, contextText)
+  }))
+  const relevant = ranked
+    .filter((entry) => entry.rank > 0)
+    .sort((left, right) => right.rank - left.rank || left.index - right.index)
+  const filler = ranked.filter((entry) => entry.rank === 0).sort((left, right) => left.index - right.index)
+  const fillerRoom = Math.max(0, 4 - relevant.length)
+  return [...relevant, ...filler.slice(0, fillerRoom)]
+    .sort((left, right) => left.index - right.index)
+    .slice(0, cap)
+    .map((entry) => entry.spectator)
+}
+
 export function assembleContext(input: AssembleInput): AssembleResult {
+  return assembleWithProfile(input, input.mode ?? 'optimized')
+}
+
+/**
+ * 优化前装配路径（PHASE-22 COST-M2-02 的对照基线）：
+ * 块不去重、不按相关度裁旁观者、最近拍可降到 2。
+ * 只用于同一夹具的前后对比，生产只走 `assembleContext`。
+ */
+export function assembleContextBaseline(input: AssembleInput): AssembleResult {
+  return assembleWithProfile(input, 'baseline')
+}
+
+function assembleWithProfile(input: AssembleInput, mode: 'optimized' | 'baseline'): AssembleResult {
+  const optimized = mode === 'optimized'
   const maxWords = defaultMaxWords(input)
   const calibration = input.calibration ?? 1
   const plan = planBudget({
@@ -316,12 +382,29 @@ export function assembleContext(input: AssembleInput): AssembleResult {
   const pinned = [...input.pinned]
     .sort((left, right) => right.importance - left.importance || left.id.localeCompare(right.id))
     .slice(0, plan.limits.pinnedMax)
-  const pinnedKeys = new Set(pinned.map((item) => `${item.refType}:${item.id}`))
+  const pinnedKeys = new Set(pinned.map(refKeyOf))
 
-  const retrieved = [...input.retrieved]
-    .filter((item) => !pinnedKeys.has(`${item.refType}:${item.id}`))
-    .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id))
-    .slice(0, input.topK ?? plan.limits.topK)
+  // 块去重（PHASE-22 M2-9）：pinned 优先；同一 (type,id) 只留一份。
+  // 优化档再按「同类型 + 归一化文本」去重：低重要度的重复记忆不占检索名额。
+  const topK = input.topK ?? plan.limits.topK
+  const seenKeys = new Set(pinnedKeys)
+  const textKeyOfRef = (item: RetrievedItem): string => `${item.refType}|${textKeyOf(item.text)}`
+  const seenTexts = new Set(optimized ? pinned.map(textKeyOfRef) : [])
+  const retrieved: RetrievedItem[] = []
+  for (const item of [...input.retrieved].sort(
+    (left, right) => right.score - left.score || left.id.localeCompare(right.id)
+  )) {
+    const key = refKeyOf(item)
+    if (seenKeys.has(key)) continue
+    if (optimized) {
+      const textKey = textKeyOfRef(item)
+      if (seenTexts.has(textKey)) continue
+      seenTexts.add(textKey)
+    }
+    seenKeys.add(key)
+    retrieved.push(item)
+    if (retrieved.length >= topK) break
+  }
 
   for (const [index, item] of pinned.entries()) {
     const text = capped(`[${referenceLabel(item.refType)}·pin] id=${item.id}\n${item.text}`, 320)
@@ -394,9 +477,13 @@ export function assembleContext(input: AssembleInput): AssembleResult {
     })
   )
 
-  const spectators = input.spectators
-    .filter((spectator) => spectator.id !== input.beat.speakerId)
-    .slice(0, plan.caps.spectators)
+  const spectatorCandidates = input.spectators.filter(
+    (spectator) => spectator.id !== input.beat.speakerId
+  )
+  const spectatorGoal = `${input.scene.goal}\n${input.beat.intent}`
+  const spectators = optimized
+    ? selectSpectators(spectatorCandidates, spectatorGoal, plan.caps.spectators)
+    : spectatorCandidates.slice(0, plan.caps.spectators)
   for (const spectator of spectators) {
     blocks.push(
       block({
@@ -411,7 +498,11 @@ export function assembleContext(input: AssembleInput): AssembleResult {
     )
   }
 
-  const bundle = fitToBudget(blocks, effectiveBudget)
+  const bundle = fitToBudget(
+    blocks,
+    effectiveBudget,
+    optimized ? { recentMin: BUDGET.recentFloorOptimized } : {}
+  )
   if (summaryOmitted) bundle.degraded.push('summary_omitted')
   if (retrieved.length === 0 && pinned.length === 0) bundle.degraded.push('memory_empty')
 

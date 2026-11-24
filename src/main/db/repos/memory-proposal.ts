@@ -130,6 +130,14 @@ export class MemoryProposalRepo extends BaseRepo {
     return rows.map(mapItem)
   }
 
+  /** 待决策条目（PHASE-22 归档保护）：跨全部历史，不被 500 条浏览上限截断。 */
+  listPending(projectId: string): MemoryProposalItemRecord[] {
+    const rows = this.runner.raw
+      .prepare("SELECT * FROM memory_proposal_item WHERE project_id = ? AND decision = 'pending' ORDER BY rowid")
+      .all(projectId) as ProposalRow[]
+    return rows.map(mapItem)
+  }
+
   /** 决策只记录结果；应用到记忆/世界状态由 memory.apply 完成。 */
   decide(id: string, decision: Exclude<ProposalDecision, 'pending'>, editedText?: string): MemoryProposalItemRecord {
     runStatement(

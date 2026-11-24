@@ -61,6 +61,9 @@ import type { StoryboardConflict, StoryboardDraft } from './storyboard'
 import type {
   IndexRebuildIssueResult,
   MemoryActionResult,
+  MemoryArchiveApplyResult,
+  MemoryArchiveCandidatesState,
+  MemoryArchiveIssueResult,
   MemoryEvent,
   MemoryIssueResult,
   MemoryRecallResult,
@@ -398,6 +401,14 @@ export interface MemoryApi {
   }): Promise<IpcResult<MemoryState>>
   /** 工具调用审计（M1-23）：只读、分页 50；不返回 args。 */
   toolCalls(input?: ToolCallListInput): Promise<IpcResult<ToolCallListState>>
+  /** 归档候选（M2-7）：只读；只含 experience，keeper/相似度/原因由主进程算好。 */
+  archiveCandidates(): Promise<IpcResult<MemoryArchiveCandidatesState>>
+  /** 签发 author_confirm（10 分钟）：绑定到这批 id 的哈希。 */
+  issueArchiveToken(ids: string[]): Promise<IpcResult<MemoryArchiveIssueResult>>
+  /** 执行归档：单事务 + 审计；失效候选进 skipped，不半写。 */
+  archiveApply(input: { ids: string[]; token: string }): Promise<IpcResult<MemoryArchiveApplyResult>>
+  /** 恢复归档条目：不需要令牌，但 UI 要二次确认。 */
+  restoreArchive(entryId: string): Promise<IpcResult<MemoryActionResult>>
 }
 
 /** 世界状态（PHASE-13 M1-3 / M1-18）：as-of 投影 + 作者显式新增/关闭事实。 */

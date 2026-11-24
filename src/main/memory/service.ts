@@ -5,6 +5,9 @@ import type {
   IndexRebuildIssueResult,
   IndexRebuildState,
   MemoryActionResult,
+  MemoryArchiveApplyResult,
+  MemoryArchiveCandidatesState,
+  MemoryArchiveIssueResult,
   MemoryAuditState,
   MemoryChapterSummary,
   MemoryEvent,
@@ -41,7 +44,14 @@ import { commitBeat } from '../doc/commit-beat'
 import { finalizeChapter } from '../doc/finalize'
 import { checkAuthorGate, consumeAuthorGate, issueAuthorGate } from '../review/gates'
 import { ensureNamespaces } from './namespace'
-import { applyMemoryProposals, invalidateMemoryEntry, proposalJobKey } from './apply'
+import { applyMemoryProposals, archiveMemoryEntries, invalidateMemoryEntry, proposalJobKey, restoreMemoryEntry } from './apply'
+import {
+  ARCHIVE_BATCH_LIMIT,
+  ARCHIVE_IMPORTANCE_MAX,
+  ARCHIVE_SIMILARITY_MIN,
+  archiveBatchId,
+  buildArchiveCandidates
+} from './archive'
 import { rebuildChapter, rebuildExtractKey, rebuildJobKey, rebuildResultPayload } from './rebuild'
 import { latestReindexJob, parseReindexProgress, reindexJobKey, reindexProject } from './reindex'
 import type { Embedder } from './embed/types'
@@ -211,7 +221,7 @@ export class MemoryService {
     const job = selected === null ? null : this.proposalJobOf(host.repos, project.id, selected.finalRevisionId)
     const proposals = job === null ? [] : this.proposalStates(host.repos, job.id)
     const gateId = job?.id ?? null
-    const entries = host.repos.memory.listFiltered(project.id, {})
+    const entries = host.repos.memory.listFiltered(project.id, { archived: 'all' })
     const chapterTitles = new Map(chapters.map((chapter) => [chapter.id, chapter.title]))
     const characters = new Map(host.repos.character.list(project.id).map((character) => [character.id, character.name]))
 
@@ -255,6 +265,8 @@ export class MemoryService {
         validToSeq: entry.validToSeq,
         status: entry.status,
         embeddingModel: entry.embeddingModel,
+        archivedAt: entry.archivedAt,
+        archiveReason: entry.archiveReason,
         createdAt: entry.createdAt
       })),
       worldFacts: host.repos.world.listByProject(project.id).map((fact) => this.factState(fact)),
@@ -299,6 +311,7 @@ export class MemoryService {
       },
       running: this.running,
       hasProposals: proposals.length > 0,
+      counts: host.repos.memory.countByStatus(project.id),
       rebuild: this.rebuildView(host.repos, project.id, selected?.id ?? null, host.readOnly),
       index: this.indexView(host.repos, project.id, host.readOnly),
       model: this.models.status(host.repos),
@@ -786,6 +799,148 @@ export class MemoryService {
     return {
       state: this.state(entry.sourceChapterId),
       detail: '已标记失效（软失效，可追溯，不删除）'
+    }
+  }
+
+  // ── 归档（M2-7） ──────────────────────────────────────────────────────────
+
+  /**
+   * 归档候选（只读）：确定性规则在 `memory/archive.ts`，这里只补角色名与计数。
+   * 不写库；作者勾选后走 `issueArchiveToken` → `archiveApply`。
+   */
+  archiveCandidates(): MemoryArchiveCandidatesState {
+    const host = this.requireHost()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'no project in database')
+    const characters = new Map(host.repos.character.list(project.id).map((character) => [character.id, character.name]))
+    return {
+      projectId: project.id,
+      readOnly: host.readOnly,
+      items: buildArchiveCandidates(host.repos, project.id).map((candidate) => ({
+        id: candidate.id,
+        characterId: candidate.characterId,
+        characterName: characters.get(candidate.characterId) ?? candidate.characterId,
+        text: candidate.text,
+        importance: candidate.importance,
+        learnedSeq: candidate.learnedSeq,
+        keeperId: candidate.keeperId,
+        keeperText: candidate.keeperText,
+        similarity: candidate.similarity,
+        reason: candidate.reason
+      })),
+      counts: host.repos.memory.countByStatus(project.id),
+      batchLimit: ARCHIVE_BATCH_LIMIT,
+      threshold: { importanceMax: ARCHIVE_IMPORTANCE_MAX, similarityMin: ARCHIVE_SIMILARITY_MIN }
+    }
+  }
+
+  /** 签发 author_confirm（10 分钟）：绑定到这批 id 的哈希，执行时重新校验。 */
+  issueArchiveToken(ids: string[]): MemoryArchiveIssueResult {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'no project in database')
+    const state = this.archiveCandidates()
+    const wanted = new Set(ids)
+    const items = state.items.filter((item) => wanted.has(item.id))
+    if (items.length === 0) throw new AppError('invalid_args', '所选项已不是归档候选')
+    const batchId = archiveBatchId(items.map((item) => item.id))
+    const issued = issueAuthorGate({
+      repos: host.repos,
+      secret: this.deps.gateSecret,
+      projectId: project.id,
+      gateId: 'author_confirm',
+      entityType: 'archive',
+      entityId: batchId,
+      revision: null,
+      jobId: `author_archive_${newId('att')}`,
+      actor: 'author'
+    })
+    return {
+      token: issued.token,
+      expiresAt: issued.expiresAt,
+      preview: { batchId, count: items.length, items }
+    }
+  }
+
+  /**
+   * 执行归档：校验令牌 → `archiveMemoryEntries`（单事务 + 审计）→ 清检索缓存。
+   * `skipped` 是校验结果，不是半写：有效项全写，失效项原样返回。
+   */
+  archiveApply(input: { ids: string[]; token: string }): MemoryArchiveApplyResult {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'no project in database')
+    const batchId = archiveBatchId(input.ids)
+
+    // 重放：同一批 id 已归档过 → 返回首次结果，不再校验/消费令牌（令牌已用掉）。
+    const previous = host.repos.memoryAudit
+      .listByEntity(batchId)
+      .find((record) => record.action === 'archive' && record.entityType === 'proposal')
+    if (previous) {
+      const detail = parseJson(previous.detailJson)
+      const archived = Array.isArray(detail.archived)
+        ? detail.archived.filter((id): id is string => typeof id === 'string')
+        : []
+      const skipped = Array.isArray(detail.skipped)
+        ? detail.skipped.flatMap((item): Array<{ id: string; reason: string }> => {
+            if (item === null || typeof item !== 'object') return []
+            const record = item as Record<string, unknown>
+            if (typeof record.id !== 'string' || typeof record.reason !== 'string') return []
+            return [{ id: record.id, reason: record.reason }]
+          })
+        : []
+      return {
+        state: this.state(),
+        detail: '重放：返回首次归档结果，未重复写入',
+        archived,
+        skipped
+      }
+    }
+
+    checkAuthorGate({
+      repos: host.repos,
+      secret: this.deps.gateSecret,
+      gateId: 'author_confirm',
+      entityType: 'archive',
+      entityId: batchId,
+      revision: null,
+      token: input.token
+    })
+    const result = archiveMemoryEntries(host.db, host.repos, {
+      projectId: project.id,
+      batchId,
+      ids: input.ids,
+      actor: 'author',
+      gateTokenHash: sha256Hex(input.token)
+    })
+    invalidateRetrievalCache(project.id)
+    const state = this.state()
+    const archived = result.archived.length
+    const skipped = result.skipped.length
+    return {
+      state,
+      detail: result.duplicate
+        ? '重放：返回首次归档结果，未重复写入'
+        : `已归档 ${archived} 条${skipped > 0 ? `，跳过 ${skipped} 条（已变化）` : ''}（软归档，可恢复）`,
+      archived: result.archived,
+      skipped: result.skipped
+    }
+  }
+
+  /** 恢复：不需要令牌，但 UI 需要二次确认；写 `restore` 审计，不重建向量。 */
+  restoreArchive(entryId: string): MemoryActionResult {
+    const host = this.requireWritable()
+    const project = host.repos.project.get()
+    if (!project) throw new AppError('project_not_found', 'no project in database')
+    const restored = restoreMemoryEntry(host.db, host.repos, {
+      projectId: project.id,
+      entryId,
+      actor: 'author'
+    })
+    invalidateRetrievalCache(project.id)
+    return {
+      state: this.state(restored.entry.sourceChapterId),
+      detail: restored.duplicate ? '条目未归档，无需恢复' : '已恢复（重新参与检索，向量未重建）'
     }
   }
 

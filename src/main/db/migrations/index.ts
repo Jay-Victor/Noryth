@@ -11,6 +11,7 @@ import branchSummarySql from './0010_branch_summary.sql?raw'
 import toolCallChapterSql from './0011_tool_call_chapter.sql?raw'
 import voiceSql from './0012_voice.sql?raw'
 import costSql from './0013_cost.sql?raw'
+import archiveContextSql from './0014_archive_context.sql?raw'
 import type { Migration } from '../migrator'
 
 /**
@@ -30,7 +31,8 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 10, name: 'branch_summary', sql: branchSummarySql },
   { version: 11, name: 'tool_call_chapter', sql: toolCallChapterSql },
   { version: 12, name: 'voice', sql: voiceSql },
-  { version: 13, name: 'cost', sql: costSql }
+  { version: 13, name: 'cost', sql: costSql },
+  { version: 14, name: 'archive_context', sql: archiveContextSql }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS.reduce((max, m) => Math.max(max, m.version), 0)

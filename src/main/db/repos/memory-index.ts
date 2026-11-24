@@ -77,6 +77,22 @@ export class MemoryIndexRepo {
     return row !== undefined
   }
 
+  /**
+   * 读取单条向量（PHASE-22 归档候选的相似度判断）。
+   * 只读；把 sqlite-vec 的 BLOB 解成 Float32Array。行不存在返回 null。
+   */
+  readVector(memoryId: string): Float32Array | null {
+    const row = this.runner.raw.prepare('SELECT embedding AS embedding FROM memory_vec WHERE memory_id = ?').get(memoryId) as
+      | { embedding: Buffer | Uint8Array }
+      | undefined
+    if (!row) return null
+    const buffer = Buffer.isBuffer(row.embedding) ? row.embedding : Buffer.from(row.embedding)
+    if (buffer.byteLength % 4 !== 0) return null
+    const copy = new Float32Array(buffer.byteLength / 4)
+    Buffer.from(copy.buffer, copy.byteOffset, copy.byteLength).set(buffer)
+    return copy
+  }
+
   countVectors(): number {
     const row = this.runner.raw.prepare('SELECT COUNT(*) AS count FROM memory_vec').get() as { count: number }
     return row.count
@@ -93,6 +109,7 @@ export class MemoryIndexRepo {
         AND k = ${k}
         AND m.character_id = ?
         AND m.status = 'active'
+        AND m.archived_at IS NULL
         AND m.learned_seq <= ?
         AND (m.valid_to_seq IS NULL OR m.valid_to_seq > ?)
         ${filter.embeddingModel === undefined ? '' : 'AND m.embedding_model = ?'}
@@ -127,6 +144,7 @@ export class MemoryIndexRepo {
       WHERE memory_fts MATCH ?
         AND m.character_id = ?
         AND m.status = 'active'
+        AND m.archived_at IS NULL
         AND m.learned_seq <= ?
         AND (m.valid_to_seq IS NULL OR m.valid_to_seq > ?)
         ${filter.embeddingModel === undefined ? '' : 'AND m.embedding_model = ?'}
@@ -151,6 +169,7 @@ export class MemoryIndexRepo {
       .prepare(
         `SELECT id AS memoryId FROM memory_entry
          WHERE character_id = ? AND status = 'active'
+           AND archived_at IS NULL
            AND learned_seq <= ? AND (valid_to_seq IS NULL OR valid_to_seq > ?)
            AND text LIKE ?
          ORDER BY importance DESC, learned_seq DESC

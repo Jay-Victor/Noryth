@@ -8,6 +8,7 @@ import type { RoutingTrace } from '../../shared/schema/routing'
 import type { Repos } from '../db/repos'
 import type { JobRecord } from '../db/repos/job'
 import type { ContextBundle } from '../context/budget'
+import { stablePrefixTokens } from '../context/budget'
 import { assembleContext, contextSnapshot } from '../context/assemble'
 import { collectContext } from '../context/sources'
 import type { ChatAdapter, ChatMessage, ChatResult, ChatToolCall } from '../model/adapter'
@@ -269,17 +270,27 @@ function refCatalog(turnRefs: TurnRefRegistry): string {
   return refs.length === 0 ? '（本轮没有任何可引用材料，grounding 必须为空）' : refs.join('\n')
 }
 
-function sumUsage(rounds: readonly ChatResult[]): { tokensIn: number | null; tokensOut: number | null } {
+function sumUsage(rounds: readonly ChatResult[]): { tokensIn: number | null; tokensOut: number | null; cachedTokens: number | null } {
   let input = 0
   let output = 0
+  let cached = 0
   let seen = false
+  let cachedSeen = false
   for (const round of rounds) {
     if (!round.usage) continue
     seen = true
     input += round.usage.promptTokens
     output += round.usage.completionTokens
+    if (typeof round.usage.cachedTokens === 'number' && Number.isFinite(round.usage.cachedTokens)) {
+      cachedSeen = true
+      cached += round.usage.cachedTokens
+    }
   }
-  return seen ? { tokensIn: input, tokensOut: output } : { tokensIn: null, tokensOut: null }
+  return {
+    tokensIn: seen ? input : null,
+    tokensOut: seen ? output : null,
+    cachedTokens: cachedSeen ? cached : null
+  }
 }
 
 function isRejection(code: ErrorCode): boolean {
@@ -514,7 +525,7 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
       provider: binding.provider,
       model: binding.model,
       bindingVersion: binding.version,
-      usage: { tokensIn: usage.tokensIn, tokensOut: usage.tokensOut },
+      usage: { tokensIn: usage.tokensIn, tokensOut: usage.tokensOut, cachedTokens: usage.cachedTokens },
       capabilities,
       latencyMs: now() - started,
       firstTokenMs: runtime.rounds.find((round) => round.firstTokenMs !== null)?.firstTokenMs ?? null,
@@ -525,6 +536,11 @@ export async function runTurn(deps: TurnDeps, input: TurnInput): Promise<TurnRes
         turn_id: turnId,
         actor,
         as_of: collected.asOf,
+        cache: {
+          prefix_hash: prompt.prefixHash,
+          stable_tokens: stablePrefixTokens(assembled.bundle.blocks),
+          cached_tokens: usage.cachedTokens
+        },
         ...(deps.routingTrace == null ? {} : { routing: deps.routingTrace })
       }),
       degraded: validation.envelope.meta.degraded ? runtime.degradedSources : [],

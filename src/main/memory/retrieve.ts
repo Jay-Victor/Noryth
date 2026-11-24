@@ -164,6 +164,8 @@ export async function retrieveOwn(
     if (!entry) continue
     if (entry.characterId !== context.characterId) continue // 双保险：跨角色永不召回
     if (entry.status !== 'active') continue
+    // 软归档（PHASE-22）：SQL 已过滤，这里是双保险——归档条目永不进入召回。
+    if (entry.archivedAt !== null) continue
     if (entry.learnedSeq > context.asOf) continue
     if (entry.validToSeq !== null && entry.validToSeq <= context.asOf) continue
     if (query.kinds !== undefined && query.kinds.length > 0 && !query.kinds.includes(entry.kind)) continue

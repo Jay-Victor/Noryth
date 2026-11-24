@@ -629,7 +629,8 @@ export class WriteService {
       trimmed: [],
       degraded: [],
       prefixHash: null,
-      usage: { tokensIn: null, tokensOut: null, costCny: 0, latencyMs: null, firstTokenMs: null },
+      usage: { tokensIn: null, tokensOut: null, cachedTokens: null, costCny: 0, latencyMs: null, firstTokenMs: null },
+      cache: { stableTokens: 0, cachedTokens: null, hitRate: null },
       estimate: { totalTokens: 0, actualPromptTokens: null, ratio: null },
       budget,
       pauseReason
@@ -645,6 +646,7 @@ export class WriteService {
       degraded?: unknown
       prefix_hash?: unknown
       as_of?: unknown
+      cache?: unknown
     }
     const trimmed = Array.isArray(record.trimmed)
       ? record.trimmed.filter((item): item is string => typeof item === 'string')
@@ -681,6 +683,22 @@ export class WriteService {
         : blocks.reduce((sum, block) => sum + block.tokens, 0)
     const actual = typeof metric.tokensIn === 'number' ? metric.tokensIn : null
     const ratio = actual !== null && totalTokens > 0 ? actual / totalTokens : null
+    const cacheRecord =
+      record.cache !== null && typeof record.cache === 'object'
+        ? (record.cache as Record<string, unknown>)
+        : {}
+    const stableTokens =
+      typeof cacheRecord.stable_tokens === 'number' ? Math.max(0, Math.round(cacheRecord.stable_tokens)) : 0
+    const cachedTokens =
+      typeof metric.cachedTokens === 'number'
+        ? metric.cachedTokens
+        : typeof cacheRecord.cached_tokens === 'number'
+          ? cacheRecord.cached_tokens
+          : null
+    const hitRate =
+      cachedTokens !== null && actual !== null && actual > 0
+        ? Math.round((cachedTokens / actual) * 10_000) / 10_000
+        : null
 
     return {
       beatId: beat.id,
@@ -701,10 +719,12 @@ export class WriteService {
       usage: {
         tokensIn: metric.tokensIn,
         tokensOut: metric.tokensOut,
+        cachedTokens,
         costCny: metric.costCny ?? 0,
         latencyMs: metric.latencyMs,
         firstTokenMs: metric.firstTokenMs
       },
+      cache: { stableTokens, cachedTokens, hitRate },
       estimate: { totalTokens, actualPromptTokens: actual, ratio },
       budget,
       pauseReason

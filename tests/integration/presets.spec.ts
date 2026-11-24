@@ -68,12 +68,12 @@ describe('两家预设（DeepSeek / OpenAI 兼容）', () => {
       const ds = await runPreset(deepseek, 'deepseek', 'deepseek-flash')
       expect(ds.text).toBe('雨停了。')
       expect(ds.toolCalls).toEqual([{ id: 'call_ds', name: 'memory.retrieve_own', arguments: '{"query":"匣子"}' }])
-      expect(ds.usage).toEqual({ promptTokens: 100, completionTokens: 20 })
+      expect(ds.usage).toEqual({ promptTokens: 100, completionTokens: 20, cachedTokens: null })
 
       const oa = await runPreset(openai, 'openai', 'gpt-4.1-mini')
       expect(oa.text).toBe('风起了。')
       expect(oa.toolCalls[0]?.name).toBe('memory.retrieve_own')
-      expect(oa.usage).toEqual({ promptTokens: 90, completionTokens: 18 })
+      expect(oa.usage).toEqual({ promptTokens: 90, completionTokens: 18, cachedTokens: null })
     } finally {
       await Promise.all(servers.map((server) => server.close()))
     }

@@ -200,6 +200,10 @@ export interface MemoryEntryTable {
   supersedes_id: string | null
   embedding_model: string
   status: Generated<string>
+  /** 0014（PHASE-22 M2-7）：软归档时间；NULL = 未归档（检索可见）。 */
+  archived_at: string | null
+  /** 0014：归档原因（当前只有 `redundant`）；NULL = 未归档。 */
+  archive_reason: string | null
   created_at: string
 }
 
@@ -392,6 +396,8 @@ export interface TurnMetricTable {
   binding_version: number
   tokens_in: number | null
   tokens_out: number | null
+  /** 0014（PHASE-22 M2-9）：供应商报告的前缀缓存命中 token；NULL = 未报告。 */
+  cached_tokens: number | null
   cost_cny: number | null
   latency_ms: number | null
   first_token_ms: number | null

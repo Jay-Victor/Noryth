@@ -19,7 +19,7 @@ import type { ToolGateId } from '../tools/types'
 
 export type AuthorGateId = Extract<ToolGateId, 'G5' | 'G6' | 'G7' | 'author_confirm'>
 
-export type AuthorGateEntity = 'chapter' | 'revision' | 'proposal' | 'index'
+export type AuthorGateEntity = 'chapter' | 'revision' | 'proposal' | 'index' | 'archive'
 
 export interface AuthorGateIssueInput {
   repos: Repos

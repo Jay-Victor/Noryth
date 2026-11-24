@@ -43,6 +43,8 @@ export interface ChatToolCall {
 export interface ChatUsage {
   promptTokens: number
   completionTokens: number
+  /** 供应商报告的前缀缓存命中 token；未报告为 null/省略（不是 0）。 */
+  cachedTokens?: number | null
 }
 
 export interface ChatRequest {

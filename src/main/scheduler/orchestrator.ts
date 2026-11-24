@@ -298,6 +298,7 @@ export async function runOrchestratorTurn(
   } finally {
     // 失败也记账：已消耗的 token 不能凭空消失；turn_id 稳定，重试 upsert。
     if (turns.length > 0) {
+      const usage = sumUsages(turns.map((turn) => turn.usage))
       recordTurnMetric({
         repos: deps.repos,
         projectId: project.id,
@@ -309,7 +310,7 @@ export async function runOrchestratorTurn(
         provider: deps.adapter.provider,
         model: deps.adapter.model,
         bindingVersion: binding.version,
-        usage: sumUsages(turns.map((turn) => turn.usage)),
+        usage,
         capabilities: binding.capabilities ?? capabilitiesFor(deps.adapter.provider, deps.adapter.model),
         latencyMs: Date.now() - startedAt,
         firstTokenMs: turns.find((turn) => turn.firstTokenMs !== null)?.firstTokenMs ?? null,
@@ -318,6 +319,7 @@ export async function runOrchestratorTurn(
           promptVersion: PROMPT_VERSION,
           toolsetVersion: deps.registry.version,
           blockTokens,
+          cachedTokens: usage.cachedTokens,
           ...(deps.routingTrace == null ? {} : { routing: deps.routingTrace })
         })
       })

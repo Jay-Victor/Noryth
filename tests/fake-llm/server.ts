@@ -53,7 +53,8 @@ export interface FakeFixture {
     /** 文本按顺序切片流出；不写则返回空文本。 */
     stream?: string[]
     tool_calls?: FakeFixtureToolCall[]
-    usage?: { in: number; out: number }
+    /** cached 可选（PHASE-22）：OpenAI/DeepSeek 两种字段形状都能注入。 */
+    usage?: { in: number; out: number; cached?: number; cacheField?: 'openai' | 'deepseek' }
     finish_reason?: string
     delay_ms?: number
     error?: FakeFixtureError

@@ -104,7 +104,7 @@ describe('runTurn 一拍端到端（假模型）', () => {
     expect(result.envelope?.body).toBe(FINAL_TEXT)
     expect(result.envelope?.grounding).toEqual([goodGrounding(world)])
     expect(result.envelope?.meta.model).toBe('deepseek-flash')
-    expect(result.usage).toEqual({ tokensIn: 2000, tokensOut: 80 })
+    expect(result.usage).toEqual({ tokensIn: 2000, tokensOut: 80, cachedTokens: null })
     expect(result.toolCalls).toBe(1)
     expect(result.attempts).toBe(1)
 

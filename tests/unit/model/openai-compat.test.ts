@@ -93,7 +93,7 @@ describe('OpenAI-compatible 适配器（DEV-PLAN §7.5 / §7.8）', () => {
     expect(result.toolCalls).toEqual([
       { id: 'call_1', name: 'memory.retrieve_own', arguments: '{"query":"匣子"}' }
     ])
-    expect(result.usage).toEqual({ promptTokens: 12, completionTokens: 5 })
+    expect(result.usage).toEqual({ promptTokens: 12, completionTokens: 5, cachedTokens: null })
     expect(result.finishReason).toBe('tool_calls')
     expect(calls[0]).toContain('"stream":true')
     expect(calls[0]).toContain('"include_usage":true')
@@ -252,7 +252,7 @@ describe('OpenAI-compatible 适配器（DEV-PLAN §7.5 / §7.8）', () => {
     })
     const result = await adapter.stream({ messages: [], stream: false }, {})
     expect(result.toolCalls).toHaveLength(1)
-    expect(result.usage).toEqual({ promptTokens: 3, completionTokens: 4 })
+    expect(result.usage).toEqual({ promptTokens: 3, completionTokens: 4, cachedTokens: null })
   })
 
   it('探测：/models + 流式 + 工具 + JSON mode 全部可用', async () => {

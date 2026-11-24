@@ -346,9 +346,20 @@ export const WriteContextInspectionSchema = z.strictObject({
   usage: z.strictObject({
     tokensIn: z.number().int().nonnegative().nullable(),
     tokensOut: z.number().int().nonnegative().nullable(),
+    /**
+     * 供应商报告的缓存命中 token（PHASE-22）：null = 未报告，
+     * UI 显示「未报告」而不是 0%。不因缓存命中跳过 grounding。
+     */
+    cachedTokens: z.number().int().nonnegative().nullable(),
     costCny: z.number(),
     latencyMs: z.number().int().nonnegative().nullable(),
     firstTokenMs: z.number().int().nonnegative().nullable()
+  }),
+  /** 稳定前缀与缓存（PHASE-22 §5.6）：`hitRate = cached / tokensIn`。 */
+  cache: z.strictObject({
+    stableTokens: z.number().int().nonnegative(),
+    cachedTokens: z.number().int().nonnegative().nullable(),
+    hitRate: z.number().min(0).max(1).nullable()
   }),
   /** 估算 vs 上次实际 prompt tokens：不显示假精确值（DEV-PLAN §7.4）。 */
   estimate: z.strictObject({

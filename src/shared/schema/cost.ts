@@ -39,6 +39,10 @@ export const CostChapterRowSchema = z.strictObject({
   calls: z.number().int().nonnegative(),
   pricedCalls: z.number().int().nonnegative(),
   unpricedCalls: z.number().int().nonnegative(),
+  /** 供应商报告了缓存的调用数（PHASE-22）；未报告不计入。 */
+  cacheCalls: z.number().int().nonnegative(),
+  /** 缓存命中 token 之和；0 且 cacheCalls=0 表示「未报告」，不是 0%。 */
+  cachedTokens: z.number().int().nonnegative(),
   latencyP50: z.number().int().nonnegative().nullable(),
   latencyP95: z.number().int().nonnegative().nullable()
 })
@@ -55,6 +59,8 @@ export const CostAgentRowSchema = z.strictObject({
   unpricedCalls: z.number().int().nonnegative(),
   /** 占比：有计价时按费用，否则按 token（看 `shareBasis`）。 */
   share: z.number().min(0).max(1),
+  cacheCalls: z.number().int().nonnegative(),
+  cachedTokens: z.number().int().nonnegative(),
   latencyP50: z.number().int().nonnegative().nullable(),
   latencyP95: z.number().int().nonnegative().nullable()
 })
@@ -66,6 +72,8 @@ export const CostTotalsSchema = z.strictObject({
   costCny: z.number().nonnegative(),
   pricedCalls: z.number().int().nonnegative(),
   unpricedCalls: z.number().int().nonnegative(),
+  cacheCalls: z.number().int().nonnegative(),
+  cachedTokens: z.number().int().nonnegative(),
   words: z.number().int().nonnegative(),
   costPer10k: z.number().nonnegative().nullable()
 })
@@ -94,6 +102,16 @@ export const CostReportSchema = z.strictObject({
   }),
   /** cost = 有计价；tokens = 全无计价时的退路（UI 标「按 token」）。 */
   shareBasis: z.enum(['cost', 'tokens']),
+  /**
+   * 缓存命中（PHASE-22 §5.6）：只统计供应商报告了的调用。
+   * `hitRate = cachedTokens / tokensIn`；`cacheCalls=0` → null（UI 显示「未报告」）。
+   */
+  cache: z.strictObject({
+    cachedTokens: z.number().int().nonnegative(),
+    cacheCalls: z.number().int().nonnegative(),
+    calls: z.number().int().nonnegative(),
+    hitRate: z.number().min(0).max(1).nullable()
+  }),
   confirm: CostConfirmLatencySchema,
   generatedAt: z.string()
 })

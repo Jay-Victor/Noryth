@@ -33,6 +33,12 @@ function apiKeyFor(provider: string, env: NodeJS.ProcessEnv): string | null {
 /** 同一 provider/model 复用假适配器，重生成才会换下一句（与切片一致）。 */
 const fakeAdapters = new Map<string, FakeWriteModelAdapter>()
 
+function parseCachedTokens(value: string | undefined): number | null {
+  if (value === undefined || value.trim().length === 0) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : null
+}
+
 export class WriteModelFactory {
   constructor(private readonly options: WriteModelOptions) {}
 
@@ -49,7 +55,10 @@ export class WriteModelFactory {
       const created = new FakeWriteModelAdapter({
         provider: binding.provider,
         model: binding.model,
-        chunkDelayMs: this.options.fakeChunkDelayMs ?? 4
+        chunkDelayMs: this.options.fakeChunkDelayMs ?? 4,
+        cachedTokens: parseCachedTokens(
+          (this.options.env ?? process.env).NORYTH_WRITE_FAKE_CACHED_TOKENS
+        )
       })
       fakeAdapters.set(key, created)
       return created

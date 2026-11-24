@@ -152,16 +152,16 @@ CREATE INDEX memory_entry_archive
 
 ## 6 验收清单
 
-- [ ] 0014 迁移：`archived_at/archive_reason/cached_tokens` 列、归档索引、`memory_audit` 新动作；旧行保留；`LATEST_SCHEMA_VERSION = 14`（`tests/unit/migrator.test.ts`）。
-- [ ] 候选规则：只 `experience`；fact/relationship/cognition/pinned 永不进入；被有效事实/边引用的条目不进入；确定性排序（`tests/unit/memory/archive.test.ts`）。
-- [ ] 执行：`author_confirm` 令牌；单事务写 `archived_at` + 审计；重放不双写；坏令牌零写入；失效候选 `skipped` 不半写（`tests/unit/memory/archive.test.ts`）。
-- [ ] 检索：归档后 `memory.retrieve_own` / pinned 不再命中；`memory.retrieve_audit` 仍可见并带标记；缓存失效（`tests/unit/memory/retrieve.test.ts` 扩展）。
-- [ ] `E2E-M2-ARCHIVE-01`：记忆台生成候选 → 勾选 → 确认 → 归档列表出现 → 检索不命中 → 恢复 → 检索命中 → 正文/revision 不变。
-- [ ] `COST-M2-02`：同一 30 章夹具优化前后 `tokens_in` 中位数下降 ≥15%；P95 不升；`context_trimmed` 不升 >5 个百分点；grounding/E2E 绿（`tests/unit/context/cost.test.ts`、`tests/e2e/context-cost.spec.ts`）。
-- [ ] 缓存解析：OpenAI/DeepSeek 两种字段都能读；缺省 NULL；报表/检查器文案区分「未报告」与 0（`tests/unit/model/usage.test.ts`）。
-- [ ] `docs/M2-CONTEXT-COST.md` 记录优化前后按层 token、单拍/每万字成本、缓存命中、样本与局限。
-- [ ] 不物理删除；`memory_vec` / `memory_fts` 行仍在；归档只影响可见性。
-- [ ] 门禁：typecheck / lint / depcruise / unit / integration / e2e / build / gen:check。
+- [x] 0014 迁移：`archived_at/archive_reason/cached_tokens` 列、归档索引、`memory_audit` 新动作；旧行保留；`LATEST_SCHEMA_VERSION = 14`（`tests/unit/migrator.test.ts`）。
+- [x] 候选规则：只 `experience`；fact/relationship/cognition/pinned 永不进入；被有效事实/边引用的条目不进入；确定性排序（`tests/unit/memory/archive.test.ts`）。
+- [x] 执行：`author_confirm` 令牌；单事务写 `archived_at` + 审计；重放不双写；坏令牌零写入；失效候选 `skipped` 不半写（`tests/unit/memory/archive.test.ts`）。
+- [x] 检索：归档后 `memory.retrieve_own` / pinned 不再命中；`memory.retrieve_audit` 仍可见并带标记；缓存失效（`tests/unit/memory/retrieve.test.ts` 扩展）。
+- [x] `E2E-M2-ARCHIVE-01`：记忆台生成候选 → 勾选 → 确认 → 归档列表出现 → 检索不命中 → 恢复 → 检索命中 → 正文/revision 不变。
+- [x] `COST-M2-02`：同一 30 章夹具优化前后 `tokens_in` 中位数下降 ≥15%；P95 不升；`context_trimmed` 不升 >5 个百分点；grounding/E2E 绿（`tests/unit/context/cost.test.ts`、`tests/e2e/context-cost.spec.ts`）。
+- [x] 缓存解析：OpenAI/DeepSeek 两种字段都能读；缺省 NULL；报表/检查器文案区分「未报告」与 0（`tests/unit/model/usage.test.ts`）。
+- [x] `docs/M2-CONTEXT-COST.md` 记录优化前后按层 token、单拍/每万字成本、缓存命中、样本与局限。
+- [x] 不物理删除；`memory_vec` / `memory_fts` 行仍在；归档只影响可见性。
+- [x] 门禁：typecheck / lint / depcruise / unit / integration / e2e / build / gen:check。
 
 ## 7 风险与回退
 

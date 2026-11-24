@@ -62,6 +62,8 @@ export const BUDGET = {
   pinnedMax: 5,
   recentDefault: 6,
   recentMin: 2,
+  /** PHASE-22 M2-9：预算不足时先把最近拍降到 4，再降 top_k（质量优先）。 */
+  recentFloorOptimized: 4,
   refsMin: 2,
   topKDefault: 5,
   /** PHASE-16 §5.4：上一章摘要 ≤300 tokens；超预算先压到 150，再整块丢。 */
@@ -165,11 +167,22 @@ function sortBlocks(blocks: readonly CtxBlock[]): CtxBlock[] {
 
 /**
  * 超预算时按 DEV-PLAN §7.3 的顺序裁剪：
- *   a 最近拍（保留至少 2）→ b top_k（最低 2）→ c L3 张力最低者
+ *   a 最近拍（优化档先到 4；最后兜底到 2）→ b top_k（最低 2）→ c L3 张力最低者
  *   → d pinned 5→3→1 → e 记忆 full→summary→facts_only → f context_overflow
  * 角色卡核心与本拍意图不在任何一步裁剪。
+ *
+ * `recentMin` 默认取 BUDGET.recentMin（2）；PHASE-22 的装配器传 4，
+ * 并在所有降级之后才允许降到 2（不先裁角色卡）。
  */
-export function fitToBudget(blocks: readonly CtxBlock[], budget: number): ContextBundle {
+export function fitToBudget(
+  blocks: readonly CtxBlock[],
+  budget: number,
+  options: { recentMin?: number } = {}
+): ContextBundle {
+  const recentMin = Math.max(
+    BUDGET.recentMin,
+    Math.min(BUDGET.recentDefault, Math.trunc(options.recentMin ?? BUDGET.recentMin))
+  )
   let kept = sortBlocks(blocks)
   const trimmed: string[] = []
   const degraded: string[] = []
@@ -189,7 +202,7 @@ export function fitToBudget(blocks: readonly CtxBlock[], budget: number): Contex
   // a) 历史拍：从最旧开始丢，保留至少 recentMin
   while (tokensOf(kept) > budget) {
     const recent = group('recent')
-    if (recent.length <= BUDGET.recentMin) break
+    if (recent.length <= recentMin) break
     drop(recent[recent.length - 1]!)
   }
 
@@ -254,6 +267,14 @@ export function fitToBudget(blocks: readonly CtxBlock[], budget: number): Contex
     degraded.push(level === 'summary' ? 'memory_summary' : 'memory_facts_only')
   }
 
+  // e2) 最后兜底（PHASE-22）：所有降级之后仍超，才把最近拍降到 2；
+  //     角色卡与意图仍然不动。这样「先保质量、再省钱」的顺序在代码里可核对。
+  while (tokensOf(kept) > budget) {
+    const recent = group('recent')
+    if (recent.length <= BUDGET.recentMin) break
+    drop(recent[recent.length - 1]!)
+  }
+
   // f) 仍超预算：配置错误，不静默截角色卡与意图
   if (tokensOf(kept) > budget) {
     throw new AppError('context_overflow', 'context exceeds budget after trimming', {
@@ -273,4 +294,9 @@ export function stablePrefixText(blocks: readonly CtxBlock[]): string {
     .filter((block) => block.stable)
     .map((block) => `[${block.id}]\n${block.text}`)
     .join('\n\n')
+}
+
+/** 稳定前缀块（system 里的 L0/L1）的 token 总量：写进 `context_json.cache.stable_tokens`。 */
+export function stablePrefixTokens(blocks: readonly CtxBlock[]): number {
+  return blocks.reduce((sum, block) => sum + (block.layer === 'L0' || block.layer === 'L1' ? block.tokens : 0), 0)
 }

@@ -143,6 +143,11 @@ export const IPC = {
   memoryIndexRebuild: 'memory.index.rebuild',
   // 工具调用审计（PHASE-18 M1-23）：只读、分页 50、不返回 args
   memoryToolCalls: 'memory.toolCalls',
+  // 归档（PHASE-22 M2-7）：候选只读；issue → author_confirm；apply 单事务；restore 免令牌
+  memoryArchiveCandidates: 'memory.archive.candidates',
+  memoryArchiveIssue: 'memory.archive.issue',
+  memoryArchiveApply: 'memory.archive.apply',
+  memoryArchiveRestore: 'memory.archive.restore',
   // 更新（PHASE-18 M1-7）：手动检查；下载仍由 electron-updater 后台做
   updateCheck: 'update.check',
   // 世界状态（PHASE-13 M1-3 / M1-18）：as-of 投影与作者事实

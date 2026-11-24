@@ -193,7 +193,11 @@ const bridge: NorythBridge = {
     issueIndexToken: () => invoke(IPC.memoryIndexIssue, {}),
     reindex: (input) => invoke(IPC.memoryIndexRebuild, input),
     devSeed: (input) => invoke(IPC.memoryDevSeed, input ?? {}),
-    toolCalls: (input) => invoke(IPC.memoryToolCalls, input ?? {})
+    toolCalls: (input) => invoke(IPC.memoryToolCalls, input ?? {}),
+    archiveCandidates: () => invoke(IPC.memoryArchiveCandidates, {}),
+    issueArchiveToken: (ids) => invoke(IPC.memoryArchiveIssue, { ids }),
+    archiveApply: (input) => invoke(IPC.memoryArchiveApply, input),
+    restoreArchive: (entryId) => invoke(IPC.memoryArchiveRestore, { entryId })
   },
   app: {
     info: () => invoke(IPC.appInfo, {}),

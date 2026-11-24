@@ -19,6 +19,8 @@ export type MemoryAuditAction =
   | 'rebuild'
   | 'supersede'
   | 'evidence_mismatch'
+  | 'archive'
+  | 'restore'
 
 export type MemoryAuditEntity = 'memory_entry' | 'world_fact' | 'belief' | 'relationship' | 'proposal'
 

@@ -19,11 +19,30 @@ export interface FakeReply {
   text?: string
   reasoning?: string
   toolCalls?: FakeToolCall[]
-  usage?: { in: number; out: number }
+  /**
+   * `cached` 用于 PHASE-22 缓存命中：`cacheField` 选择供应商字段形状
+   * （`openai` → prompt_tokens_details.cached_tokens；`deepseek` → prompt_cache_hit_tokens）。
+   * 不写 cached = 供应商未报告。
+   */
+  usage?: {
+    in: number
+    out: number
+    cached?: number
+    cacheField?: 'openai' | 'deepseek'
+  }
   finishReason?: string
   /** 注入 HTTP 错误（不进入协议）。 */
   httpStatus?: number
   httpBody?: string
+}
+
+function usageBody(usage: NonNullable<FakeReply['usage']>): Record<string, unknown> {
+  const body: Record<string, unknown> = { prompt_tokens: usage.in, completion_tokens: usage.out }
+  if (usage.cached !== undefined) {
+    if (usage.cacheField === 'deepseek') body.prompt_cache_hit_tokens = usage.cached
+    else body.prompt_tokens_details = { cached_tokens: usage.cached }
+  }
+  return body
 }
 
 export type FakeReplyFactory = (request: ChatRequestBody, index: number) => FakeReply | Promise<FakeReply>
@@ -101,7 +120,7 @@ function streamReply(response: ServerResponse, reply: FakeReply, model: string):
     sseWrite(response, {
       model,
       choices: [],
-      usage: { prompt_tokens: reply.usage.in, completion_tokens: reply.usage.out }
+      usage: usageBody(reply.usage)
     })
   }
   response.write('data: [DONE]\n\n')
@@ -129,7 +148,7 @@ function jsonReply(response: ServerResponse, reply: FakeReply, model: string): v
         finish_reason: reply.finishReason ?? ((reply.toolCalls?.length ?? 0) > 0 ? 'tool_calls' : 'stop')
       }
     ],
-    ...(reply.usage ? { usage: { prompt_tokens: reply.usage.in, completion_tokens: reply.usage.out } } : {})
+    ...(reply.usage ? { usage: usageBody(reply.usage) } : {})
   })
 }
 

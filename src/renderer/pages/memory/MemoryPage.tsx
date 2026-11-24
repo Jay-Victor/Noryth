@@ -9,6 +9,7 @@ import { AuditList } from './AuditList'
 import { ToolCallList } from './ToolCallList'
 import { GateBar } from './GateBar'
 import { MemoryBrowser } from './MemoryBrowser'
+import { MemoryArchivePanel } from './MemoryArchivePanel'
 import { ProposalList } from './ProposalList'
 import { ForeshadowPanel } from './ForeshadowPanel'
 import { RelationshipGraph } from './RelationshipGraph'
@@ -27,6 +28,7 @@ const TABS: Array<{ key: MemoryTab; label: string }> = [
   { key: 'world', label: '世界状态' },
   { key: 'relations', label: '关系图' },
   { key: 'foreshadows', label: '伏笔' },
+  { key: 'archive', label: '维护' },
   { key: 'audit', label: '审计' }
 ]
 
@@ -261,7 +263,8 @@ export function MemoryPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
           <div className="write-scene-progress">
             <div className="write-subhead">统计</div>
             <div className="review-mini-stats">
-              <span>记忆 {state.entries.length}</span>
+              <span>记忆 {state.counts.active}</span>
+              {state.counts.archived > 0 ? <span>归档 {state.counts.archived}</span> : null}
               <span>事实 {state.worldFacts.length}</span>
               <span>信念 {state.beliefs.length}</span>
               <span>关系 {state.relationships.length}</span>
@@ -401,6 +404,7 @@ export function MemoryPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
             <ForeshadowPanel state={foreshadows} />
           )
         ) : null}
+        {tab === 'archive' ? <MemoryArchivePanel state={state} /> : null}
         {tab === 'audit' ? (
           <div className="memory-audit-scope">
             <div className="memory-audit-scope__tabs" role="tablist" aria-label="审计视图">
@@ -455,7 +459,7 @@ export function MemoryPage({ mode }: { mode: LayoutMode }): React.JSX.Element {
               <div className="plan-tree-file">
                 <Icon name="memory" size={12} />
                 <span>角色记忆</span>
-                <span className="pane-header__meta">{state.entries.length} 条</span>
+                <span className="pane-header__meta">{state.counts.active} 条</span>
               </div>
               <div className="plan-tree-file">
                 <Icon name="plan" size={12} />

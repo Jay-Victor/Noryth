@@ -27,7 +27,7 @@
 | 19 | `docs/PHASE-19-VOICE.md` | done | M2-1：T25 `voice.metrics` 实现（逐角色 + 两两分项 + `threshold`，1.1.0，审批白名单 19→20）；`zh-v1` 中文夹具语料校准（0.252；FPR 2.0% / TPR 97.5%）+ `scripts/calibrate-voice.mjs`；迁移 0012 `voice_metric`（scene + revision 一行）+ `voice.scene` 只读 IPC；M2-2：创作台场景头徽标 + 审批台 `VoicePanel` + 报告运行时 `voice` 建议（只建议，不阻断 G6）；`scripts/m2-baseline.mjs` + `docs/M2-METRICS-BASELINE.md` + ADR-0007；`E2E-M2-VOICE-01`、`E2E-M2-METRICS-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 328 modules / unit 827 / integration 48 / chaos 8 / e2e 34 / perf 2 / build / gen:check / 规格脚本）；CI run `44914033792` 全绿（verify + e2e 两片）；标签 `phase-19-done` → `eed3ef1` | 语料是合成夹具（阈值是起点，真实项目需复跑基线）；项目基线用假模型文本（最低一对 0 分，不代表真实分数）；旁白不参与两两区分度；声音建议只在 G4 全量报告追加（复检报告不重复） |
 | 20 | `docs/PHASE-20-COST-BUDGET.md` | done | M2-3 章预算（token + ¥，出口优先，暂停/恢复不丢拍，`job.result_json.budget`）+ 费用预测（最近 5 拍中位数 / 0.7–1.3 / 无计价 null）+ 状态栏预算段；M2-5 全链路计量（`turn_metric.chapter_id`：写拍/审批/记忆/讨论/规划）+ `report.cost` + `CostReportDialog`（本章/全书、按章/按 Agent、预算编辑、费用下限）+ 迁移 0013 + `docs/M2-COST-BASELINE.md`；`E2E-M2-BUDGET-01`、`E2E-M2-COST-01`、`COST-M2-01` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 335 modules / unit 840 / integration 58 / chaos 8 / e2e 36 / perf 2 / build / gen:check / 规格脚本）；基线 30 章 / 540 拍 / 2.73 万字 / ¥3.0912（¥1.1316 每万字） | 每千字净操作时间留阶段 24 秒表；非 DeepSeek 预设仍不计价（显示下限）；自动模式暂停账本行用 `beat.generate`（0013 不改 job 表，无独立 auto job 类型）；假 usage 基线不是报价；`E2E-M2-A` 100k 长跑在阶段 24 |
 | 21 | `docs/PHASE-21-ROUTING-HETERO.md` | done | M2-4 多供应商路由/故障切换（`routing` 设置、`model/router.ts`、`model/health.ts` 熔断、状态栏徽标、六 Agent 回合前切换）；M2-8 校准（`review/calibration.ts`、`scripts/m2-calibration.mjs`、`docs/M2-HETERO-CALIBRATION.md`、ADR-0008/0009）；`routing.status` / `review.calibration` 只读 IPC；错误码 `routing_exhausted`；无迁移 | 全部通过：本地门禁全绿（typecheck / lint / depcruise 341 modules / unit 857 / integration 61 / e2e 38（两片各 19）/ chaos 8 / perf 2 / build / gen:check / 规格脚本）；30 章校准：60 报告 / 60 阻断 / 30 定稿 / 审批 ¥1.2384 / `heteroDeltaPct=null`；CI run `45384289571` 全绿（verify + e2e 两片）；标签 `phase-21-done` → `825ea4c` | 真实第二家 Key 未补测；D4 保持 `review.hetero=off`；健康状态只在内存（重启清零）；「立即重试」按钮未做（§7 风险表建议项，不阻断） |
-| 22 | `docs/PHASE-22-ARCHIVE-CONTEXT.md` | todo | M2-7 非事实类记忆归档；M2-9 上下文成本优化；迁移 0014 | — | 阶段文档已建（2026-11-17），未开工 |
+| 22 | `docs/PHASE-22-ARCHIVE-CONTEXT.md` | done | M2-7 非事实类归档（`memory/archive.ts` 确定性候选 + `apply.archiveMemoryEntries` 单事务 + `memory_audit` archive/restore + 记忆台「维护」tab + `memory.archive.*` 四个 IPC + 归档过滤/计数/缓存失效）；M2-9 上下文成本（块去重、L3 相关裁、最近拍 4→2 兜底、提示词去重、`cached_tokens` 解析 + 报表/检查器）；迁移 0014（`memory_entry.archived_at/archive_reason` + `memory_entry_archive` + `turn_metric.cached_tokens` + `memory_audit` CHECK 重建，`LATEST_SCHEMA_VERSION = 14`）；基线 `docs/M2-CONTEXT-COST.md`（180 拍：2,725 → 2,167，−20.5%；P95 不升；裁剪 0%）；`E2E-M2-ARCHIVE-01`、`COST-M2-02` | 全部通过：本地门禁全绿（typecheck / lint / depcruise 344 modules / unit 873 / integration 61 / e2e 41 / chaos 8 / perf 2 / build / gen:check / 规格脚本） | 真实供应商缓存命中率未测（单家 Key，外部依赖）；归档不做语义判断，只按 kind + 引用 + 文本/向量相似度；`skipped` 不半写但需要作者重新勾选；100k 项目的上下文成本留阶段 24 复测 |
 | 23 | `docs/PHASE-23-SCALE-100K.md` | todo | M2-6 10 万字性能专项；`PERF-M2-01`；0015 仅按需加索引 | — | 阶段文档已建（2026-11-17），未开工 |
 | 24 | `docs/PHASE-24-DELIVERY-M2.md` | todo | M2-10 100k 长跑 / QA / 内测 / M2 验收；0.3.0；`docs/M2-ACCEPTANCE.md` | — | 阶段文档已建（2026-11-17），未开工 |
 
@@ -818,10 +818,33 @@
 | 导出一致性 | zip 条目时间固定 2000-01-01、core 时间归一化到导出日零点、`_TocN` 与 bookmark id 按出现顺序重编号；同一天同一清单两次导出字节一致（`sha256` 相同） | `doc/export-docx.ts` `normalizeArchive` |
 | 导出文件安全 | 目标固定 `exports/`，解析后必须在目录内；同名追加 `-2`/`-3` 不覆盖；文件名只由书名/章名 + 时间戳生成，不接受路径入参 | `doc/export.ts` `resolveTarget` |
 
+## 验证记录（阶段 22，本地）
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| 类型 | `pnpm typecheck` | 通过（main + web 两套） |
+| Lint | `pnpm lint` | 通过 |
+| 依赖边界 | `pnpm depcruise` | 344 modules / 1731 dependencies，0 违规 |
+| 单元 + 契约 | `pnpm test:unit` | 873 passed（110 文件；新增 archive 5 / context-cost 4 / usage 5；retrieve 扩展 1） |
+| 集成 | `pnpm vitest run tests/integration` | 61 passed |
+| E2E | `pnpm test:e2e` | **41 passed**（3.9m；新增 `E2E-M2-ARCHIVE-01`、`COST-M2-02` 两条） |
+| 混沌 | `pnpm test:chaos` | 8 passed / CHAOS-01..09 |
+| 性能 | `pnpm test:perf` | 2 passed（PERF-01 / PERF-M1-01，基线未回退） |
+| 迁移 | `tests/unit/migrator.test.ts` | 0001→…→0014；旧 memory_audit 行逐列保留、CHECK 接受 archive/restore、`memory_entry_archive` 索引存在；`db.verify()` 绿；`LATEST_SCHEMA_VERSION = 14` |
+| 归档候选 | `tests/unit/memory/archive.test.ts` | 只 experience；fact/relationship/cognition/pin/高重要度/被引用/待决策提案都不进入；确定性两次相同；keeper 文本/余弦与相似度；软归档 `status` 不变、向量仍在；坏令牌零写入；重放不双写；签发后失效项 `skipped` 且有效项照常写入；恢复清两列 + restore 审计 |
+| 检索口径 | `tests/unit/memory/retrieve.test.ts` 扩展 | 归档后 pinned / bigram / LIKE / `retrieveOwn` 都不命中；恢复后重新命中；缓存需失效（生产入口已清） |
+| 归档 E2E | `tests/e2e/archive.spec.ts` | 14 提案 → 全部接受 → 8 条记忆 → 维护 1 条候选 → 归档 → 已归档 1、候选 0 → 角色记忆「仅已归档」1 条 → 召回不含归档 ID（keeper 仍命中）→ 恢复 → archived_at NULL / counts 0；revision 行与 content_hash 不变、memory_vec/fts 行数不变；audit archive 2 / restore 1 |
+| 上下文成本 | `tests/unit/context/cost.test.ts` | 180 拍：中位数 2,725 → 2,167（**−20.5%**）；P95 2,736 → 2,176（不升）；`context_trimmed` 0% → 0%；overflow 0；按层 L2 1,156.7→970.7、L3 592→296；块去重/L3 上限/确定性断言 |
+| 缓存指标 | `tests/unit/model/usage.test.ts` + `tests/e2e/context-cost.spec.ts` | OpenAI/DeepSeek 两种字段都解析；未报告 NULL；640/1000 = 64% 落库、检查器与成本对话框显示 640 · 64%；未报告显示「未报告」（`cacheCalls=0`、`hitRate=null`） |
+| 构建 | `pnpm build` | 通过 |
+| 生成物 | `pnpm gen:check` | 51 清单 + 2 生成模块 + grid，0 diff（无工具/schema 生成物变更） |
+| 规格脚本 | `check_ui_spec.py` / `check_tool_spec.py` | PASS：PRD 42 / 清单 50（系统 8）/ M0 36 |
+| 基线 | `docs/M2-CONTEXT-COST.md` | 前后按层 token、单拍/每万字成本、缓存命中、样本与局限 |
+
 ## 当前阻塞
 
-- 阶段 21 已 `done`（2026-11-21）：M2-4 显式故障切换（回合前切换、内存熔断、状态栏徽标、`turn_metric.context_json.routing`）+ M2-8 校准（`review.calibration` / `scripts/m2-calibration.mjs` / `docs/M2-HETERO-CALIBRATION.md`）；D4 保持 `review.hetero=off`（ADR-0009）。无迁移，`LATEST_SCHEMA_VERSION = 13`。
-- M2 进行中（2026-11-21）：阶段 19–21 已 `done`；阶段 22–24 仍为 `todo`，下一步从 `docs/PHASE-22-ARCHIVE-CONTEXT.md` 开始（M2-7 非事实类归档 + M2-9 上下文成本优化，迁移 0014）。
+- 阶段 22 已 `done`（2026-11-24）：M2-7 非事实类归档（`memory/archive.ts` + `apply.archiveMemoryEntries` + `memory.archive.*` + 记忆台「维护」）+ M2-9 上下文成本（块去重、L3 相关裁、最近拍 4→2、提示词去重、`cached_tokens`）；迁移 0014，`LATEST_SCHEMA_VERSION = 14`；基线 `docs/M2-CONTEXT-COST.md`（180 拍 −20.5%）。
+- M2 进行中（2026-11-24）：阶段 19–22 已 `done`；阶段 23–24 仍为 `todo`，下一步从 `docs/PHASE-23-SCALE-100K.md` 开始（M2-6 10 万字性能；0015 只在实测必须时加索引）。
 - **作者决定不测的外部依赖（2026-11-17，不阻断 M1/M2 收口）**：
   - Windows 10 22H2 安装冒烟：本机只有 Win11，未执行；在 Win10 VM 上跑 `node scripts/install-smoke.mjs`（PHASE-18 §7）。
   - 真实第二家供应商补测：无 DashScope/Moonshot Key；ADR-0003 记录，M1-26。
@@ -867,6 +890,14 @@
   5. `E2E-M1-BRANCH-01`（重开定稿 / 分支对比与切换 / 再定稿自动重建记忆，阶段 16）✅
   6. `E2E-M1-DOCX-01`（DOCX 通过，阶段 17）✅
   7. `E2E-M1-SMOKE`（3 章闭环，提交门）/ `E2E-M1-A`（30 章，nightly）/ `E2E-M1-TOOLCALL` ✅
+- 阶段 22 已 `done`（2026-11-24）；M2-7 / M2-9 交付。阶段 23 开工：M2-6 10 万字性能专项（`docs/PHASE-23-SCALE-100K.md`），默认不加迁移，实测必须才用 0015 且只加 `CREATE INDEX`。
+- 阶段 22 直接复用（M2 会用到）：
+  - **归档**：`buildArchiveCandidates()` 是唯一候选规则（只读、确定性）；写入只走 `archiveMemoryEntries()` / `restoreMemoryEntry()`（`memory/apply.ts`）；批次 id 用 `archiveBatchId(ids)`；令牌是 `author_confirm`（实体类型 `archive`），不是 G7。
+  - **迁移 0014**：`memory_entry.archived_at/archive_reason`、`turn_metric.cached_tokens`、`memory_audit` CHECK 含 `archive/restore`；`LATEST_SCHEMA_VERSION = 14`。
+  - **检索口径**：新增或修改任何记忆查询（向量 / FTS / LIKE / pinned / `listByCharacter`）必须带 `archived_at IS NULL`；归档/恢复后调用 `invalidateRetrievalCache(projectId)`，否则旧结果回魂。
+  - **上下文成本**：`assembleContext()` 是默认优化档；`assembleContextBaseline()` 只用于同一夹具对照。任何新增裁剪都要保持 `context_json.trimmed` 可查、角色卡/禁揭/本拍意图不裁。
+  - **缓存**：`recordTurnMetric()` 是唯一计量入口；`cached_tokens` 为 NULL 表示「供应商未报告」，报表与检查器都显示「未报告」。
+  - **基线**：`docs/M2-CONTEXT-COST.md`（180 拍 −20.5%）；阶段 24 的 100k 长跑在同一文档更新整章口径。
 - 阶段 21 开工（M2-4 / M2-8，`docs/PHASE-21-ROUTING-HETERO.md`）：显式故障切换与异构默认值；不改 0013 的 `turn_metric` 报表口径，路由只影响绑定解析与 `provider` 记录。M2 验收口径见 `docs/DEV-PLAN.md` §16.5 与 `docs/PRD.md` §10。
 - 阶段 21 直接复用（M2 会用到）：
   - **路由**：`createRoutingRuntime()`（`src/main/model/router.ts`）是唯一入口；六个 Agent 在回合开始前调用 `route()`，成功后 `recordSuccess()`、失败后 `recordFailure()`；不要在适配器里重试或换家。

@@ -5,6 +5,7 @@ import type { MemoryEntryRecord } from '../db/repos/memory'
 import type { ProposalKind } from '../db/repos/memory-proposal'
 import { withTransaction } from '../db/tx'
 import type { AuthorFactInput } from '../world/author-facts'
+import { ARCHIVE_REASON, archiveBlockReasonOf, archiveProtectionOf, buildArchiveCandidates } from './archive'
 import { classifyProposal } from './classify'
 import type { Embedder } from './embed/types'
 import { vectorToArray } from './embed/types'
@@ -846,6 +847,180 @@ export function invalidateMemoryEntry(
     detail: { reason: input.reason, previous: entry.status, text: entry.text }
   })
   return repos.memory.get(entry.id)!
+}
+
+/**
+ * 非事实类记忆归档执行器（PHASE-22 §5.2 / M2-7）。
+ *
+ * 单一写入者：`archived_at` / `archive_reason` 与 `memory_audit` 只在这里写。
+ * 执行时重新校验候选（签发令牌后条目可能被改）：
+ *   - 失效项进 `skipped`，有效项一次事务全写；任一失败整体回滚。
+ *   - 重放（同一 batchId）返回首次结果，不双写、不重复消费令牌。
+ *   - 令牌只在确有写入时消费；0 条有效 → 零写入、令牌保留。
+ */
+export interface ArchiveMemoryInput {
+  projectId: string
+  /** `memory.archive:<project>:<batchHash>` 的 batchHash（sha256）。 */
+  batchId: string
+  ids: readonly string[]
+  actor: string
+  gateTokenHash?: string | null
+  now?: string
+}
+
+export interface ArchiveSkipped {
+  id: string
+  reason: string
+}
+
+export interface ArchiveMemoryResult {
+  duplicate: boolean
+  batchId: string
+  archived: string[]
+  skipped: ArchiveSkipped[]
+}
+
+function archiveSkippedOf(value: unknown): ArchiveSkipped[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item): ArchiveSkipped[] => {
+    if (item === null || typeof item !== 'object') return []
+    const record = item as Record<string, unknown>
+    if (typeof record.id !== 'string' || typeof record.reason !== 'string') return []
+    return [{ id: record.id, reason: record.reason }]
+  })
+}
+
+export function archiveMemoryEntries(
+  db: Db,
+  repos: Repos,
+  input: ArchiveMemoryInput
+): ArchiveMemoryResult {
+  const project = repos.project.getById(input.projectId)
+  if (!project) throw new AppError('project_not_found', 'project row missing', { projectId: input.projectId })
+
+  // 1) 重放：summary 审计行（entityType='proposal'，entityId=batchId）就是首次结果。
+  const previous = repos.memoryAudit
+    .listByEntity(input.batchId)
+    .find((record) => record.action === 'archive' && record.entityType === 'proposal')
+  if (previous) {
+    if (input.gateTokenHash !== undefined && input.gateTokenHash !== null) {
+      repos.gate.consumeToken(input.gateTokenHash)
+    }
+    const detail = parseJson(previous.detailJson)
+    return {
+      duplicate: true,
+      batchId: input.batchId,
+      archived: Array.isArray(detail.archived)
+        ? detail.archived.filter((id): id is string => typeof id === 'string')
+        : [],
+      skipped: archiveSkippedOf(detail.skipped)
+    }
+  }
+
+  const ids = [...new Set(input.ids.map((id) => id.trim()).filter((id) => id.length > 0))]
+  if (ids.length === 0) throw new AppError('invalid_args', '没有要归档的条目')
+  if (ids.length > 50) throw new AppError('invalid_args', '一次最多归档 50 条', { count: ids.length })
+
+  // 2) 重新校验：只认「现在仍然是候选」的条目；其余进 skipped。
+  const protection = archiveProtectionOf(repos, input.projectId)
+  const candidates = buildArchiveCandidates(repos, input.projectId)
+  const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]))
+  const candidateIds = new Set(candidateById.keys())
+  const valid: string[] = []
+  const skipped: ArchiveSkipped[] = []
+  for (const id of ids) {
+    const reason = archiveBlockReasonOf(repos, input.projectId, id, candidateIds, protection)
+    if (reason === null) valid.push(id)
+    else skipped.push({ id, reason })
+  }
+
+  const at = input.now ?? new Date().toISOString()
+  const result: ArchiveMemoryResult = { duplicate: false, batchId: input.batchId, archived: [], skipped }
+
+  withTransaction(db, () => {
+    // 3) 令牌在事务内消费：只有确有写入才消费，失败整体回滚。
+    if (valid.length > 0 && input.gateTokenHash !== undefined && input.gateTokenHash !== null) {
+      const consumed = repos.gate.consumeToken(input.gateTokenHash)
+      if (!consumed) throw new AppError('gate_consumed', '该确认已使用')
+    }
+
+    for (const id of valid) {
+      const candidate = candidateById.get(id)
+      if (!candidate) throw new AppError('invalid_args', `条目 ${id} 不再是候选`)
+      repos.memory.archive(id, at, ARCHIVE_REASON)
+      result.archived.push(id)
+      repos.memoryAudit.insert({
+        projectId: input.projectId,
+        jobId: null,
+        action: 'archive',
+        actor: input.actor,
+        entityType: 'memory_entry',
+        entityId: id,
+        detail: {
+          batchId: input.batchId,
+          reason: candidate.reason,
+          keeperId: candidate.keeperId,
+          similarity: candidate.similarity,
+          importance: candidate.importance,
+          learnedSeq: candidate.learnedSeq,
+          text: candidate.text
+        }
+      })
+    }
+
+    if (result.archived.length > 0) {
+      repos.memoryAudit.insert({
+        projectId: input.projectId,
+        jobId: null,
+        action: 'archive',
+        actor: input.actor,
+        entityType: 'proposal',
+        entityId: input.batchId,
+        detail: {
+          summary: true,
+          batchId: input.batchId,
+          archived: result.archived,
+          skipped: result.skipped
+        }
+      })
+    }
+  })
+
+  return result
+}
+
+/**
+ * 恢复归档条目（PHASE-22 §5.2）：清 `archived_at` / `archive_reason`，写 `restore` 审计。
+ * 恢复不需要令牌；行与向量都还在，不重建索引。已恢复的返回 duplicate。
+ */
+export function restoreMemoryEntry(
+  db: Db,
+  repos: Repos,
+  input: { projectId: string; entryId: string; actor: string; now?: string }
+): { entry: MemoryEntryRecord; duplicate: boolean } {
+  const entry = repos.memory.get(input.entryId)
+  if (!entry || entry.projectId !== input.projectId) {
+    throw new AppError('invalid_args', '记忆条目不存在', { entryId: input.entryId })
+  }
+  if (entry.archivedAt === null) return { entry, duplicate: true }
+
+  withTransaction(db, () => {
+    repos.memory.restore(entry.id)
+    repos.memoryAudit.insert({
+      projectId: input.projectId,
+      jobId: null,
+      action: 'restore',
+      actor: input.actor,
+      entityType: 'memory_entry',
+      entityId: entry.id,
+      detail: {
+        reason: entry.archiveReason,
+        archivedAt: entry.archivedAt,
+        text: entry.text
+      }
+    })
+  })
+  return { entry: repos.memory.get(entry.id)!, duplicate: false }
 }
 
 /** 审计链：单条记忆的全部动作（来源、应用、取代、失效）。 */

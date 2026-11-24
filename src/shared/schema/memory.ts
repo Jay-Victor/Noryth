@@ -31,6 +31,24 @@ export const MEMORY_STATUS_LABELS: Record<string, string> = {
   superseded: '被取代'
 }
 
+/** 归档原因（0014 / PHASE-22）：当前只有「重复经历」。 */
+export const MEMORY_ARCHIVE_REASON_LABELS: Record<string, string> = {
+  redundant: '重复经历（软归档）'
+}
+
+/** 归档候选不可执行的原因（执行时 skipped 的人话说明）。 */
+export const MEMORY_ARCHIVE_BLOCK_LABELS: Record<string, string> = {
+  missing: '条目已不存在',
+  not_experience: '不是经历类记忆',
+  already_archived: '已经归档',
+  not_active: '条目已失效',
+  pinned: '条目已 pin',
+  important: '重要度高于归档门槛',
+  referenced: '被有效事实或关系引用',
+  pending_proposal: '仍有待决策提案',
+  no_keeper: '没有可保留的相似条目'
+}
+
 /** 服务端改写原因（提案上的「已降级」文案）。 */
 export const MEMORY_DOWNGRADE_LABELS: Record<string, string> = {
   dialogue_objective_to_claim: '台词证据：客观事实已降级为「声称」',
@@ -101,6 +119,9 @@ export const MemoryEntryStateSchema = z.strictObject({
   validToSeq: z.number().int().nullable(),
   status: z.enum(['active', 'inactive', 'superseded']),
   embeddingModel: z.string(),
+  /** 软归档（PHASE-22）：非空 = 不参与检索，但仍在浏览器里可见、可恢复。 */
+  archivedAt: z.string().nullable(),
+  archiveReason: z.string().nullable(),
   createdAt: z.string()
 })
 export type MemoryEntryState = z.infer<typeof MemoryEntryStateSchema>
@@ -148,7 +169,7 @@ export type RelationshipState = z.infer<typeof RelationshipStateSchema>
 
 export const MemoryAuditStateSchema = z.strictObject({
   id: z.string(),
-  action: z.enum(['extract', 'apply', 'invalidate', 'rebuild', 'supersede', 'evidence_mismatch']),
+  action: z.enum(['extract', 'apply', 'invalidate', 'rebuild', 'supersede', 'evidence_mismatch', 'archive', 'restore']),
   actor: z.string(),
   entityType: z.enum(['memory_entry', 'world_fact', 'belief', 'relationship', 'proposal']),
   entityId: z.string(),
@@ -334,6 +355,73 @@ export const IndexRebuildIssueResultSchema = z.strictObject({
 })
 export type IndexRebuildIssueResult = z.infer<typeof IndexRebuildIssueResultSchema>
 
+/**
+ * 归档（PHASE-22 M2-7）：只碰非事实类经历。
+ *
+ * 候选是主进程算好的确定性结果（keeper、相似度、原因），renderer 只勾选；
+ * 执行要 `author_confirm` 一次性令牌（`memory.archive.issue` → `memory.archive.apply`），
+ * 恢复不需要令牌但需要确认对话框。
+ */
+export const MemoryArchiveCandidateSchema = z.strictObject({
+  id: z.string(),
+  characterId: z.string(),
+  characterName: z.string(),
+  text: z.string(),
+  importance: z.number(),
+  learnedSeq: z.number().int(),
+  keeperId: z.string(),
+  keeperText: z.string(),
+  similarity: z.number(),
+  reason: z.enum(['duplicate_experience'])
+})
+export type MemoryArchiveCandidate = z.infer<typeof MemoryArchiveCandidateSchema>
+
+export const MemoryArchiveCandidatesStateSchema = z.strictObject({
+  projectId: z.string(),
+  readOnly: z.boolean(),
+  items: z.array(MemoryArchiveCandidateSchema),
+  /** 与记忆台计数同口径：四个互斥值。 */
+  counts: z.strictObject({
+    active: z.number().int().nonnegative(),
+    archived: z.number().int().nonnegative(),
+    inactive: z.number().int().nonnegative(),
+    superseded: z.number().int().nonnegative()
+  }),
+  /** 每批最多 50 条（主进程固定）。 */
+  batchLimit: z.number().int().positive(),
+  /** 候选的判定门槛（UI 直接显示，不在 renderer 重复硬编码）。 */
+  threshold: z.strictObject({
+    importanceMax: z.number(),
+    similarityMin: z.number()
+  })
+})
+export type MemoryArchiveCandidatesState = z.infer<typeof MemoryArchiveCandidatesStateSchema>
+
+export const MemoryArchiveIssueInputSchema = z.strictObject({
+  ids: z.array(z.string().min(1)).min(1).max(50)
+})
+export type MemoryArchiveIssueInput = z.infer<typeof MemoryArchiveIssueInputSchema>
+
+export const MemoryArchiveIssueResultSchema = z.strictObject({
+  token: z.string(),
+  expiresAt: z.string(),
+  preview: z.strictObject({
+    batchId: z.string(),
+    count: z.number().int().positive(),
+    items: z.array(MemoryArchiveCandidateSchema)
+  })
+})
+export type MemoryArchiveIssueResult = z.infer<typeof MemoryArchiveIssueResultSchema>
+
+export const MemoryArchiveApplyInputSchema = z.strictObject({
+  ids: z.array(z.string().min(1)).min(1).max(50),
+  token: z.string().min(1)
+})
+export type MemoryArchiveApplyInput = z.infer<typeof MemoryArchiveApplyInputSchema>
+
+export const MemoryArchiveRestoreInputSchema = z.strictObject({ entryId: z.string().min(1) })
+export type MemoryArchiveRestoreInput = z.infer<typeof MemoryArchiveRestoreInputSchema>
+
 export const MemoryStateSchema = z.strictObject({
   projectId: z.string(),
   projectTitle: z.string(),
@@ -358,6 +446,13 @@ export const MemoryStateSchema = z.strictObject({
   g7: MemoryGateSchema,
   running: z.boolean(),
   hasProposals: z.boolean(),
+  /** 记忆计数（PHASE-22 §5.3）：active / archived / inactive / superseded 互斥。 */
+  counts: z.strictObject({
+    active: z.number().int().nonnegative(),
+    archived: z.number().int().nonnegative(),
+    inactive: z.number().int().nonnegative(),
+    superseded: z.number().int().nonnegative()
+  }),
   /** 按章重建（PHASE-14 M1-4）。 */
   rebuild: MemoryRebuildStateSchema,
   /** 索引重建（PHASE-14 M1-20）：换模型后的向量重算。 */
@@ -378,6 +473,15 @@ export const MemoryStateSchema = z.strictObject({
   })
 })
 export type MemoryState = z.infer<typeof MemoryStateSchema>
+
+export const MemoryArchiveApplyResultSchema = z.strictObject({
+  state: MemoryStateSchema,
+  detail: z.string().nullable(),
+  archived: z.array(z.string()),
+  /** 签发令牌后失效的候选：是校验结果，不是半写。 */
+  skipped: z.array(z.strictObject({ id: z.string(), reason: z.string() }))
+})
+export type MemoryArchiveApplyResult = z.infer<typeof MemoryArchiveApplyResultSchema>
 
 /** 请求体。 */
 export const MemoryChapterInputSchema = z.strictObject({ chapterId: z.string().min(1) })

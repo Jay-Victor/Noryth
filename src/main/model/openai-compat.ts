@@ -99,13 +99,30 @@ function finishToolCalls(accumulators: Map<number, ToolAccumulator>): ChatToolCa
     .filter((call) => call.name.length > 0)
 }
 
+/**
+ * 解析缓存命中（PHASE-22 §5.6）：
+ *   OpenAI 兼容 → `prompt_tokens_details.cached_tokens`
+ *   DeepSeek    → `prompt_cache_hit_tokens`
+ * 两个都没有 → null（表示「未报告」，不是 0）。
+ */
+function cachedTokensOf(record: Record<string, unknown>): number | null {
+  const details = record.prompt_tokens_details
+  if (details !== null && typeof details === 'object') {
+    const value = (details as Record<string, unknown>).cached_tokens
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+  }
+  const deepseek = record.prompt_cache_hit_tokens
+  if (typeof deepseek === 'number' && Number.isFinite(deepseek)) return deepseek
+  return null
+}
+
 function usageOf(raw: unknown): ChatUsage | null {
   if (raw === null || typeof raw !== 'object') return null
   const record = raw as Record<string, unknown>
   const prompt = record.prompt_tokens
   const completion = record.completion_tokens
   if (typeof prompt !== 'number' || typeof completion !== 'number') return null
-  return { promptTokens: prompt, completionTokens: completion }
+  return { promptTokens: prompt, completionTokens: completion, cachedTokens: cachedTokensOf(record) }
 }
 
 function contentOf(message: unknown): string {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { MemoryEntryState, MemoryState } from '../../../shared/schema/memory'
-import { MEMORY_KIND_LABELS, MEMORY_STATUS_LABELS } from '../../../shared/schema/memory'
+import { MEMORY_ARCHIVE_REASON_LABELS, MEMORY_KIND_LABELS, MEMORY_STATUS_LABELS } from '../../../shared/schema/memory'
 import { useMemory } from '../../stores/memory'
 
 /**
@@ -41,6 +41,8 @@ export function MemoryBrowser({ state }: { state: MemoryState }): React.JSX.Elem
         if (filters.characterId !== null && entry.characterId !== filters.characterId) return false
         if (filters.kind !== 'all' && entry.kind !== filters.kind) return false
         if (filters.status !== 'all' && entry.status !== filters.status) return false
+        if (filters.archived === 'exclude' && entry.archivedAt !== null) return false
+        if (filters.archived === 'only' && entry.archivedAt === null) return false
         if (filters.pinnedOnly && !entry.pinned) return false
         return true
       }),
@@ -108,6 +110,17 @@ export function MemoryBrowser({ state }: { state: MemoryState }): React.JSX.Elem
             <option value="superseded">被取代</option>
           </select>
         </label>
+        <label>
+          归档
+          <select
+            data-testid="memory-filter-archived"
+            value={filters.archived}
+            onChange={(event) => setFilters({ archived: event.target.value as typeof filters.archived })}
+          >
+            <option value="exclude">不含归档</option>
+            <option value="only">仅已归档</option>
+          </select>
+        </label>
         <label className="memory-filters__check">
           <input
             type="checkbox"
@@ -140,6 +153,7 @@ export function MemoryBrowser({ state }: { state: MemoryState }): React.JSX.Elem
                 <span className="memory-entry__who">{entry.characterName}</span>
                 <span className="memory-entry__text">{entry.text}</span>
                 {entry.pinned ? <span className="memory-entry__pin">pin</span> : null}
+                {entry.archivedAt !== null ? <span className="memory-entry__pin">归档</span> : null}
                 <span className="memory-entry__status" data-status={entry.status}>
                   {MEMORY_STATUS_LABELS[entry.status] ?? entry.status}
                 </span>
@@ -169,6 +183,12 @@ export function MemoryBrowser({ state }: { state: MemoryState }): React.JSX.Elem
               <dd>{selected.importance.toFixed(2)}</dd>
               <dt>状态</dt>
               <dd>{MEMORY_STATUS_LABELS[selected.status] ?? selected.status}</dd>
+              <dt>归档</dt>
+              <dd data-testid="memory-detail-archive">
+                {selected.archivedAt === null
+                  ? '未归档'
+                  : `已归档（${MEMORY_ARCHIVE_REASON_LABELS[selected.archiveReason ?? ''] ?? selected.archiveReason ?? '—'}）`}
+              </dd>
             </dl>
 
             <div className="memory-detail__actions">

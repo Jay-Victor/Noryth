@@ -207,10 +207,12 @@ export function buildFakeProposals(beats: BeatLine[], characters: CharacterLine[
   push({
     kind: 'experience',
     character_id: first,
-    text: '听见对方主动提起黑漆匣子',
-    source_beat_id: beat0.beatId,
-    evidence_quote: beat0.body,
-    importance: 0.4
+    // 同一条氛围经历被重复抽取（真实模型常见的噪声：标点宽度不同）。
+    // 原文不同 → 抽取去重不会合并；NFKC 归一化后相同 → 归档候选。
+    text: '在祠堂夜谈里把茶盏推过去,试探对方对黑漆匣子的反应',
+    source_beat_id: beat1.beatId,
+    evidence_quote: beat1.body,
+    importance: 0.2
   })
   push({
     kind: 'world_fact',

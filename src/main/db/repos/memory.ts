@@ -25,6 +25,9 @@ export interface MemoryEntryRecord {
   supersedesId: string | null
   embeddingModel: string
   status: MemoryStatus
+  /** 软归档（0014 / PHASE-22）：非空 = 检索默认排除，但仍可浏览与恢复。 */
+  archivedAt: string | null
+  archiveReason: string | null
   createdAt: string
 }
 
@@ -45,6 +48,8 @@ export interface NewMemoryEntryInput {
   supersedesId?: string | null
   embeddingModel: string
   status?: MemoryStatus
+  archivedAt?: string | null
+  archiveReason?: string | null
   createdAt?: string
 }
 
@@ -68,6 +73,8 @@ function mapMemory(row: MemoryRow): MemoryEntryRecord {
     supersedesId: row.supersedes_id,
     embeddingModel: row.embedding_model,
     status: row.status as MemoryStatus,
+    archivedAt: row.archived_at,
+    archiveReason: row.archive_reason,
     createdAt: row.created_at
   }
 }
@@ -100,6 +107,8 @@ export class MemoryRepo extends BaseRepo {
       supersedes_id: input.supersedesId ?? null,
       embedding_model: input.embeddingModel,
       status: input.status ?? 'active',
+      archived_at: input.archivedAt ?? null,
+      archive_reason: input.archiveReason ?? null,
       created_at: input.createdAt ?? this.now()
     }
     runStatement(this.runner, this.runner.db.insertInto('memory_entry').values(values))
@@ -114,24 +123,33 @@ export class MemoryRepo extends BaseRepo {
     return row ? mapMemory(row) : null
   }
 
-  listByCharacter(characterId: string, options: { status?: MemoryStatus } = {}): MemoryEntryRecord[] {
+  listByCharacter(
+    characterId: string,
+    options: { status?: MemoryStatus; includeArchived?: boolean } = {}
+  ): MemoryEntryRecord[] {
     let query = this.runner.db
       .selectFrom('memory_entry')
       .selectAll()
       .where('character_id', '=', characterId)
       .orderBy('learned_seq')
     if (options.status) query = query.where('status', '=', options.status)
+    // 归档是可见性（PHASE-22 §5.3）：默认不进入上下文/召回，浏览走 listFiltered。
+    if (options.includeArchived !== true) query = query.where('archived_at', 'is', null)
     return allRows<MemoryRow>(this.runner, query).map(mapMemory)
   }
 
   /** 隔离自检用：项目全量条目（只返回 ID 级信息，供跨角色探针核对）。 */
-  listByProject(projectId: string, options: { status?: MemoryStatus } = {}): MemoryEntryRecord[] {
+  listByProject(
+    projectId: string,
+    options: { status?: MemoryStatus; includeArchived?: boolean } = {}
+  ): MemoryEntryRecord[] {
     let query = this.runner.db
       .selectFrom('memory_entry')
       .selectAll()
       .where('project_id', '=', projectId)
       .orderBy('learned_seq')
     if (options.status) query = query.where('status', '=', options.status)
+    if (options.includeArchived !== true) query = query.where('archived_at', 'is', null)
     return allRows<MemoryRow>(this.runner, query).map(mapMemory)
   }
 
@@ -159,6 +177,8 @@ export class MemoryRepo extends BaseRepo {
       chapterId?: string
       status?: MemoryStatus | 'all'
       pinnedOnly?: boolean
+      /** 归档可见性（PHASE-22）：默认排除；`only` = 只看已归档。 */
+      archived?: 'exclude' | 'only' | 'all'
     } = {}
   ): MemoryEntryRecord[] {
     let query = this.runner.db
@@ -172,6 +192,8 @@ export class MemoryRepo extends BaseRepo {
     if (filter.chapterId) query = query.where('source_chapter_id', '=', filter.chapterId)
     if (filter.status && filter.status !== 'all') query = query.where('status', '=', filter.status)
     if (filter.pinnedOnly === true) query = query.where('pinned', '=', 1)
+    if ((filter.archived ?? 'exclude') === 'exclude') query = query.where('archived_at', 'is', null)
+    if (filter.archived === 'only') query = query.where('archived_at', 'is not', null)
     return allRows<MemoryRow>(this.runner, query).map(mapMemory)
   }
 
@@ -185,6 +207,7 @@ export class MemoryRepo extends BaseRepo {
         .where('character_id', '=', characterId)
         .where('pinned', '=', 1)
         .where('status', '=', 'active')
+        .where('archived_at', 'is', null)
         .where('learned_seq', '<=', asOf)
         .orderBy('importance', 'desc')
         .orderBy('learned_seq', 'desc')
@@ -212,6 +235,7 @@ export class MemoryRepo extends BaseRepo {
         .selectAll()
         .where('project_id', '=', projectId)
         .where('status', '=', 'active')
+        .where('archived_at', 'is', null)
         .where('embedding_model', '!=', model)
         .orderBy('learned_seq')
         .orderBy('id')
@@ -223,10 +247,54 @@ export class MemoryRepo extends BaseRepo {
   countByModelMismatch(projectId: string, model: string): number {
     const row = this.runner.raw
       .prepare(
-        "SELECT COUNT(*) AS count FROM memory_entry WHERE project_id = ? AND status = 'active' AND embedding_model != ?"
+        "SELECT COUNT(*) AS count FROM memory_entry WHERE project_id = ? AND status = 'active' AND archived_at IS NULL AND embedding_model != ?"
       )
       .get(projectId, model) as { count: number } | undefined
     return row?.count ?? 0
+  }
+
+  /** 记忆台计数（PHASE-22 §5.3）：四个互斥口径，归档不混进 inactive。 */
+  countByStatus(projectId: string): { active: number; archived: number; inactive: number; superseded: number } {
+    const row = this.runner.raw
+      .prepare(
+        `SELECT
+           SUM(CASE WHEN archived_at IS NOT NULL THEN 1 ELSE 0 END) AS archived,
+           SUM(CASE WHEN archived_at IS NULL AND status = 'active' THEN 1 ELSE 0 END) AS active,
+           SUM(CASE WHEN archived_at IS NULL AND status = 'inactive' THEN 1 ELSE 0 END) AS inactive,
+           SUM(CASE WHEN archived_at IS NULL AND status = 'superseded' THEN 1 ELSE 0 END) AS superseded
+         FROM memory_entry WHERE project_id = ?`
+      )
+      .get(projectId) as
+      | { archived: number | null; active: number | null; inactive: number | null; superseded: number | null }
+      | undefined
+    return {
+      active: Number(row?.active ?? 0),
+      archived: Number(row?.archived ?? 0),
+      inactive: Number(row?.inactive ?? 0),
+      superseded: Number(row?.superseded ?? 0)
+    }
+  }
+
+  /** 软归档：只写 archived_at / archive_reason，不改 status（PHASE-22 §5.2）。 */
+  archive(id: string, at: string, reason: string): void {
+    runStatement(
+      this.runner,
+      this.runner.db
+        .updateTable('memory_entry')
+        .set({ archived_at: at, archive_reason: reason })
+        .where('id', '=', id)
+    )
+  }
+
+  /** 恢复：清两列；行与向量都还在，不重建索引。 */
+  restore(id: string): void {
+    runStatement(
+      this.runner,
+      this.runner.db
+        .updateTable('memory_entry')
+        .set({ archived_at: null, archive_reason: null })
+        .where('id', '=', id)
+    )
   }
 
   setEmbeddingModel(id: string, model: string): void {

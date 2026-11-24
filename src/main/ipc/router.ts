@@ -101,6 +101,9 @@ import {
 import {
   IndexRebuildInputSchema,
   MemoryApplyInputSchema,
+  MemoryArchiveApplyInputSchema,
+  MemoryArchiveIssueInputSchema,
+  MemoryArchiveRestoreInputSchema,
   MemoryChapterInputSchema,
   MemoryRebuildInputSchema,
   RelationGraphInputSchema,
@@ -947,6 +950,25 @@ export function registerIpc(deps: IpcDeps): void {
   register(IPC.memoryToolCalls, {
     schema: ToolCallListInputSchema,
     handler: (payload) => memory.toolCalls(payload)
+  })
+  register(IPC.memoryArchiveCandidates, {
+    schema: EmptySchema,
+    handler: () => memory.archiveCandidates()
+  })
+  register(IPC.memoryArchiveIssue, {
+    schema: MemoryArchiveIssueInputSchema,
+    mutation: true,
+    handler: (payload) => memory.issueArchiveToken(payload.ids)
+  })
+  register(IPC.memoryArchiveApply, {
+    schema: MemoryArchiveApplyInputSchema,
+    mutation: true,
+    handler: (payload) => memory.archiveApply(payload)
+  })
+  register(IPC.memoryArchiveRestore, {
+    schema: MemoryArchiveRestoreInputSchema,
+    mutation: true,
+    handler: (payload) => memory.restoreArchive(payload.entryId)
   })
   register(IPC.memorySend, {
     schema: MemorySendInputSchema,

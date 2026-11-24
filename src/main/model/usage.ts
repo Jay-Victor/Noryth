@@ -20,6 +20,8 @@ export type MetricKind = 'beat' | 'review' | 'memory' | 'plan' | 'orchestrator'
 export interface TurnUsageTotals {
   tokensIn: number | null
   tokensOut: number | null
+  /** 供应商报告的缓存命中 token（PHASE-22）；未报告为 null/省略。 */
+  cachedTokens?: number | null
 }
 
 export interface RecordTurnMetricInput {
@@ -53,6 +55,8 @@ export function simpleContextJson(input: {
   promptVersion: string
   toolsetVersion: string
   blockTokens: number
+  /** 供应商报告了缓存命中时写入；未报告不写这个键（不伪造 0）。 */
+  cachedTokens?: number | null
   /** 发生路由切换时留痕（PHASE-21 §5.1）；不切换时不写这个键。 */
   routing?: RoutingTrace | null
 }): string {
@@ -61,6 +65,7 @@ export function simpleContextJson(input: {
     prompt_version: input.promptVersion,
     toolset_version: input.toolsetVersion,
     block_tokens: Math.max(0, Math.round(input.blockTokens)),
+    ...(input.cachedTokens == null ? {} : { cached_tokens: input.cachedTokens }),
     ...(input.routing == null ? {} : { routing: input.routing })
   })
 }
@@ -84,6 +89,7 @@ export function recordTurnMetric(input: RecordTurnMetricInput): TurnMetricRecord
     bindingVersion: input.bindingVersion,
     tokensIn: input.usage.tokensIn,
     tokensOut: input.usage.tokensOut,
+    cachedTokens: input.usage.cachedTokens,
     costCny,
     latencyMs: input.latencyMs,
     firstTokenMs: input.firstTokenMs ?? null,
@@ -95,16 +101,24 @@ export function recordTurnMetric(input: RecordTurnMetricInput): TurnMetricRecord
 
 /** 把多轮 ChatResult 的 usage 相加；一轮都没有 usage 时返回 null（不伪造 0）。 */
 export function sumUsages(
-  usages: ReadonlyArray<{ promptTokens: number; completionTokens: number } | null | undefined>
+  usages: ReadonlyArray<{ promptTokens: number; completionTokens: number; cachedTokens?: number | null } | null | undefined>
 ): TurnUsageTotals {
   let tokensIn = 0
   let tokensOut = 0
+  let cachedTokens = 0
   let seen = false
+  let cachedSeen = false
   for (const usage of usages) {
     if (!usage) continue
     seen = true
     tokensIn += usage.promptTokens
     tokensOut += usage.completionTokens
+    if (typeof usage.cachedTokens === 'number' && Number.isFinite(usage.cachedTokens)) {
+      cachedSeen = true
+      cachedTokens += usage.cachedTokens
+    }
   }
-  return seen ? { tokensIn, tokensOut } : { tokensIn: null, tokensOut: null }
+  return seen
+    ? { tokensIn, tokensOut, cachedTokens: cachedSeen ? cachedTokens : null }
+    : { tokensIn: null, tokensOut: null, cachedTokens: null }
 }

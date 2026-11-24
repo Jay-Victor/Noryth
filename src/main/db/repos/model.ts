@@ -56,6 +56,8 @@ export interface TurnMetricInput {
   bindingVersion: number
   tokensIn: number | null
   tokensOut: number | null
+  /** 供应商报告的缓存命中 token（0014，PHASE-22）；未报告为 null/省略。 */
+  cachedTokens?: number | null
   costCny: number | null
   latencyMs: number | null
   firstTokenMs: number | null
@@ -112,6 +114,7 @@ function mapMetric(row: TurnMetricRow): TurnMetricRecord {
     bindingVersion: row.binding_version,
     tokensIn: row.tokens_in,
     tokensOut: row.tokens_out,
+    cachedTokens: row.cached_tokens,
     costCny: row.cost_cny,
     latencyMs: row.latency_ms,
     firstTokenMs: row.first_token_ms,
@@ -346,6 +349,7 @@ export class TurnMetricRepo extends BaseRepo {
       binding_version: input.bindingVersion,
       tokens_in: input.tokensIn,
       tokens_out: input.tokensOut,
+      cached_tokens: input.cachedTokens ?? null,
       cost_cny: input.costCny,
       latency_ms: input.latencyMs,
       first_token_ms: input.firstTokenMs,
@@ -373,6 +377,7 @@ export class TurnMetricRepo extends BaseRepo {
           binding_version: input.bindingVersion,
           tokens_in: input.tokensIn,
           tokens_out: input.tokensOut,
+          cached_tokens: input.cachedTokens ?? null,
           cost_cny: input.costCny,
           latency_ms: input.latencyMs,
           first_token_ms: input.firstTokenMs,
@@ -538,9 +543,11 @@ export class TurnMetricRepo extends BaseRepo {
         'agent_key',
         (eb) => eb.fn.sum<number>('tokens_in').as('tokens_in'),
         (eb) => eb.fn.sum<number>('tokens_out').as('tokens_out'),
+        (eb) => eb.fn.sum<number>('cached_tokens').as('cached_tokens'),
         (eb) => eb.fn.sum<number>('cost_cny').as('cost_cny'),
         (eb) => eb.fn.countAll<number>().as('calls'),
-        (eb) => eb.fn.count<number>('cost_cny').as('priced_calls')
+        (eb) => eb.fn.count<number>('cost_cny').as('priced_calls'),
+        (eb) => eb.fn.count<number>('cached_tokens').as('cache_calls')
       ])
       .where('project_id', '=', projectId)
       .groupBy(['chapter_id', 'agent_key'])
@@ -552,18 +559,22 @@ export class TurnMetricRepo extends BaseRepo {
       agent_key: string
       tokens_in: number | null
       tokens_out: number | null
+      cached_tokens: number | null
       cost_cny: number | null
       calls: number
       priced_calls: number
+      cache_calls: number
     }>(this.runner, query)
     return rows.map((row) => ({
       chapterId: row.chapter_id,
       agentKey: row.agent_key,
       tokensIn: Number(row.tokens_in ?? 0),
       tokensOut: Number(row.tokens_out ?? 0),
+      cachedTokens: Number(row.cached_tokens ?? 0),
       costCny: Number(row.cost_cny ?? 0),
       calls: Number(row.calls),
-      pricedCalls: Number(row.priced_calls)
+      pricedCalls: Number(row.priced_calls),
+      cacheCalls: Number(row.cache_calls)
     }))
   }
 
@@ -601,9 +612,12 @@ export interface TurnMetricAggregateRow {
   agentKey: string
   tokensIn: number
   tokensOut: number
+  /** 供应商报告了缓存的调用之和；`cacheCalls` 为报告行数（口径见报表）。 */
+  cachedTokens: number
   costCny: number
   calls: number
   pricedCalls: number
+  cacheCalls: number
 }
 
 export interface TurnMetricLatencyRow {
