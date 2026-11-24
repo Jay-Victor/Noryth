@@ -554,9 +554,11 @@ export class MemoryService {
     this.running = true
     this.abort = new AbortController()
     const jobId = job?.id ?? newId('job')
-    const primary = resolveBinding(host.repos, project, 'memory', this.models.capabilitiesLookup())
-    const decision = this.routing.route({ projectId: project.id, agentKey: 'memory', primary })
+    let usedProvider: string | null = null
     try {
+      const primary = resolveBinding(host.repos, project, 'memory', this.models.capabilitiesLookup())
+      const decision = this.routing.route({ projectId: project.id, agentKey: 'memory', primary })
+      usedProvider = decision.binding.provider
       const outcome = await runMemoryTurn(
         {
           db: host.db,
@@ -585,7 +587,7 @@ export class MemoryService {
       this.abort = null
       return { state: this.state(chapter.id), reply: outcome.reply, toolCalls: outcome.toolCalls }
     } catch (error) {
-      this.routing.recordFailure(project.id, decision.binding.provider, error)
+      if (usedProvider !== null) this.routing.recordFailure(project.id, usedProvider, error)
       throw error
     } finally {
       this.running = false

@@ -225,6 +225,9 @@ describe('写拍路由（PHASE-21）', () => {
       await expect(h.run(target, 'c3')).rejects.toMatchObject({ code: 'routing_exhausted' })
       const callsAfter = h.adapters.reduce((sum, adapter) => sum + adapter.calls, 0)
       expect(callsAfter).toBe(callsBefore)
+      const latestJob = h.world.repos.job.listRecent(h.world.projectId, 1)[0]!
+      expect(latestJob.status).toBe('failed')
+      expect(latestJob.errorCode).toBe('routing_exhausted')
     } finally {
       h.cleanup()
     }

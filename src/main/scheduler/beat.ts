@@ -186,6 +186,16 @@ export async function runBeatTurn(deps: BeatRunDeps, input: { beat: BeatRecord; 
     }
   } catch (error) {
     if (effectiveProvider !== null) deps.routing?.recordFailure(project.id, effectiveProvider, error)
+    // route() 在 runTurn 之前抛 routing_exhausted 时，job 还停在 queued；补一个 failed，
+    // 避免任务账本出现永远排队的行（恢复扫描只处理 running/interrupted）。
+    if (jobId !== '') {
+      const job = host.repos.job.get(jobId)
+      if (job !== null && job.status === 'queued') {
+        host.repos.job.setStatus(jobId, 'failed', {
+          errorCode: isAppError(error) ? error.code : 'internal_error'
+        })
+      }
+    }
     if (mark) rollbackGenerate(host.repos, mark)
     if (isAppError(error) && error.code === 'character_refusal') {
       const probe = deps.refusalProbe?.() ?? null
