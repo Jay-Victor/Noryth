@@ -108,7 +108,7 @@ node scripts/m2-perf-report.mjs --from out/perf/m2-perf-report.json
 | `PERF-M1-01` RSS | 146–150MB | 149MB | 不退化 |
 
 功能回归：`pnpm test:unit`（878）、`pnpm vitest run tests/integration`（61）、
-`pnpm test:e2e`（41 passed / 4.0m）全绿；检索语义未改
+`pnpm test:e2e`（41 passed / 4.0m，阶段 23 时；阶段 24 起为 42，含 `E2E-M2-SMOKE`）全绿；检索语义未改
 （vec top30 + FTS top30 + RRF + 绝对下限 + 相对截断 + 文本去重 + pinned）。
 
 ## 7 局限

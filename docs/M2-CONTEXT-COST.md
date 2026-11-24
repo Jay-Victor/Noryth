@@ -70,7 +70,7 @@ pnpm vitest run tests/unit/context/cost.test.ts
 - 提示词 token 用应用内估算器（CJK 1.05 / latin 1/3.6 / punct 0.6），与供应商 tokenizer 有差异；计费仍以供应商 `usage` 为准。
 - 提示词去重（删除与输出契约重复的说明）已合入当前版本，但本对照使用同一版提示词，**未把去重收益计入 20.5%**（保守）。
 - 不测模型摘要、不换嵌入模型、不改 grounding；`summary.prev` 仍是抽取式 ≤300 token。
-- 100k 项目的缓存命中、每万字成本与按层分布留阶段 24 复测（同一 `docs/M2-CONTEXT-COST.md` 更新）。
+- 100k 项目的缓存命中与每万字成本已在 §7 复测（按层块 token 也记在 §7）；真实供应商缓存命中率仍未测（外部依赖）。
 
 ## 7 10 万字长跑复测（阶段 24 / `E2E-M2-A`）
 
@@ -78,7 +78,8 @@ pnpm vitest run tests/unit/context/cost.test.ts
 - 数据源：`turn_metric` 的运行时记账（与 `report.cost` 同口径），由 `node scripts/m2-cost-baseline.mjs <项目>` 只读汇总；不是估算器推算。
 - 写拍单价：角色 570 次 / 旁白 180 次，每次 `tokens_in = 1,000`、`tokens_out = 90`（假适配器固定 usage）；审批 90 次合计 480,000 输入（每次 3 个工具轮），记忆 30 次合计 120,000（每次 2 轮），规划 1 次 2,100，编排 1 次 1,000。
 - 合计：1,353,100 输入 / 120,790 输出；¥3.67252 / 142,344 字 = **¥0.2580 每万字**（分章 0.2569–0.2640）。
+- 按层块 token（750 个写拍回合的 `context_json` 均值，不含 system 固定提示词）：L0 332.0 / L1 107.4 / L2 1,217.2 / L3 104.0。
 - 按 Agent：角色 42.22% / 审批 33.72% / 旁白 13.33% / 记忆 10.46% / 规划 0.20% / 编排 0.07%。
-- 裁剪与溢出：`context_trimmed` 0 次、`context_overflow` 0 次；`job` 表 900 条全部 `succeeded`。
+- 裁剪与溢出：`trimmed` 0/750、`context_trimmed` 0 次、`context_overflow` 0 次；`job` 表 900 条全部 `succeeded`。
 - 缓存命中：假适配器未报告 → `cached_tokens = NULL`，检查器与报表显示「未报告」；真实供应商缓存命中率仍未测（外部依赖）。
 - 局限：假 usage（写拍固定 1000/90、审批 2000/200）与 DeepSeek 预设计价；数字用于口径与回归，**不是报价**，也不能替代 §2 的估算器对照（后者回答「同一真实文本下优化了多少」）。

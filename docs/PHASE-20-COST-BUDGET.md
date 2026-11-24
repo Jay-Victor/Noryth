@@ -159,7 +159,7 @@ type CostReport = {
 - `share = agent cost / total cost`（仅在有计价时）；无计价时按 token 占比展示，并标「按 token」。
 - P50/P95 用线性插值或最近秩，口径写进报告脚注；样本 <5 时只显示中位数。
 - 「每拍确认耗时」从 `scheduler_event` 推导：同一 `beatId` 的 `beat_committed` → `beat_confirmed` 的时间差；只统计 `decided_by='author'` 的拍，自动确认不计入。没有事件对的拍计为缺失，不补 0。
-- 「每千字作者净操作时间」需要点击/输入/切页的客户端交互埋点；M2-5 不新增通用埋点，只在阶段 24 内测用秒表记录 100k 项目的基线，写进验收报告的「未自动化」项。PRD M2 四条不依赖该指标，不用它替代每万字成本。
+- 「每千字作者净操作时间」需要点击/输入/切页的客户端交互埋点；M2-5 不新增通用埋点。阶段 24 未执行秒表（作者委托 Agent 代审，见 `docs/M2-ACCEPTANCE.md` §5.2 第 3 项）；有数据时补记。PRD M2 四条不依赖该指标，不用它替代每万字成本。
 - 查询一次聚合，不在循环里查章标题；100 行以上用 `VirtualList`。`COST-M2-01` 断言 IPC 结果与直接 SQL 汇总一致。
 - UI：状态栏「章预算 ¥0.84 / ¥5.00」可点；对话框含「本章 / 全书」范围、按章/按 Agent 两个 tab、预算编辑与「费用为下限」提示；不新增页面。
 - `report.cost` 是只读 IPC：新增 `shared/schema/cost.ts` 的视图 schema 与 preload 命名空间；不改工具 manifest、不改闸门语义。`CostReportDialog` 只通过它取数，不直接 `window.noryth` 之外的通道。
@@ -182,7 +182,7 @@ type CostReport = {
 - [x] `E2E-M2-BUDGET-01`：自动模式开到预算上限 → 暂停横幅显示原因与数字 → 提高预算恢复 → 已完成拍逐字不变 → 出口满足后关闭。
 - [x] 全链路计量：写拍/审批/记忆/讨论/规划各写一行；重试 upsert 不重复；`chapter_id` 归属正确，规划为 NULL（`tests/integration/usage.spec.ts`）。
 - [x] `E2E-M2-COST-01`：状态栏打开报表 → 按章/按 Agent 数字与 `report.cost` 一致 → 每万字成本与字数口径一致 → 无计价显示「下限」→ 空项目空态。
-- [x] 每拍确认耗时来自 `scheduler_event`（作者确认才计入，自动确认排除）；每千字净操作时间在阶段 24 内测用秒表记录，不伪造自动化埋点。
+- [x] 每拍确认耗时来自 `scheduler_event`（作者确认才计入，自动确认排除）；每千字净操作时间未自动化，阶段 24 未执行秒表（代审，见 `docs/M2-ACCEPTANCE.md` §5.2），不伪造数据。
 - [x] `COST-M2-01`：报表合计 = `turn_metric` 直接汇总；`byChapter + projectLevel = total`；无 N+1（查询计数断言）。
 - [x] 手动模式超预算只提示、不暂停；自动模式才暂停（`tests/e2e/budget.spec.ts`）。
 - [x] 门禁：typecheck / lint / depcruise / unit / integration / e2e / build / gen:check。

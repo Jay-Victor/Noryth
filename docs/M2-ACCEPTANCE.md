@@ -25,7 +25,7 @@
 
 | # | PRD M2 标准 | 测试 ID | 证据（命令 → 实际结果） |
 |---:|---|---|---|
-| 1 | 10 万字项目可稳定推进并完成至少一卷 | `E2E-M2-A` | `pnpm build && pnpm test:e2e:m2a` → ok（**27.8s**）。3 卷 × 10 章 × 3 场 × 8 拍 = 30 章 / 720 拍；**142,344 字确认正文**（含重生成/补丁的 `beat` 合计 160,887 字）；30 final / 30 final revision；每 5 章 `project.verify()` 绿；**三卷全部逐章走完 G2 → 2 拍（含 1 次重生成）→ 自动 → G4 → G5（2 接受 1 拒绝）→ 复检 → G6 → G7**（抽样要求由更严格的全量完成覆盖）；0 孤儿 / 0 双活拍 / 0 failed job / 0 `context_overflow`；240 条 active 记忆 / 240 向量 / 30 份章末摘要；150 行声音指标覆盖 30 章 / 90 场景（G4 同步 + 关账预热，派生表按 revision 累积）；`turn_metric` 覆盖 6 个 Agent；伏笔 3 埋设 / 2 回收 / 1 open；私有内存 514–520MB（ch5 399MB → ch30 519MB，1.29× < 1.5×） |
+| 1 | 10 万字项目可稳定推进并完成至少一卷 | `E2E-M2-A` | `pnpm build && pnpm test:e2e:m2a` → ok（**27.8s**）。3 卷 × 10 章 × 3 场 × 8 拍 = 30 章 / 720 拍；**142,344 字确认正文**（含重生成/补丁的 `beat` 合计 160,887 字）；30 final / 30 final revision；每 5 章 `project.verify()` 绿；**三卷全部逐章走完 G2 → 2 拍（含 1 次重生成）→ 自动 → G4 → G5（2 接受 1 拒绝）→ 复检 → G6 → G7**（抽样要求由更严格的全量完成覆盖）；0 孤儿 / 0 双活拍 / 0 failed job / 0 `context_overflow`；240 条 active 记忆 / 240 向量 / 30 份章末摘要；151 行声音指标覆盖 30 章 / 90 场景 / 91 revision（测试 stats 收尾前为 150；G4 同步 + 关账预热，派生表按 revision 累积）；`turn_metric` 覆盖 6 个 Agent；伏笔 3 埋设 / 2 回收 / 1 open；私有内存 514–520MB（ch5 399MB → ch30 519MB，1.29× < 1.5×） |
 | 2 | 自动模式在预算内跑完一场并正确收束 | `E2E-M2-BUDGET-01` | `pnpm test:e2e` → ok：¥0.01 预算 → 费用暂停（`write-pause-banner[data-reason=budget_exceeded]`）→ 提高预算 → 恢复 → `draft_complete`；已确认拍逐字不变、无重复暂停账本；`job.result_json.budget` 有 `tokens_limit=120000 / tokens_used>0 / cost_limit=0.01 / cost_used≥0.01 / reason=cost`。出口优先由 `tests/integration/budget.spec.ts` 覆盖（预算 500 tokens、出口 `beats(1)`：1 拍后 `draft_complete`、无 paused 事件、`scene_closed(reason=exit_satisfied)`）。`E2E-M2-A` 的第 1 章另带 ¥2 章预算整章跑完：无 `auto_budget_pause`、实际花费 ¥0.1248 < ¥2 |
 | 3 | 声音区分度与伏笔回收率有基线报告 | `E2E-M2-METRICS-01` | `pnpm test:e2e` → ok；`docs/M2-METRICS-BASELINE.md`：阈值 `zh-v1` / 0.252（语料 sha256 `c469b5…4712`，20 场 / 50 实例，FPR 2.0% / TPR 97.5%）；30 章长跑复测（`docs/M2-METRICS-BASELINE.md` §3.1）：90/90 场景有指标、270 对、0 对低于阈值、最低一对 0.4333；伏笔 3 埋设 / 2 回收 / 1 open、回收率 0.667、超期 1。同构夹具（3/3 低于阈值、最低 0.00）与分风格夹具（0/270 低于阈值）覆盖告警两侧 |
 | 4 | 每万字成本可归因到章/Agent | `E2E-M2-COST-01` | `pnpm test:e2e` → ok（报表与 IPC/DB 对账、空态与费用下限）；30 章长跑（`scripts/m2-cost-baseline.mjs`，只读）：**¥3.67252 / 142,344 字 = ¥0.2580 每万字**；分章 ¥0.12208–0.1248（29–30 次调用，`costPer10k` 0.2569–0.2640）；按 Agent：角色 42.22% / 审批 33.72% / 旁白 13.33% / 记忆 10.46% / 规划 0.20% / 编排 0.07%；项目级规划费用 ¥0.0074 单列（`chapter_id IS NULL`）；872 次有计价调用 / 0 次无计价 |
@@ -69,6 +69,7 @@
   重生成旧版、补丁旧稿）；`revision` 810 draft + 30 final；`outbox` 810 条。
 - 伏笔：3 条作者标注（第 1/10/15 章），跑完后回收第 20 / 25 章的两条，留 1 条 open；
   `scripts/m2-baseline.mjs` → 回收率 0.667、超期 1。
+- 说明：`stats.voiceRows=150` 是测试收尾调用 `voice.scene` 之前的行数；随后同一场景按 final revision 再算一行，DB 最终 151 行（90 场景 / 91 revision）。
 - 说明：首跑在 `tool_call` 归章断言上失败（2 条规划工具调用 `chapter_id=NULL`，这是
   PHASE-20 的既定口径）；断言改为「非 planner 的 NULL = 0」后重跑通过，产品代码未改。
   这条记录保留，避免以后把项目级规划调用误判成归属缺失。
